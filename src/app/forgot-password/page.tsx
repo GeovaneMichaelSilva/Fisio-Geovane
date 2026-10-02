@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 
+import { AuthBrand } from "@/components/auth/AuthBrand";
 import { Button } from "@/components/ui/Button";
 import {
 	Card,
@@ -46,7 +47,8 @@ export default function ForgotPasswordPage() {
 	return (
 		<main className="bg-background flex min-h-screen items-center justify-center px-4">
 			<Card className="w-full max-w-md">
-				<CardHeader>
+				<CardHeader className="flex flex-col items-center text-center">
+					<AuthBrand />
 					<CardTitle as="h1" className="text-xl">
 						Recuperar senha
 					</CardTitle>

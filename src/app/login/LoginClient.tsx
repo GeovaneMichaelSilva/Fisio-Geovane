@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 
+import { AuthBrand } from "@/components/auth/AuthBrand";
 import { Button } from "@/components/ui/Button";
 import {
 	Card,
@@ -50,13 +51,12 @@ export default function LoginClient() {
 	return (
 		<main className="bg-background flex min-h-screen items-center justify-center px-4">
 			<Card className="w-full max-w-md">
-				<CardHeader>
+				<CardHeader className="flex flex-col items-center text-center">
+					<AuthBrand />
 					<CardTitle as="h1" className="text-xl">
 						Entrar
 					</CardTitle>
-					<CardDescription>
-						Sistema interno — Geovane Michael da Silva
-					</CardDescription>
+					<CardDescription>Sistema interno</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<form onSubmit={onSubmit} className="space-y-4">

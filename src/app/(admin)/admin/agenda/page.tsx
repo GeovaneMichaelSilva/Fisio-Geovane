@@ -1,12 +1,24 @@
-﻿"use client";
+﻿import { Suspense } from "react";
 
-import { PlaceholderPage } from "@/components/admin/PlaceholderPage";
+import { Skeleton } from "@/components/ui/Skeleton";
 
-export default function Page() {
+import AgendaClient from "./AgendaClient";
+
+export default function AgendaPage() {
 	return (
-		<PlaceholderPage
-			title="Agenda"
-			description="Agenda semanal de atendimentos."
-		/>
+		<Suspense
+			fallback={
+				<div className="space-y-4">
+					<Skeleton className="h-8 w-48" />
+					<div className="grid gap-3 md:grid-cols-7">
+						{Array.from({ length: 7 }).map((_, i) => (
+							<Skeleton key={i} className="h-48 w-full" />
+						))}
+					</div>
+				</div>
+			}
+		>
+			<AgendaClient />
+		</Suspense>
 	);
 }
