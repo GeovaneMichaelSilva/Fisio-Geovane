@@ -198,6 +198,7 @@ export const sessions = pgTable(
 		assessment: text("assessment"),
 		evolution: text("evolution"),
 		activities: text("activities"),
+		googleEventId: text("google_event_id"),
 		createdBy: uuid("created_by").references(() => users.id),
 		updatedBy: uuid("updated_by").references(() => users.id),
 		createdAt: timestamp("created_at", { withTimezone: true })
@@ -259,6 +260,36 @@ export const sessionAudits = pgTable(
 			sql`char_length(trim(${t.reason})) > 0`
 		)
 	]
+);
+
+/**
+ * Conexão OAuth da clínica com Google Agenda (tokens criptografados).
+ */
+export const googleCalendarConnections = pgTable(
+	"google_calendar_connections",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		clinicId: uuid("clinic_id")
+			.notNull()
+			.references(() => clinics.id, { onDelete: "cascade" })
+			.unique(),
+		connectedByUserId: uuid("connected_by_user_id")
+			.notNull()
+			.references(() => users.id),
+		googleAccountEmail: text("google_account_email").notNull(),
+		refreshTokenEncrypted: text("refresh_token_encrypted").notNull(),
+		accessTokenEncrypted: text("access_token_encrypted"),
+		accessTokenExpiresAt: timestamp("access_token_expires_at", {
+			withTimezone: true
+		}),
+		calendarId: text("calendar_id").notNull().default("primary"),
+		connectedAt: timestamp("connected_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true })
+			.notNull()
+			.defaultNow()
+	}
 );
 
 export type User = typeof users.$inferSelect;

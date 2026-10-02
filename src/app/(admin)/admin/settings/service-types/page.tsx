@@ -5,7 +5,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { z } from "zod";
 
 import { ListSkeleton } from "@/components/admin/LoadingStates";
 import {
@@ -33,6 +32,11 @@ import {
 } from "@/components/ui/Dialog";
 import { Input } from "@/components/ui/Input";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import {
+	serviceTypeFormSchema,
+	type ServiceTypeFormParsed,
+	type ServiceTypeFormValues
+} from "@/lib/service-types/schema";
 
 type ServiceType = {
 	id: string;
@@ -43,22 +47,6 @@ type ServiceType = {
 	isActive: boolean;
 	sortOrder: number;
 };
-
-const formSchema = z.object({
-	name: z.string().trim().min(1, "Nome obrigatório.").max(80),
-	defaultDurationMinutes: z
-		.number({ error: "Informe a duração." })
-		.int()
-		.min(5, "Mínimo 5 minutos.")
-		.max(480),
-	defaultValueBrl: z
-		.number({ error: "Informe o valor." })
-		.min(0, "Valor inválido.")
-		.max(999_999.99),
-	isActive: z.boolean()
-});
-
-type FormValues = z.infer<typeof formSchema>;
 
 async function fetchTypes(): Promise<ServiceType[]> {
 	const res = await fetch("/api/admin/service-types");
@@ -72,7 +60,7 @@ function formatBrl(value: string | number) {
 	return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-const emptyForm: FormValues = {
+const emptyForm: ServiceTypeFormValues = {
 	name: "",
 	defaultDurationMinutes: 50,
 	defaultValueBrl: 220,
@@ -90,8 +78,12 @@ export default function ServiceTypesPage() {
 		queryFn: fetchTypes
 	});
 
-	const form = useForm<FormValues>({
-		resolver: zodResolver(formSchema),
+	const form = useForm<
+		ServiceTypeFormValues,
+		unknown,
+		ServiceTypeFormParsed
+	>({
+		resolver: zodResolver(serviceTypeFormSchema),
 		defaultValues: emptyForm
 	});
 
@@ -113,7 +105,7 @@ export default function ServiceTypesPage() {
 	}
 
 	const saveMutation = useMutation({
-		mutationFn: async (values: FormValues) => {
+		mutationFn: async (values: ServiceTypeFormParsed) => {
 			if (editingId) {
 				const res = await fetch(`/api/admin/service-types/${editingId}`, {
 					method: "PATCH",

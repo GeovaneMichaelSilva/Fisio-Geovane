@@ -1,18 +1,20 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 
+import { forgotPasswordSchema } from "@/lib/auth/schema";
 import { requestPasswordReset } from "@/lib/auth/password-reset";
-
-const bodySchema = z.object({
-	email: z.string().email()
-});
 
 export async function POST(request: Request) {
 	try {
 		const json = await request.json();
-		const parsed = bodySchema.safeParse(json);
+		const parsed = forgotPasswordSchema.safeParse(json);
 		if (!parsed.success) {
-			return NextResponse.json({ error: "E-mail inválido." }, { status: 400 });
+			return NextResponse.json(
+				{
+					error: "E-mail inválido.",
+					issues: parsed.error.flatten().fieldErrors
+				},
+				{ status: 400 }
+			);
 		}
 
 		const result = await requestPasswordReset(parsed.data.email);

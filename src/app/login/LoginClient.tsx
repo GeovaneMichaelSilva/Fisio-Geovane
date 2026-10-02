@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { signIn } from "next-auth/react";
 
 import { AuthBrand } from "@/components/auth/AuthBrand";
@@ -15,32 +17,29 @@ import {
 	CardTitle
 } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { loginSchema, type LoginValues } from "@/lib/auth/schema";
 
 export default function LoginClient() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const next = searchParams.get("next") || "/admin";
+	const [authError, setAuthError] = useState<string | null>(null);
 
-	const [email, setEmail] = useState("");
-	const [password, setPassword] = useState("");
-	const [error, setError] = useState<string | null>(null);
-	const [loading, setLoading] = useState(false);
+	const form = useForm<LoginValues>({
+		resolver: zodResolver(loginSchema),
+		defaultValues: { email: "", password: "" }
+	});
 
-	async function onSubmit(e: React.FormEvent) {
-		e.preventDefault();
-		setError(null);
-		setLoading(true);
-
+	async function onSubmit(values: LoginValues) {
+		setAuthError(null);
 		const result = await signIn("credentials", {
-			email,
-			password,
+			email: values.email,
+			password: values.password,
 			redirect: false
 		});
 
-		setLoading(false);
-
 		if (result?.error) {
-			setError("E-mail ou senha inválidos.");
+			setAuthError("E-mail ou senha inválidos.");
 			return;
 		}
 
@@ -59,30 +58,36 @@ export default function LoginClient() {
 					<CardDescription>Sistema interno</CardDescription>
 				</CardHeader>
 				<CardContent>
-					<form onSubmit={onSubmit} className="space-y-4">
+					<form
+						onSubmit={form.handleSubmit(onSubmit)}
+						className="space-y-4"
+						noValidate
+					>
 						<Input
 							label={{ text: "E-mail", required: true }}
 							type="email"
 							autoComplete="email"
-							value={email}
-							onChange={(e) => setEmail(e.target.value)}
-							required
+							error={form.formState.errors.email?.message}
+							{...form.register("email")}
 						/>
 						<Input
 							label={{ text: "Senha", required: true }}
 							type="password"
 							autoComplete="current-password"
-							value={password}
-							onChange={(e) => setPassword(e.target.value)}
-							required
+							error={form.formState.errors.password?.message}
+							{...form.register("password")}
 						/>
-						{error ? (
+						{authError ? (
 							<p className="text-destructive text-sm" role="alert">
-								{error}
+								{authError}
 							</p>
 						) : null}
-						<Button type="submit" className="w-full" disabled={loading}>
-							{loading ? "Entrando…" : "Entrar"}
+						<Button
+							type="submit"
+							className="w-full"
+							disabled={form.formState.isSubmitting}
+						>
+							{form.formState.isSubmitting ? "Entrando…" : "Entrar"}
 						</Button>
 						<p className="text-muted-foreground text-center text-sm">
 							<Link

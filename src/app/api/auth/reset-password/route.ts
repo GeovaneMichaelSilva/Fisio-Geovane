@@ -1,20 +1,18 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 
+import { resetPasswordApiSchema } from "@/lib/auth/schema";
 import { resetPasswordWithToken } from "@/lib/auth/password-reset";
-
-const bodySchema = z.object({
-	token: z.string().min(1),
-	password: z.string().min(8)
-});
 
 export async function POST(request: Request) {
 	try {
 		const json = await request.json();
-		const parsed = bodySchema.safeParse(json);
+		const parsed = resetPasswordApiSchema.safeParse(json);
 		if (!parsed.success) {
 			return NextResponse.json(
-				{ error: "Dados inválidos. Senha com no mínimo 8 caracteres." },
+				{
+					error: "Dados inválidos. Senha com no mínimo 8 caracteres.",
+					issues: parsed.error.flatten().fieldErrors
+				},
 				{ status: 400 }
 			);
 		}

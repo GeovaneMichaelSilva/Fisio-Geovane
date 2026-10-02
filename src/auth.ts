@@ -2,15 +2,10 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
 import { eq } from "drizzle-orm";
-import { z } from "zod";
 
 import { getDb } from "@/db";
 import { users } from "@/db/schema";
-
-const loginSchema = z.object({
-	email: z.string().email(),
-	password: z.string().min(1)
-});
+import { loginSchema } from "@/lib/auth/schema";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
 	providers: [

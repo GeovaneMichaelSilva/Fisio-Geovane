@@ -34,6 +34,12 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { Textarea } from "@/components/ui/Textarea";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { normalizeTime, STATUS_LABEL } from "@/lib/sessions/agenda";
+import {
+	sessionClinicalFormSchema,
+	sessionFinanceFormSchema,
+	sessionScheduleFormSchema
+} from "@/lib/sessions/schema";
+import { zodFieldErrors } from "@/lib/zod-utils";
 
 type ServiceType = {
 	id: string;
@@ -145,6 +151,15 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 	const [reason, setReason] = useState("");
 	const [overlapReason, setOverlapReason] = useState("");
 	const [pendingOverlap, setPendingOverlap] = useState(false);
+	const [scheduleErrors, setScheduleErrors] = useState<
+		Record<string, string | undefined>
+	>({});
+	const [clinicalErrors, setClinicalErrors] = useState<
+		Record<string, string | undefined>
+	>({});
+	const [financeErrors, setFinanceErrors] = useState<
+		Record<string, string | undefined>
+	>({});
 
 	const [assessment, setAssessment] = useState<string | null>(null);
 	const [evolution, setEvolution] = useState<string | null>(null);
@@ -196,20 +211,39 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 		setModeUrl("clinical");
 	}
 
+	function validateSchedule() {
+		const parsed = sessionScheduleFormSchema.safeParse({
+			patientId: formPatientId,
+			scheduledDate: formDate,
+			scheduledTime: formTime,
+			durationMinutes: formDuration,
+			serviceTypeId: formServiceTypeId,
+			valueBrl: formValue,
+			status: formStatus,
+			reason
+		});
+		if (!parsed.success) {
+			setScheduleErrors(zodFieldErrors(parsed.error));
+			return null;
+		}
+		setScheduleErrors({});
+		return parsed.data;
+	}
+
 	const saveScheduleMutation = useMutation({
 		mutationFn: async (allowOverlap: boolean) => {
+			const data = validateSchedule();
+			if (!data) {
+				throw new Error("Corrija os campos destacados.");
+			}
+			if (allowOverlap && !overlapReason.trim()) {
+				throw new Error("Informe o motivo do override de sobreposição.");
+			}
 			const res = await fetch(`/api/admin/sessions/${sessionId}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					patientId: formPatientId,
-					scheduledDate: formDate,
-					scheduledTime: formTime,
-					durationMinutes: formDuration,
-					serviceTypeId: formServiceTypeId,
-					valueBrl: formValue,
-					status: formStatus,
-					reason,
+					...data,
 					allowOverlap,
 					overlapReason: allowOverlap ? overlapReason : undefined
 				})
@@ -234,22 +268,31 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 			setReason("");
 			setPendingOverlap(false);
 			setOverlapReason("");
+			setScheduleErrors({});
 		},
 		onError: (err: Error) => toast.error(err.message)
 	});
 
 	const saveClinicalMutation = useMutation({
 		mutationFn: async (complete: boolean) => {
-			if (complete && !formEvolution.trim()) {
-				throw new Error("Evolução é obrigatória para concluir o atendimento.");
+			const parsed = sessionClinicalFormSchema.safeParse({
+				assessment: formAssessment,
+				evolution: formEvolution,
+				activities: formActivities,
+				complete
+			});
+			if (!parsed.success) {
+				setClinicalErrors(zodFieldErrors(parsed.error));
+				throw new Error("Corrija os campos destacados.");
 			}
+			setClinicalErrors({});
 			const res = await fetch(`/api/admin/sessions/${sessionId}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					assessment: formAssessment || null,
-					evolution: formEvolution || null,
-					activities: formActivities || null,
+					assessment: parsed.data.assessment || null,
+					evolution: parsed.data.evolution || null,
+					activities: parsed.data.activities || null,
 					status: complete ? "completed" : undefined,
 					reason: complete
 						? "Conclusão do atendimento"
@@ -275,21 +318,27 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 
 	const saveFinanceMutation = useMutation({
 		mutationFn: async () => {
-			if (formPaid && !formPaidAt) {
-				throw new Error("Informe a data de pagamento.");
+			const parsed = sessionFinanceFormSchema.safeParse({
+				valueBrl: formFinanceValue,
+				paid: formPaid,
+				paidAt: formPaidAt,
+				invoiceIssued: formInvoice,
+				reason: financeReason
+			});
+			if (!parsed.success) {
+				setFinanceErrors(zodFieldErrors(parsed.error));
+				throw new Error("Corrija os campos destacados.");
 			}
-			if (!financeReason.trim()) {
-				throw new Error("Informe o motivo da alteração financeira.");
-			}
+			setFinanceErrors({});
 			const res = await fetch(`/api/admin/sessions/${sessionId}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					valueBrl: formFinanceValue,
-					paid: formPaid,
-					paidAt: formPaid ? formPaidAt : null,
-					invoiceIssued: formInvoice,
-					reason: financeReason.trim()
+					valueBrl: parsed.data.valueBrl,
+					paid: parsed.data.paid,
+					paidAt: parsed.data.paid ? parsed.data.paidAt : null,
+					invoiceIssued: parsed.data.invoiceIssued,
+					reason: parsed.data.reason
 				})
 			});
 			const json = await res.json();
@@ -303,6 +352,7 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 			queryClient.invalidateQueries({ queryKey: ["patient"] });
 			toast.success("Dados financeiros salvos.");
 			setFinanceReason("");
+			setFinanceErrors({});
 		},
 		onError: (err: Error) => toast.error(err.message)
 	});
@@ -452,6 +502,7 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 								<Select
 									label={{ text: "Paciente", required: true }}
 									value={formPatientId}
+									error={scheduleErrors.patientId}
 									onChange={(e) => setPatientId(e.target.value)}
 									options={(
 										patientsQuery.data ?? [
@@ -465,6 +516,7 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 								<Select
 									label={{ text: "Tipo", required: true }}
 									value={formServiceTypeId}
+									error={scheduleErrors.serviceTypeId}
 									onChange={(e) => {
 										setServiceTypeId(e.target.value);
 										const t = typesQuery.data?.find(
@@ -484,12 +536,14 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 									label={{ text: "Data", required: true }}
 									type="date"
 									value={formDate}
+									error={scheduleErrors.scheduledDate}
 									onChange={(e) => setScheduledDate(e.target.value)}
 								/>
 								<Input
 									label={{ text: "Horário", required: true }}
 									type="time"
 									value={formTime}
+									error={scheduleErrors.scheduledTime}
 									onChange={(e) => setScheduledTime(e.target.value)}
 								/>
 								<Input
@@ -499,6 +553,7 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 									min={5}
 									max={480}
 									value={formDuration}
+									error={scheduleErrors.durationMinutes}
 									onChange={(e) => setDurationMinutes(Number(e.target.value))}
 								/>
 								<Input
@@ -508,11 +563,13 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 									min={0}
 									step="0.01"
 									value={formValue}
+									error={scheduleErrors.valueBrl}
 									onChange={(e) => setValueBrl(Number(e.target.value))}
 								/>
 								<Select
 									label={{ text: "Status", required: true }}
 									value={formStatus}
+									error={scheduleErrors.status}
 									onChange={(e) =>
 										setStatus(e.target.value as SessionDetail["status"])
 									}
@@ -532,6 +589,7 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 										label={{ text: "Motivo da edição", required: true }}
 										rows={2}
 										value={reason}
+										error={scheduleErrors.reason}
 										onChange={(e) => setReason(e.target.value)}
 									/>
 								</div>
@@ -540,9 +598,7 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 									<Button
 										type="button"
 										className="min-h-11 flex-1 sm:min-h-10 sm:flex-none"
-										disabled={
-											saveScheduleMutation.isPending || !reason.trim()
-										}
+										disabled={saveScheduleMutation.isPending}
 										onClick={() => saveScheduleMutation.mutate(false)}
 									>
 										{saveScheduleMutation.isPending
@@ -576,6 +632,7 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 										rows={5}
 										disabled={clinicalLocked}
 										value={formAssessment}
+										error={clinicalErrors.assessment}
 										onChange={(e) => setAssessment(e.target.value)}
 									/>
 									<Textarea
@@ -583,6 +640,7 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 										rows={5}
 										disabled={clinicalLocked}
 										value={formEvolution}
+										error={clinicalErrors.evolution}
 										onChange={(e) => setEvolution(e.target.value)}
 										helperText="Obrigatória para marcar como realizado."
 									/>
@@ -591,6 +649,7 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 										rows={4}
 										disabled={clinicalLocked}
 										value={formActivities}
+										error={clinicalErrors.activities}
 										onChange={(e) => setActivities(e.target.value)}
 									/>
 									{clinicalLocked ? (
@@ -615,10 +674,7 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 														<Button
 															type="button"
 															className="min-h-11 flex-1 sm:min-h-10 sm:flex-none"
-															disabled={
-																saveClinicalMutation.isPending ||
-																!formEvolution.trim()
-															}
+															disabled={saveClinicalMutation.isPending}
 														>
 															Concluir atendimento
 														</Button>
@@ -740,6 +796,7 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 									min={0}
 									step="0.01"
 									value={formFinanceValue}
+									error={financeErrors.valueBrl}
 									onChange={(e) => setFinanceValue(Number(e.target.value))}
 								/>
 								<label className="flex items-center gap-2 text-sm">
@@ -761,6 +818,7 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 										label={{ text: "Data do pagamento", required: true }}
 										type="date"
 										value={formPaidAt}
+										error={financeErrors.paidAt}
 										onChange={(e) => setPaidAt(e.target.value)}
 									/>
 								) : null}
@@ -777,14 +835,13 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 									label={{ text: "Motivo da alteração", required: true }}
 									rows={2}
 									value={financeReason}
+									error={financeErrors.reason}
 									onChange={(e) => setFinanceReason(e.target.value)}
 								/>
 								<div>
 									<Button
 										type="button"
-										disabled={
-											saveFinanceMutation.isPending || !financeReason.trim()
-										}
+										disabled={saveFinanceMutation.isPending}
 										onClick={() => saveFinanceMutation.mutate()}
 									>
 										{saveFinanceMutation.isPending

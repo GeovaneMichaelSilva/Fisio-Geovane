@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 
 import { AuthBrand } from "@/components/auth/AuthBrand";
 import { Button } from "@/components/ui/Button";
@@ -13,26 +15,29 @@ import {
 	CardTitle
 } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import {
+	forgotPasswordSchema,
+	type ForgotPasswordValues
+} from "@/lib/auth/schema";
 
 export default function ForgotPasswordPage() {
-	const [email, setEmail] = useState("");
 	const [message, setMessage] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
-	const [loading, setLoading] = useState(false);
 
-	async function onSubmit(e: React.FormEvent) {
-		e.preventDefault();
+	const form = useForm<ForgotPasswordValues>({
+		resolver: zodResolver(forgotPasswordSchema),
+		defaultValues: { email: "" }
+	});
+
+	async function onSubmit(values: ForgotPasswordValues) {
 		setError(null);
 		setMessage(null);
-		setLoading(true);
 
 		const res = await fetch("/api/auth/forgot-password", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ email })
+			body: JSON.stringify(values)
 		});
-
-		setLoading(false);
 
 		if (!res.ok) {
 			setError("Não foi possível enviar o e-mail. Tente novamente.");
@@ -57,14 +62,17 @@ export default function ForgotPasswordPage() {
 					</CardDescription>
 				</CardHeader>
 				<CardContent>
-					<form onSubmit={onSubmit} className="space-y-4">
+					<form
+						onSubmit={form.handleSubmit(onSubmit)}
+						className="space-y-4"
+						noValidate
+					>
 						<Input
 							label={{ text: "E-mail", required: true }}
 							type="email"
 							autoComplete="email"
-							value={email}
-							onChange={(e) => setEmail(e.target.value)}
-							required
+							error={form.formState.errors.email?.message}
+							{...form.register("email")}
 						/>
 						{error ? (
 							<p className="text-destructive text-sm" role="alert">
@@ -76,8 +84,12 @@ export default function ForgotPasswordPage() {
 								{message}
 							</p>
 						) : null}
-						<Button type="submit" className="w-full" disabled={loading}>
-							{loading ? "Enviando…" : "Enviar link"}
+						<Button
+							type="submit"
+							className="w-full"
+							disabled={form.formState.isSubmitting}
+						>
+							{form.formState.isSubmitting ? "Enviando…" : "Enviar link"}
 						</Button>
 						<p className="text-muted-foreground text-center text-sm">
 							<Link href="/login" className="text-primary hover:underline">

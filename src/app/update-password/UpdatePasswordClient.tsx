@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 
 import { AuthBrand } from "@/components/auth/AuthBrand";
 import { Button } from "@/components/ui/Button";
@@ -14,44 +16,37 @@ import {
 	CardTitle
 } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import {
+	resetPasswordSchema,
+	type ResetPasswordValues
+} from "@/lib/auth/schema";
 
 export default function UpdatePasswordClient() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const token = searchParams.get("token") || "";
-
-	const [password, setPassword] = useState("");
-	const [confirm, setConfirm] = useState("");
 	const [error, setError] = useState<string | null>(null);
-	const [loading, setLoading] = useState(false);
 
-	async function onSubmit(e: React.FormEvent) {
-		e.preventDefault();
+	const form = useForm<ResetPasswordValues>({
+		resolver: zodResolver(resetPasswordSchema),
+		defaultValues: {
+			token,
+			password: "",
+			confirmPassword: ""
+		}
+	});
+
+	async function onSubmit(values: ResetPasswordValues) {
 		setError(null);
-
-		if (!token) {
-			setError("Link inválido. Solicite uma nova recuperação de senha.");
-			return;
-		}
-
-		if (password.length < 8) {
-			setError("A senha deve ter pelo menos 8 caracteres.");
-			return;
-		}
-
-		if (password !== confirm) {
-			setError("As senhas não coincidem.");
-			return;
-		}
-
-		setLoading(true);
 		const res = await fetch("/api/auth/reset-password", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ token, password })
+			body: JSON.stringify({
+				token: values.token,
+				password: values.password
+			})
 		});
 		const data = (await res.json()) as { error?: string };
-		setLoading(false);
 
 		if (!res.ok) {
 			setError(
@@ -76,27 +71,30 @@ export default function UpdatePasswordClient() {
 					<CardDescription>Defina uma nova senha de acesso.</CardDescription>
 				</CardHeader>
 				<CardContent>
-					<form onSubmit={onSubmit} className="space-y-4">
+					<form
+						onSubmit={form.handleSubmit(onSubmit)}
+						className="space-y-4"
+						noValidate
+					>
 						{!token ? (
 							<p className="text-destructive text-sm" role="alert">
 								Token ausente. Abra o link enviado por e-mail.
 							</p>
 						) : null}
+						<input type="hidden" {...form.register("token")} />
 						<Input
 							label={{ text: "Nova senha", required: true }}
 							type="password"
 							autoComplete="new-password"
-							value={password}
-							onChange={(e) => setPassword(e.target.value)}
-							required
+							error={form.formState.errors.password?.message}
+							{...form.register("password")}
 						/>
 						<Input
 							label={{ text: "Confirmar senha", required: true }}
 							type="password"
 							autoComplete="new-password"
-							value={confirm}
-							onChange={(e) => setConfirm(e.target.value)}
-							required
+							error={form.formState.errors.confirmPassword?.message}
+							{...form.register("confirmPassword")}
 						/>
 						{error ? (
 							<p className="text-destructive text-sm" role="alert">
@@ -106,9 +104,9 @@ export default function UpdatePasswordClient() {
 						<Button
 							type="submit"
 							className="w-full"
-							disabled={loading || !token}
+							disabled={form.formState.isSubmitting || !token}
 						>
-							{loading ? "Salvando…" : "Salvar senha"}
+							{form.formState.isSubmitting ? "Salvando…" : "Salvar senha"}
 						</Button>
 						<p className="text-muted-foreground text-center text-sm">
 							<Link href="/login" className="text-primary hover:underline">

@@ -1,8 +1,10 @@
 ﻿"use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -32,6 +34,11 @@ import {
 	toDateString,
 	WEEKDAY_LABELS
 } from "@/lib/sessions/agenda";
+import {
+	sessionCreateSchema,
+	type SessionCreateInput,
+	type SessionCreateParsed
+} from "@/lib/sessions/schema";
 import { cn } from "@/utils";
 
 type AgendaSession = {
@@ -132,6 +139,7 @@ export default function AgendaClient() {
 
 	const initialPatientId = searchParams.get("patientId") ?? "";
 	const initialDate = searchParams.get("date") ?? "";
+	const todayStr = toDateString(new Date());
 
 	const [weekAnchor, setWeekAnchor] = useState(() =>
 		startOfWeekMonday(
@@ -142,16 +150,25 @@ export default function AgendaClient() {
 		Boolean(initialPatientId || initialDate)
 	);
 	const [selectedDay, setSelectedDay] = useState(
-		initialDate || toDateString(new Date())
+		initialDate || todayStr
 	);
-
-	const [patientId, setPatientId] = useState(initialPatientId);
-	const [scheduledTime, setScheduledTime] = useState("09:00");
-	const [durationMinutes, setDurationMinutes] = useState(50);
-	const [serviceTypeId, setServiceTypeId] = useState("");
-	const [valueBrl, setValueBrl] = useState(220);
 	const [overlapReason, setOverlapReason] = useState("");
 	const [pendingOverlap, setPendingOverlap] = useState(false);
+
+	const form = useForm<SessionCreateInput, unknown, SessionCreateParsed>({
+		resolver: zodResolver(sessionCreateSchema),
+		defaultValues: {
+			patientId: initialPatientId,
+			scheduledDate: initialDate || todayStr,
+			scheduledTime: "09:00",
+			durationMinutes: 50,
+			serviceTypeId: "",
+			valueBrl: 220,
+			allowOverlap: false,
+			overlapReason: undefined
+		},
+		mode: "onSubmit"
+	});
 
 	const monday = weekAnchor;
 	const from = toDateString(monday);
@@ -193,14 +210,17 @@ export default function AgendaClient() {
 	}, [days, weekQuery.data]);
 
 	const mobileDaySessions = sessionsByDay.get(selectedDay) ?? [];
-	const todayStr = toDateString(new Date());
 
 	function applyServiceType(typeId: string) {
-		setServiceTypeId(typeId);
+		form.setValue("serviceTypeId", typeId, { shouldValidate: true });
 		const t = typesQuery.data?.find((x) => x.id === typeId);
 		if (t) {
-			setDurationMinutes(t.defaultDurationMinutes);
-			setValueBrl(Number(t.defaultValueBrl));
+			form.setValue("durationMinutes", t.defaultDurationMinutes, {
+				shouldValidate: true
+			});
+			form.setValue("valueBrl", Number(t.defaultValueBrl), {
+				shouldValidate: true
+			});
 		}
 	}
 
@@ -209,50 +229,77 @@ export default function AgendaClient() {
 		setComposerOpen(true);
 		setPendingOverlap(false);
 		setOverlapReason("");
+
+		const current = form.getValues();
+		let serviceTypeId = current.serviceTypeId;
+		let durationMinutes = current.durationMinutes;
+		let valueBrl = current.valueBrl;
+
 		if (!serviceTypeId && typesQuery.data) {
 			const active = typesQuery.data.find((t) => t.isActive);
-			if (active) applyServiceType(active.id);
+			if (active) {
+				serviceTypeId = active.id;
+				durationMinutes = active.defaultDurationMinutes;
+				valueBrl = Number(active.defaultValueBrl);
+			}
 		}
-		if (!durationMinutes && clinicQuery.data) {
-			setDurationMinutes(clinicQuery.data.defaultSessionDurationMinutes);
+		if (
+			(!durationMinutes || Number.isNaN(Number(durationMinutes))) &&
+			clinicQuery.data
+		) {
+			durationMinutes = clinicQuery.data.defaultSessionDurationMinutes;
 		}
+
+		form.reset({
+			patientId: current.patientId || initialPatientId,
+			scheduledDate: dateStr,
+			scheduledTime: current.scheduledTime || "09:00",
+			durationMinutes: Number(durationMinutes) || 50,
+			serviceTypeId: serviceTypeId || "",
+			valueBrl: Number(valueBrl) || 220,
+			allowOverlap: false,
+			overlapReason: undefined
+		});
 	}
 
 	function closeComposer() {
 		setComposerOpen(false);
 		setPendingOverlap(false);
 		setOverlapReason("");
+		form.clearErrors();
 	}
 
 	function onPatientChange(id: string) {
-		setPatientId(id);
+		form.setValue("patientId", id, { shouldValidate: true });
 		const p = patientsQuery.data?.find((x) => x.id === id);
 		if (p?.preferredServiceTypeId) {
 			applyServiceType(p.preferredServiceTypeId);
 		}
 	}
 
+	useEffect(() => {
+		const sub = form.watch((values, { name }) => {
+			if (name === "scheduledDate" && values.scheduledDate) {
+				setSelectedDay(values.scheduledDate);
+			}
+		});
+		return () => sub.unsubscribe();
+	}, [form]);
+
 	const createMutation = useMutation({
-		mutationFn: async (allowOverlap: boolean) => {
+		mutationFn: async (payload: SessionCreateParsed) => {
 			const res = await fetch("/api/admin/sessions", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					patientId,
-					scheduledDate: selectedDay,
-					scheduledTime,
-					durationMinutes,
-					serviceTypeId,
-					valueBrl,
-					allowOverlap,
-					overlapReason: allowOverlap ? overlapReason : undefined
-				})
+				body: JSON.stringify(payload)
 			});
 			const json = await res.json();
 			if (res.status === 409 && json.error === "overlap") {
 				return { overlap: true as const, conflicts: json.conflicts };
 			}
-			if (!res.ok) throw new Error(json.error || json.message || "Falha ao agendar.");
+			if (!res.ok) {
+				throw new Error(json.error || json.message || "Falha ao agendar.");
+			}
 			return { overlap: false as const, data: json.data as { id: string } };
 		},
 		onSuccess: (result) => {
@@ -269,9 +316,21 @@ export default function AgendaClient() {
 		onError: (err: Error) => toast.error(err.message)
 	});
 
-	const canSave =
-		Boolean(patientId && serviceTypeId && selectedDay && scheduledTime) &&
-		!createMutation.isPending;
+	function submitCreate(allowOverlap: boolean, reason?: string) {
+		form.setValue("allowOverlap", allowOverlap);
+		if (allowOverlap) {
+			form.setValue("overlapReason", reason?.trim() || "");
+		}
+		void form.handleSubmit((values) => {
+			createMutation.mutate({
+				...values,
+				allowOverlap,
+				overlapReason: allowOverlap ? reason?.trim() : undefined
+			});
+		})();
+	}
+
+	const errors = form.formState.errors;
 
 	return (
 		<div className="space-y-6">
@@ -351,13 +410,23 @@ export default function AgendaClient() {
 							}
 						/>
 					) : (
-						<div className="grid gap-4 sm:grid-cols-2">
+						<form
+							id="agenda-create-form"
+							className="grid gap-4 sm:grid-cols-2"
+							onSubmit={form.handleSubmit((values) =>
+								createMutation.mutate({
+									...values,
+									allowOverlap: false
+								})
+							)}
+						>
 							<Select
 								className="sm:col-span-2"
 								label={{ text: "Paciente", required: true }}
-								value={patientId}
+								value={form.watch("patientId")}
 								onChange={(e) => onPatientChange(e.target.value)}
 								placeholder="Selecione…"
+								error={errors.patientId?.message}
 								options={(patientsQuery.data ?? []).map((p) => ({
 									value: p.id,
 									label: p.fullName
@@ -366,9 +435,10 @@ export default function AgendaClient() {
 							<Select
 								className="sm:col-span-2"
 								label={{ text: "Tipo", required: true }}
-								value={serviceTypeId}
+								value={form.watch("serviceTypeId")}
 								onChange={(e) => applyServiceType(e.target.value)}
 								placeholder="Selecione…"
+								error={errors.serviceTypeId?.message}
 								options={(typesQuery.data ?? [])
 									.filter((t) => t.isActive)
 									.map((t) => ({
@@ -379,14 +449,14 @@ export default function AgendaClient() {
 							<Input
 								label={{ text: "Data", required: true }}
 								type="date"
-								value={selectedDay}
-								onChange={(e) => setSelectedDay(e.target.value)}
+								error={errors.scheduledDate?.message}
+								{...form.register("scheduledDate")}
 							/>
 							<Input
 								label={{ text: "Horário", required: true }}
 								type="time"
-								value={scheduledTime}
-								onChange={(e) => setScheduledTime(e.target.value)}
+								error={errors.scheduledTime?.message}
+								{...form.register("scheduledTime")}
 							/>
 							<Input
 								label={{ text: "Duração (min)", required: true }}
@@ -394,8 +464,8 @@ export default function AgendaClient() {
 								inputMode="numeric"
 								min={5}
 								max={480}
-								value={durationMinutes}
-								onChange={(e) => setDurationMinutes(Number(e.target.value))}
+								error={errors.durationMinutes?.message}
+								{...form.register("durationMinutes", { valueAsNumber: true })}
 							/>
 							<Input
 								label={{ text: "Valor (R$)", required: true }}
@@ -403,10 +473,10 @@ export default function AgendaClient() {
 								inputMode="decimal"
 								min={0}
 								step="0.01"
-								value={valueBrl}
-								onChange={(e) => setValueBrl(Number(e.target.value))}
+								error={errors.valueBrl?.message}
+								{...form.register("valueBrl", { valueAsNumber: true })}
 							/>
-						</div>
+						</form>
 					)}
 
 					<DialogFooter className="gap-2 sm:gap-0">
@@ -414,10 +484,10 @@ export default function AgendaClient() {
 							Cancelar
 						</Button>
 						<Button
-							type="button"
+							type="submit"
+							form="agenda-create-form"
 							className="min-h-11 sm:min-h-10"
-							disabled={!canSave}
-							onClick={() => createMutation.mutate(false)}
+							disabled={createMutation.isPending}
 						>
 							{createMutation.isPending ? "Salvando…" : "Salvar agendamento"}
 						</Button>
@@ -430,7 +500,13 @@ export default function AgendaClient() {
 				reason={overlapReason}
 				pending={createMutation.isPending}
 				onReasonChange={setOverlapReason}
-				onConfirm={() => createMutation.mutate(true)}
+				onConfirm={() => {
+					if (!overlapReason.trim()) {
+						toast.error("Informe o motivo do override.");
+						return;
+					}
+					submitCreate(true, overlapReason);
+				}}
 				onCancel={() => {
 					setPendingOverlap(false);
 					setOverlapReason("");
@@ -458,7 +534,6 @@ export default function AgendaClient() {
 				/>
 			) : (
 				<>
-					{/* Mobile: seletor de dia + lista */}
 					<div className="space-y-4 md:hidden">
 						<div className="grid grid-cols-7 gap-1">
 							{days.map((day, index) => {
@@ -531,7 +606,6 @@ export default function AgendaClient() {
 						)}
 					</div>
 
-					{/* Desktop: grade semanal */}
 					<div className="hidden gap-3 md:grid md:grid-cols-7">
 						{days.map((day, index) => {
 							const dateStr = toDateString(day);

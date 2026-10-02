@@ -5,7 +5,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { z } from "zod";
 
 import { FormSkeleton } from "@/components/admin/LoadingStates";
 import { ErrorState, PageHeader } from "@/components/admin/PageStates";
@@ -20,6 +19,11 @@ import {
 } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import {
+	clinicUpdateSchema,
+	type ClinicUpdateInput,
+	type ClinicUpdateParsed
+} from "@/lib/clinic/schema";
 
 type Clinic = {
 	id: string;
@@ -29,20 +33,6 @@ type Clinic = {
 	timezone: string;
 	defaultSessionDurationMinutes: number;
 };
-
-const formSchema = z.object({
-	displayName: z.string().trim().min(1, "Nome obrigatório.").max(120),
-	professionLabel: z.string().trim().min(1, "Profissão obrigatória.").max(80),
-	licenseNumber: z.string().trim().max(40),
-	timezone: z.string().trim().min(1).max(64),
-	defaultSessionDurationMinutes: z
-		.number({ error: "Informe a duração." })
-		.int("Use um número inteiro.")
-		.min(5, "Mínimo 5 minutos.")
-		.max(480, "Máximo 480 minutos.")
-});
-
-type FormValues = z.infer<typeof formSchema>;
 
 async function fetchClinic(): Promise<Clinic> {
 	const res = await fetch("/api/admin/clinic");
@@ -60,8 +50,8 @@ export default function SettingsPage() {
 		queryFn: fetchClinic
 	});
 
-	const form = useForm<FormValues>({
-		resolver: zodResolver(formSchema),
+	const form = useForm<ClinicUpdateInput, unknown, ClinicUpdateParsed>({
+		resolver: zodResolver(clinicUpdateSchema),
 		defaultValues: {
 			displayName: "",
 			professionLabel: "Fisioterapeuta",
@@ -84,7 +74,7 @@ export default function SettingsPage() {
 	}, [clinicQuery.data, form]);
 
 	const saveMutation = useMutation({
-		mutationFn: async (values: FormValues) => {
+		mutationFn: async (values: ClinicUpdateParsed) => {
 			const res = await fetch("/api/admin/clinic", {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },

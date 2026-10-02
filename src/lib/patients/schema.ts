@@ -30,11 +30,15 @@ const optionalNumber = (min: number, max: number, label: string) =>
 		});
 
 export const patientFormSchema = z.object({
-	fullName: z.string().trim().min(1, "Nome obrigatório.").max(160),
+	fullName: z
+		.string()
+		.trim()
+		.min(1, "Nome obrigatório.")
+		.max(160, "Máximo 160 caracteres."),
 	phone: z
 		.string()
 		.trim()
-		.max(32)
+		.max(32, "Máximo 32 caracteres.")
 		.transform((v) => emptyToNull(v)),
 	cpf: optionalDigits(11, "CPF"),
 	birthDate: z
@@ -46,32 +50,36 @@ export const patientFormSchema = z.object({
 		}),
 	weightKg: optionalNumber(1, 500, "Peso"),
 	heightCm: optionalNumber(30, 250, "Altura"),
-	preferredServiceTypeId: z.string().uuid("Selecione o tipo preferencial."),
+	preferredServiceTypeId: z
+		.string()
+		.trim()
+		.min(1, "Selecione o tipo preferencial.")
+		.uuid("Selecione o tipo preferencial."),
 	addressStreet: z
 		.string()
 		.trim()
-		.max(160)
+		.max(160, "Máximo 160 caracteres.")
 		.transform((v) => emptyToNull(v)),
 	addressNumber: z
 		.string()
 		.trim()
-		.max(32)
+		.max(32, "Máximo 32 caracteres.")
 		.transform((v) => emptyToNull(v)),
 	addressNeighborhood: z
 		.string()
 		.trim()
-		.max(80)
+		.max(80, "Máximo 80 caracteres.")
 		.transform((v) => emptyToNull(v)),
 	addressCity: z
 		.string()
 		.trim()
-		.max(80)
+		.max(80, "Máximo 80 caracteres.")
 		.transform((v) => emptyToNull(v)),
 	addressZip: optionalDigits(8, "CEP"),
 	notes: z
 		.string()
 		.trim()
-		.max(4000)
+		.max(4000, "Máximo 4000 caracteres.")
 		.transform((v) => emptyToNull(v))
 });
 

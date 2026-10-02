@@ -1,19 +1,11 @@
 import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
-import { z } from "zod";
 
 import { getDb } from "@/db";
 import { serviceTypes } from "@/db/schema";
 import { getOrCreateClinicContext } from "@/lib/clinic/context";
 import { slugify } from "@/lib/clinic/slug";
-
-const updateSchema = z.object({
-	name: z.string().trim().min(1).max(80).optional(),
-	defaultDurationMinutes: z.coerce.number().int().min(5).max(480).optional(),
-	defaultValueBrl: z.coerce.number().min(0).max(999_999.99).optional(),
-	isActive: z.boolean().optional(),
-	sortOrder: z.coerce.number().int().min(0).max(9999).optional()
-});
+import { serviceTypeUpdateSchema } from "@/lib/service-types/schema";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -22,7 +14,7 @@ export async function PATCH(request: Request, { params }: Params) {
 		const { id } = await params;
 		const ctx = await getOrCreateClinicContext();
 		const body = await request.json();
-		const parsed = updateSchema.safeParse(body);
+		const parsed = serviceTypeUpdateSchema.safeParse(body);
 
 		if (!parsed.success) {
 			return NextResponse.json(

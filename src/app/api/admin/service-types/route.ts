@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { and, asc, eq } from "drizzle-orm";
-import { z } from "zod";
+import { asc, eq } from "drizzle-orm";
 
 import { getDb } from "@/db";
 import { serviceTypes } from "@/db/schema";
@@ -9,14 +8,7 @@ import {
 	getOrCreateClinicContext
 } from "@/lib/clinic/context";
 import { slugify } from "@/lib/clinic/slug";
-
-const createSchema = z.object({
-	name: z.string().trim().min(1, "Nome obrigatório.").max(80),
-	defaultDurationMinutes: z.coerce.number().int().min(5).max(480).default(50),
-	defaultValueBrl: z.coerce.number().min(0).max(999_999.99),
-	isActive: z.boolean().default(true),
-	sortOrder: z.coerce.number().int().min(0).max(9999).optional()
-});
+import { serviceTypeCreateSchema } from "@/lib/service-types/schema";
 
 export async function GET() {
 	try {
@@ -45,7 +37,7 @@ export async function POST(request: Request) {
 	try {
 		const ctx = await getOrCreateClinicContext();
 		const body = await request.json();
-		const parsed = createSchema.safeParse(body);
+		const parsed = serviceTypeCreateSchema.safeParse(body);
 
 		if (!parsed.success) {
 			return NextResponse.json(

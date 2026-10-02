@@ -287,6 +287,19 @@ export async function PUT(request: Request, { params }: Params) {
 			afterState: updated
 		});
 
+		const scheduleOrStatusChanged =
+			scheduleChanged ||
+			nextStatus !== current.status ||
+			nextPatientId !== current.patientId ||
+			nextServiceTypeId !== current.serviceTypeId;
+
+		if (scheduleOrStatusChanged) {
+			const { syncSessionToGoogleCalendar } = await import(
+				"@/lib/google-calendar/sync"
+			);
+			await syncSessionToGoogleCalendar(sessionId, ctx.clinic.id, db);
+		}
+
 		return NextResponse.json({ data: updated });
 	} catch (err) {
 		if (err instanceof Response) return err;
