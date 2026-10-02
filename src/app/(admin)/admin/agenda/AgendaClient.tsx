@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { EmptyState, ErrorState, PageHeader } from "@/components/admin/PageStates";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import {
@@ -238,40 +239,38 @@ export default function AgendaClient() {
 
 	return (
 		<div className="space-y-6">
-			<div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-				<div>
-					<h1 className="text-2xl font-medium">Agenda</h1>
-					<p className="text-muted-foreground text-sm">
-						Semana {formatWeekLabel(monday)}
-					</p>
-				</div>
-				<div className="flex flex-wrap gap-2">
-					<Button
-						type="button"
-						variant="outline"
-						onClick={() => setWeekAnchor(addDays(monday, -7))}
-					>
-						Semana anterior
-					</Button>
-					<Button
-						type="button"
-						variant="secondary"
-						onClick={() => setWeekAnchor(startOfWeekMonday(new Date()))}
-					>
-						Hoje
-					</Button>
-					<Button
-						type="button"
-						variant="outline"
-						onClick={() => setWeekAnchor(addDays(monday, 7))}
-					>
-						Próxima semana
-					</Button>
-					<Button type="button" onClick={() => openComposer(todayStr)}>
-						+ Agendar
-					</Button>
-				</div>
-			</div>
+			<PageHeader
+				title="Agenda"
+				description={`Semana ${formatWeekLabel(monday)}`}
+				actions={
+					<>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => setWeekAnchor(addDays(monday, -7))}
+						>
+							Semana anterior
+						</Button>
+						<Button
+							type="button"
+							variant="secondary"
+							onClick={() => setWeekAnchor(startOfWeekMonday(new Date()))}
+						>
+							Hoje
+						</Button>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => setWeekAnchor(addDays(monday, 7))}
+						>
+							Próxima semana
+						</Button>
+						<Button type="button" onClick={() => openComposer(todayStr)}>
+							+ Agendar
+						</Button>
+					</>
+				}
+			/>
 
 			{composerOpen ? (
 				<Card>
@@ -282,6 +281,20 @@ export default function AgendaClient() {
 						</CardDescription>
 					</CardHeader>
 					<CardContent className="grid gap-4 md:grid-cols-2">
+						{!patientsQuery.isLoading &&
+						(patientsQuery.data?.length ?? 0) === 0 ? (
+							<div className="md:col-span-2">
+								<EmptyState
+									title="Cadastre um paciente antes de agendar"
+									description="A agenda precisa de ao menos um paciente ativo."
+									action={
+										<Button asChild size="sm">
+											<Link href="/admin/patients/new">Novo paciente</Link>
+										</Button>
+									}
+								/>
+							</div>
+						) : null}
 						<Label
 							label={{ text: "Paciente", required: true }}
 							htmlFor="agenda-patient"
@@ -422,11 +435,13 @@ export default function AgendaClient() {
 					))}
 				</div>
 			) : weekQuery.isError ? (
-				<p className="text-destructive text-sm" role="alert">
-					{(weekQuery.error as Error).message}
-				</p>
+				<ErrorState
+					message={(weekQuery.error as Error).message}
+					onRetry={() => weekQuery.refetch()}
+				/>
 			) : (
-				<div className="grid gap-3 md:grid-cols-7">
+				<div className="-mx-4 overflow-x-auto px-4 md:mx-0 md:overflow-visible md:px-0">
+					<div className="grid min-w-[640px] gap-3 md:min-w-0 md:grid-cols-7">
 					{days.map((day, index) => {
 						const dateStr = toDateString(day);
 						const items = sessionsByDay.get(dateStr) ?? [];
@@ -508,6 +523,7 @@ export default function AgendaClient() {
 							</section>
 						);
 					})}
+					</div>
 				</div>
 			)}
 		</div>

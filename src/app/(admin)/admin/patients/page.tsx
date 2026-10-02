@@ -4,6 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 
+import { ListSkeleton } from "@/components/admin/LoadingStates";
+import {
+	EmptyState,
+	ErrorState,
+	PageHeader
+} from "@/components/admin/PageStates";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import {
@@ -14,7 +20,6 @@ import {
 	CardTitle
 } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
-import { Skeleton } from "@/components/ui/Skeleton";
 import { usePageTitle } from "@/hooks/usePageTitle";
 
 type PatientListItem = {
@@ -48,17 +53,15 @@ export default function PatientsPage() {
 
 	return (
 		<div className="space-y-6">
-			<div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-				<div>
-					<h1 className="text-2xl font-medium">Pacientes</h1>
-					<p className="text-muted-foreground text-sm">
-						Cadastro, busca e arquivamento.
-					</p>
-				</div>
-				<Button asChild>
-					<Link href="/admin/patients/new">Novo paciente</Link>
-				</Button>
-			</div>
+			<PageHeader
+				title="Pacientes"
+				description="Cadastro, busca e arquivamento."
+				actions={
+					<Button asChild>
+						<Link href="/admin/patients/new">Novo paciente</Link>
+					</Button>
+				}
+			/>
 
 			<Card>
 				<CardHeader>
@@ -86,6 +89,18 @@ export default function PatientsPage() {
 							<Button type="submit" variant="secondary">
 								Buscar
 							</Button>
+							{search ? (
+								<Button
+									type="button"
+									variant="ghost"
+									onClick={() => {
+										setQ("");
+										setSearch("");
+									}}
+								>
+									Limpar
+								</Button>
+							) : null}
 							<Button
 								type="button"
 								variant={showArchived ? "default" : "outline"}
@@ -97,23 +112,36 @@ export default function PatientsPage() {
 					</form>
 
 					{listQuery.isLoading ? (
-						<div className="space-y-2">
-							<Skeleton className="h-14 w-full" />
-							<Skeleton className="h-14 w-full" />
-							<Skeleton className="h-14 w-full" />
-						</div>
+						<ListSkeleton />
 					) : listQuery.isError ? (
-						<p className="text-destructive text-sm" role="alert">
-							{(listQuery.error as Error).message}
-						</p>
+						<ErrorState
+							message={(listQuery.error as Error).message}
+							onRetry={() => listQuery.refetch()}
+						/>
 					) : listQuery.data?.length === 0 ? (
-						<p className="text-muted-foreground text-sm">
-							{search
-								? "Nenhum paciente encontrado para esta busca."
-								: showArchived
-									? "Nenhum paciente arquivado."
-									: "Nenhum paciente cadastrado ainda."}
-						</p>
+						<EmptyState
+							title={
+								search
+									? "Nenhum paciente encontrado"
+									: showArchived
+										? "Nenhum paciente arquivado"
+										: "Nenhum paciente cadastrado"
+							}
+							description={
+								search
+									? "Tente outro nome ou limpe a busca."
+									: showArchived
+										? "Pacientes arquivados aparecem aqui."
+										: "Cadastre o primeiro paciente para agendar atendimentos."
+							}
+							action={
+								!search && !showArchived ? (
+									<Button asChild size="sm">
+										<Link href="/admin/patients/new">Novo paciente</Link>
+									</Button>
+								) : null
+							}
+						/>
 					) : (
 						<ul className="divide-border divide-y">
 							{listQuery.data?.map((p) => (

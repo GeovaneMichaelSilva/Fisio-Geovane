@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { ErrorState, PageHeader } from "@/components/admin/PageStates";
 import { PatientForm } from "@/components/patients/PatientForm";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -18,6 +19,7 @@ import {
 } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { downloadPatientHistoryPdf } from "@/lib/pdf/patient-history";
 import {
 	patientToFormValues,
 	type PatientFormParsed
@@ -148,7 +150,41 @@ export default function PatientDetailPage({
 		onError: (err: Error) => toast.error(err.message)
 	});
 
+	const pdfMutation = useMutation({
+		mutationFn: async () => {
+			const res = await fetch(`/api/admin/patients/${patientId}/pdf`);
+			const json = await res.json();
+			if (!res.ok) throw new Error(json.error || "Falha ao gerar PDF.");
+			return json.data;
+		},
+		onSuccess: (data) => {
+			downloadPatientHistoryPdf(data);
+			toast.success("PDF gerado.");
+		},
+		onError: (err: Error) => toast.error(err.message)
+	});
+
 	const archived = Boolean(patientQuery.data?.archivedAt);
+
+	if (patientQuery.isError) {
+		return (
+			<div className="space-y-6">
+				<PageHeader
+					title="Paciente"
+					description="Não foi possível carregar o cadastro."
+					actions={
+						<Button asChild variant="outline">
+							<Link href="/admin/patients">Voltar</Link>
+						</Button>
+					}
+				/>
+				<ErrorState
+					message={(patientQuery.error as Error).message}
+					onRetry={() => patientQuery.refetch()}
+				/>
+			</div>
+		);
+	}
 
 	return (
 		<div className="space-y-6">
@@ -175,6 +211,14 @@ export default function PatientDetailPage({
 							</Link>
 						</Button>
 					) : null}
+					<Button
+						type="button"
+						variant="secondary"
+						disabled={pdfMutation.isPending}
+						onClick={() => pdfMutation.mutate()}
+					>
+						{pdfMutation.isPending ? "Gerando PDF…" : "Exportar PDF"}
+					</Button>
 					<Button
 						type="button"
 						variant="ghost"
@@ -236,10 +280,6 @@ export default function PatientDetailPage({
 							<Skeleton className="h-10 w-full" />
 							<Skeleton className="h-10 w-2/3" />
 						</div>
-					) : patientQuery.isError ? (
-						<p className="text-destructive text-sm" role="alert">
-							{(patientQuery.error as Error).message}
-						</p>
 					) : patientQuery.data && typesQuery.data ? (
 						<PatientForm
 							key={patientQuery.data.id}
@@ -297,18 +337,16 @@ export default function PatientDetailPage({
 							))}
 						</ul>
 					)}
-					{patientQuery.isError ? null : (
-						<div className="mt-4">
-							<Button
-								type="button"
-								variant="ghost"
-								size="sm"
-								onClick={() => router.push("/admin/agenda")}
-							>
-								Ir para agenda
-							</Button>
-						</div>
-					)}
+					<div className="mt-4">
+						<Button
+							type="button"
+							variant="ghost"
+							size="sm"
+							onClick={() => router.push("/admin/agenda")}
+						>
+							Ir para agenda
+						</Button>
+					</div>
 				</CardContent>
 			</Card>
 		</div>

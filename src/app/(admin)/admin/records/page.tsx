@@ -4,6 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 
+import { ListSkeleton } from "@/components/admin/LoadingStates";
+import {
+	EmptyState,
+	ErrorState,
+	PageHeader
+} from "@/components/admin/PageStates";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import {
@@ -14,7 +20,6 @@ import {
 	CardTitle
 } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
-import { Skeleton } from "@/components/ui/Skeleton";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { normalizeTime } from "@/lib/sessions/agenda";
 
@@ -59,12 +64,15 @@ export default function RecordsPage() {
 
 	return (
 		<div className="space-y-6">
-			<div>
-				<h1 className="text-2xl font-medium">Atendimentos</h1>
-				<p className="text-muted-foreground text-sm">
-					Sessões realizadas — busca por nome do paciente.
-				</p>
-			</div>
+			<PageHeader
+				title="Atendimentos"
+				description="Sessões realizadas — busca por nome do paciente."
+				actions={
+					<Button asChild variant="outline">
+						<Link href="/admin/agenda">Ir para agenda</Link>
+					</Button>
+				}
+			/>
 
 			<Card>
 				<CardHeader>
@@ -88,26 +96,52 @@ export default function RecordsPage() {
 							value={q}
 							onChange={(e) => setQ(e.target.value)}
 						/>
-						<Button type="submit" variant="secondary">
-							Buscar
-						</Button>
+						<div className="flex flex-wrap gap-2">
+							<Button type="submit" variant="secondary">
+								Buscar
+							</Button>
+							{search ? (
+								<Button
+									type="button"
+									variant="ghost"
+									onClick={() => {
+										setQ("");
+										setSearch("");
+									}}
+								>
+									Limpar
+								</Button>
+							) : null}
+						</div>
 					</form>
 
 					{listQuery.isLoading ? (
-						<div className="space-y-2">
-							<Skeleton className="h-14 w-full" />
-							<Skeleton className="h-14 w-full" />
-						</div>
+						<ListSkeleton />
 					) : listQuery.isError ? (
-						<p className="text-destructive text-sm" role="alert">
-							{(listQuery.error as Error).message}
-						</p>
+						<ErrorState
+							message={(listQuery.error as Error).message}
+							onRetry={() => listQuery.refetch()}
+						/>
 					) : listQuery.data?.length === 0 ? (
-						<p className="text-muted-foreground text-sm">
-							{search
-								? "Nenhum atendimento encontrado."
-								: "Nenhum atendimento realizado ainda."}
-						</p>
+						<EmptyState
+							title={
+								search
+									? "Nenhum atendimento encontrado"
+									: "Nenhum atendimento realizado"
+							}
+							description={
+								search
+									? "Tente outro nome ou limpe a busca."
+									: "Conclua uma sessão na agenda para aparecer aqui."
+							}
+							action={
+								!search ? (
+									<Button asChild size="sm">
+										<Link href="/admin/agenda">Abrir agenda</Link>
+									</Button>
+								) : null
+							}
+						/>
 					) : (
 						<ul className="divide-border divide-y">
 							{listQuery.data?.map((row) => (

@@ -7,6 +7,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { FormSkeleton } from "@/components/admin/LoadingStates";
+import { ErrorState, PageHeader } from "@/components/admin/PageStates";
 import { SettingsNav } from "@/components/admin/SettingsNav";
 import { Button } from "@/components/ui/Button";
 import {
@@ -17,7 +19,6 @@ import {
 	CardTitle
 } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
-import { Skeleton } from "@/components/ui/Skeleton";
 import { usePageTitle } from "@/hooks/usePageTitle";
 
 type Clinic = {
@@ -103,12 +104,10 @@ export default function SettingsPage() {
 	return (
 		<div className="space-y-6">
 			<div className="space-y-3">
-				<div>
-					<h1 className="text-2xl font-medium">Configurações</h1>
-					<p className="text-muted-foreground text-sm">
-						Dados da clínica usados no sistema e em exportações.
-					</p>
-				</div>
+				<PageHeader
+					title="Configurações"
+					description="Dados da clínica usados no sistema e em exportações."
+				/>
 				<SettingsNav />
 			</div>
 
@@ -121,15 +120,12 @@ export default function SettingsPage() {
 				</CardHeader>
 				<CardContent>
 					{clinicQuery.isLoading ? (
-						<div className="space-y-3">
-							<Skeleton className="h-10 w-full" />
-							<Skeleton className="h-10 w-full" />
-							<Skeleton className="h-10 w-2/3" />
-						</div>
+						<FormSkeleton />
 					) : clinicQuery.isError ? (
-						<p className="text-destructive text-sm" role="alert">
-							{(clinicQuery.error as Error).message}
-						</p>
+						<ErrorState
+							message={(clinicQuery.error as Error).message}
+							onRetry={() => clinicQuery.refetch()}
+						/>
 					) : (
 						<form
 							className="grid max-w-xl gap-4"

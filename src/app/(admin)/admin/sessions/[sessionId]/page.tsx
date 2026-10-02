@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { ErrorState } from "@/components/admin/PageStates";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import {
@@ -95,8 +96,12 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 	const clinicalRef = useRef<HTMLDivElement>(null);
 
 	const modeParam = searchParams.get("mode");
-	const [mode, setMode] = useState<"schedule" | "clinical">(
-		modeParam === "clinical" ? "clinical" : "schedule"
+	const [mode, setMode] = useState<"schedule" | "clinical" | "finance">(
+		modeParam === "clinical"
+			? "clinical"
+			: modeParam === "finance"
+				? "finance"
+				: "schedule"
 	);
 
 	const sessionQuery = useQuery({
@@ -132,6 +137,11 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 	const [assessment, setAssessment] = useState<string | null>(null);
 	const [evolution, setEvolution] = useState<string | null>(null);
 	const [activities, setActivities] = useState<string | null>(null);
+	const [paid, setPaid] = useState<boolean | null>(null);
+	const [paidAt, setPaidAt] = useState<string | null>(null);
+	const [invoiceIssued, setInvoiceIssued] = useState<boolean | null>(null);
+	const [financeReason, setFinanceReason] = useState("");
+	const [financeValue, setFinanceValue] = useState<number | null>(null);
 
 	const s = sessionQuery.data;
 	const formPatientId = patientId ?? s?.patientId ?? "";
@@ -146,11 +156,14 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 	const formAssessment = assessment ?? s?.assessment ?? "";
 	const formEvolution = evolution ?? s?.evolution ?? "";
 	const formActivities = activities ?? s?.activities ?? "";
+	const formPaid = paid ?? s?.paid ?? false;
+	const formPaidAt = paidAt ?? s?.paidAt ?? "";
+	const formInvoice = invoiceIssued ?? s?.invoiceIssued ?? false;
+	const formFinanceValue = financeValue ?? (s ? Number(s.valueBrl) : 0);
 
 	useEffect(() => {
-		if (modeParam === "clinical") {
-			setMode("clinical");
-		}
+		if (modeParam === "clinical") setMode("clinical");
+		if (modeParam === "finance") setMode("finance");
 	}, [modeParam]);
 
 	useEffect(() => {
@@ -161,11 +174,14 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 		return () => window.clearTimeout(t);
 	}, [mode, sessionQuery.isSuccess]);
 
+	function setModeUrl(next: "schedule" | "clinical" | "finance") {
+		setMode(next);
+		const qs = next === "schedule" ? "" : `?mode=${next}`;
+		router.replace(`/admin/sessions/${sessionId}${qs}`, { scroll: false });
+	}
+
 	function goClinical() {
-		setMode("clinical");
-		router.replace(`/admin/sessions/${sessionId}?mode=clinical`, {
-			scroll: false
-		});
+		setModeUrl("clinical");
 	}
 
 	const saveScheduleMutation = useMutation({
@@ -236,6 +252,7 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 			queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
 			queryClient.invalidateQueries({ queryKey: ["sessions-week"] });
 			queryClient.invalidateQueries({ queryKey: ["records"] });
+			queryClient.invalidateQueries({ queryKey: ["finance"] });
 			queryClient.invalidateQueries({ queryKey: ["patient"] });
 			toast.success(
 				complete ? "Atendimento concluído." : "Registro clínico salvo."
@@ -244,8 +261,64 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 		onError: (err: Error) => toast.error(err.message)
 	});
 
+	const saveFinanceMutation = useMutation({
+		mutationFn: async () => {
+			if (formPaid && !formPaidAt) {
+				throw new Error("Informe a data de pagamento.");
+			}
+			if (!financeReason.trim()) {
+				throw new Error("Informe o motivo da alteração financeira.");
+			}
+			const res = await fetch(`/api/admin/sessions/${sessionId}`, {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					valueBrl: formFinanceValue,
+					paid: formPaid,
+					paidAt: formPaid ? formPaidAt : null,
+					invoiceIssued: formInvoice,
+					reason: financeReason.trim()
+				})
+			});
+			const json = await res.json();
+			if (!res.ok) throw new Error(json.error || "Falha ao salvar pagamento.");
+			return json.data;
+		},
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
+			queryClient.invalidateQueries({ queryKey: ["finance"] });
+			queryClient.invalidateQueries({ queryKey: ["records"] });
+			queryClient.invalidateQueries({ queryKey: ["patient"] });
+			toast.success("Dados financeiros salvos.");
+			setFinanceReason("");
+		},
+		onError: (err: Error) => toast.error(err.message)
+	});
+
 	const canStart = s?.status === "scheduled";
 	const clinicalLocked = s?.status === "canceled" || s?.status === "no_show";
+
+	if (sessionQuery.isError) {
+		return (
+			<div className="space-y-6">
+				<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+					<div>
+						<h1 className="text-2xl font-medium">Sessão</h1>
+						<p className="text-muted-foreground text-sm">
+							Não foi possível carregar este atendimento.
+						</p>
+					</div>
+					<Button asChild variant="outline">
+						<Link href="/admin/agenda">Voltar à agenda</Link>
+					</Button>
+				</div>
+				<ErrorState
+					message={(sessionQuery.error as Error).message}
+					onRetry={() => sessionQuery.refetch()}
+				/>
+			</div>
+		);
+	}
 
 	return (
 		<div className="space-y-6">
@@ -282,6 +355,32 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 						</Button>
 					) : null}
 					{s ? (
+						<Button
+							type="button"
+							variant="secondary"
+							onClick={async () => {
+								try {
+									const res = await fetch(
+										`/api/admin/patients/${s.patientId}/pdf`
+									);
+									const json = await res.json();
+									if (!res.ok) throw new Error(json.error || "Falha no PDF.");
+									const { downloadPatientHistoryPdf } = await import(
+										"@/lib/pdf/patient-history"
+									);
+									downloadPatientHistoryPdf(json.data);
+									toast.success("PDF gerado.");
+								} catch (err) {
+									toast.error(
+										err instanceof Error ? err.message : "Falha no PDF."
+									);
+								}
+							}}
+						>
+							Exportar PDF
+						</Button>
+					) : null}
+					{s ? (
 						<Button asChild variant="ghost">
 							<Link href={`/admin/agenda?patientId=${s.patientId}`}>
 								Agendar retorno
@@ -296,10 +395,7 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 					type="button"
 					size="sm"
 					variant={mode === "schedule" ? "default" : "outline"}
-					onClick={() => {
-						setMode("schedule");
-						router.replace(`/admin/sessions/${sessionId}`, { scroll: false });
-					}}
+					onClick={() => setModeUrl("schedule")}
 				>
 					Agendamento
 				</Button>
@@ -310,6 +406,14 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 					onClick={goClinical}
 				>
 					Clínico
+				</Button>
+				<Button
+					type="button"
+					size="sm"
+					variant={mode === "finance" ? "default" : "outline"}
+					onClick={() => setModeUrl("finance")}
+				>
+					Financeiro
 				</Button>
 			</div>
 
@@ -328,10 +432,6 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 								<Skeleton className="h-10 w-full" />
 								<Skeleton className="h-10 w-full" />
 							</div>
-						) : sessionQuery.isError ? (
-							<p className="text-destructive text-sm" role="alert">
-								{(sessionQuery.error as Error).message}
-							</p>
 						) : (
 							<div className="grid gap-4 md:grid-cols-2">
 								<Label label={{ text: "Paciente", required: true }}>
@@ -468,7 +568,7 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 						)}
 					</CardContent>
 				</Card>
-			) : (
+			) : mode === "clinical" ? (
 				<>
 					<Card ref={clinicalRef} id="clinical">
 						<CardHeader>
@@ -614,6 +714,81 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 						</CardContent>
 					</Card>
 				</>
+			) : (
+				<Card>
+					<CardHeader>
+						<CardTitle>Pagamento</CardTitle>
+						<CardDescription>
+							Valor, pago, data de pagamento e flag de NFS-e. Motivo obrigatório.
+						</CardDescription>
+					</CardHeader>
+					<CardContent className="grid max-w-xl gap-4">
+						{sessionQuery.isLoading ? (
+							<Skeleton className="h-24 w-full" />
+						) : (
+							<>
+								<Input
+									label={{ text: "Valor (R$)", required: true }}
+									type="number"
+									min={0}
+									step="0.01"
+									value={formFinanceValue}
+									onChange={(e) => setFinanceValue(Number(e.target.value))}
+								/>
+								<label className="flex items-center gap-2 text-sm">
+									<input
+										type="checkbox"
+										className="border-input size-4 rounded"
+										checked={formPaid}
+										onChange={(e) => {
+											setPaid(e.target.checked);
+											if (e.target.checked && !formPaidAt) {
+												setPaidAt(new Date().toISOString().slice(0, 10));
+											}
+										}}
+									/>
+									Pago
+								</label>
+								{formPaid ? (
+									<Input
+										label={{ text: "Data do pagamento", required: true }}
+										type="date"
+										value={formPaidAt}
+										onChange={(e) => setPaidAt(e.target.value)}
+									/>
+								) : null}
+								<label className="flex items-center gap-2 text-sm">
+									<input
+										type="checkbox"
+										className="border-input size-4 rounded"
+										checked={formInvoice}
+										onChange={(e) => setInvoiceIssued(e.target.checked)}
+									/>
+									NFS-e emitida
+								</label>
+								<Textarea
+									label={{ text: "Motivo da alteração", required: true }}
+									rows={2}
+									value={financeReason}
+									onChange={(e) => setFinanceReason(e.target.value)}
+								/>
+								<div>
+									<Button
+										type="button"
+										disabled={
+											saveFinanceMutation.isPending || !financeReason.trim()
+										}
+										onClick={() => saveFinanceMutation.mutate()}
+									>
+										{saveFinanceMutation.isPending
+											? "Salvando…"
+											: "Salvar pagamento"}
+									</Button>
+								</div>
+							</>
+						)}
+					</CardContent>
+				</Card>
 			)}
 
 			<Card>
