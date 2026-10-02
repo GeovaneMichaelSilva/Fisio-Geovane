@@ -35,7 +35,7 @@ Nada bloqueante de produto. Na hora de implementar:
 | Tema | Decisão |
 |---|---|
 | Marca | Geovane Michael da Silva · Crefito 549225-F |
-| Domínios | `app.fisiogeovane.com.br` = app; root = “Em breve” |
+| Domínios | Um host: `www.fisiogeovane.com.br` (`/` Em breve; `/admin` app) |
 | Owner | `fisiogeoms@gmail.com` |
 | Auth | NextAuth · Neon · e-mail/senha · Resend recovery |
 | Multi-user | Capacidade no schema; sem secretária agora |

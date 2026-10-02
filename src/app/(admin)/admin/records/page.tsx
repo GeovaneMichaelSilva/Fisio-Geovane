@@ -1,14 +1,12 @@
-﻿import { PlaceholderPage } from "@/components/admin/PlaceholderPage";
+﻿"use client";
 
-export const metadata = {
-	title: "Atendimentos realizados"
-};
+import { PlaceholderPage } from "@/components/admin/PlaceholderPage";
 
 export default function Page() {
 	return (
 		<PlaceholderPage
-			title="Atendimentos realizados"
-			description="Histórico clínico e buscas."
+			title="Atendimentos"
+			description="Histórico de avaliações, evoluções e atividades."
 		/>
 	);
 }

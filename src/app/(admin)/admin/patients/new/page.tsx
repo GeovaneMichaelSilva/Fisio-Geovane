@@ -1,8 +1,6 @@
-﻿import { PlaceholderPage } from "@/components/admin/PlaceholderPage";
+﻿"use client";
 
-export const metadata = {
-	title: "Novo paciente"
-};
+import { PlaceholderPage } from "@/components/admin/PlaceholderPage";
 
 export default function Page() {
 	return (

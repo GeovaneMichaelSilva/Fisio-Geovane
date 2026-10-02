@@ -1,14 +1,12 @@
-﻿import { PlaceholderPage } from "@/components/admin/PlaceholderPage";
+﻿"use client";
 
-export const metadata = {
-	title: "Financeiro"
-};
+import { PlaceholderPage } from "@/components/admin/PlaceholderPage";
 
 export default function Page() {
 	return (
 		<PlaceholderPage
 			title="Financeiro"
-			description="Recebimentos, pendências e NFS-e."
+			description="Recebimentos, pendências e notas."
 		/>
 	);
 }

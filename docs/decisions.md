@@ -8,7 +8,7 @@ Atualizado com as respostas do product owner (2026-10-02, complementos A–E).
 
 | # | Tema | Decisão |
 |---|---|---|
-| 1 | Branding | Híbrido: produto `fisio-geovane` / domínio `fisiogeovane.com.br`; marca **Geovane Michael da Silva**. App: `app.fisiogeovane.com.br`. Root: página **“Em breve”**. |
+| 1 | Branding | Híbrido: produto `fisio-geovane` / domínio `fisiogeovane.com.br`; marca **Geovane Michael da Silva**. Um único host na Vercel: `www.fisiogeovane.com.br` (`/` = “Em breve”; `/login` e `/admin` = app). |
 | 2 | Crefito | **549225-F** |
 | 3 | Tipos de atendimento | Cadastro editável; seed inicial só os 3 do protótipo (novos tipos via UI depois) |
 | 4 | Duração padrão | **50 min** |
@@ -90,7 +90,7 @@ MVP opera como single-user (só o owner).
 
 - 1 usuário efetivo: `fisiogeoms@gmail.com`
 - Schema com `clinic_members` + roles (sem telas de gestão de equipe)
-- Root domain = “Em breve”; app em `app.`
+- Root domain = “Em breve”; app no mesmo host (`/login`, `/admin`)
 - Resend para recovery
 - Tipos: só seed dos 3; cadastro permite adicionar depois
 

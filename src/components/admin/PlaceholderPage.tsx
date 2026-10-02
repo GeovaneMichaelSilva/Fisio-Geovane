@@ -1,3 +1,5 @@
+"use client";
+
 import {
 	Card,
 	CardContent,
@@ -5,6 +7,7 @@ import {
 	CardHeader,
 	CardTitle
 } from "@/components/ui/Card";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 type PlaceholderPageProps = {
 	title: string;
@@ -17,6 +20,8 @@ export function PlaceholderPage({
 	description,
 	soon = false
 }: PlaceholderPageProps) {
+	usePageTitle(title);
+
 	return (
 		<div className="space-y-4">
 			<div>

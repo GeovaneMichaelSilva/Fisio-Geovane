@@ -12,7 +12,7 @@
 | DB | **Neon PostgreSQL** via Drizzle ORM |
 | E-mail | Resend (recuperação de senha) |
 | Hosting | Vercel |
-| Domínio | `app.fisiogeovane.com.br` (app); root “em breve” |
+| Domínio | `www.fisiogeovane.com.br` (único host: `/` “em breve” + `/admin`) |
 | Ambientes | **local + prod** |
 
 ```text
@@ -40,18 +40,34 @@ Autorização na application layer (sem RLS auth.uid()).
 
 ---
 
+## Admin client-first (SPA-like)
+
+```text
+[DECISÃO — 2026-10-02]
+/admin é client-first, estilo React SPA:
+- layout: server só para sessão → AdminShell (client)
+- pages sob /admin: "use client"
+- dados: TanStack Query (quando houver APIs)
+- título: usePageTitle (client)
+- público (/) e auth pages: podem permanecer leves / server
+```
+
+---
+
 ## Estrutura relevante
 
 ```text
 src/
-  auth.ts                 # NextAuth config
-  middleware.ts           # gate /admin
+  auth.ts
+  middleware.ts
+  hooks/usePageTitle.ts
+  app/(admin)/admin/
+    layout.tsx          # server gate
+    AdminShell.tsx      # client shell
+    **/page.tsx         # client pages
   db/
-    index.ts              # drizzle + neon-http
-    schema.ts
   lib/auth/password-reset.ts
-  app/api/auth/...
-drizzle/                  # SQL de referência / migrations
+drizzle/
 scripts/seed.ts
 ```
 

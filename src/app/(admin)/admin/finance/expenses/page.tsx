@@ -1,14 +1,12 @@
-﻿import { PlaceholderPage } from "@/components/admin/PlaceholderPage";
+﻿"use client";
 
-export const metadata = {
-	title: "Despesas"
-};
+import { PlaceholderPage } from "@/components/admin/PlaceholderPage";
 
 export default function Page() {
 	return (
 		<PlaceholderPage
 			title="Despesas"
-			description="Controle de despesas e caixa."
+			description="Controle de despesas da clínica."
 			soon
 		/>
 	);

@@ -8,7 +8,7 @@ Sistema de gestão de atendimentos — **Geovane Michael da Silva**.
 - Tailwind CSS 4 + componentes no padrão do Hub
 - **NextAuth (Auth.js v5)** + **Neon PostgreSQL** (Drizzle)
 - TanStack Query · React Hook Form · Zod · Resend
-- Deploy: Vercel (`app.fisiogeovane.com.br`)
+- Deploy: Vercel (`www.fisiogeovane.com.br`)
 
 ## Começar
 

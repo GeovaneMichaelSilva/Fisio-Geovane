@@ -1,14 +1,12 @@
-﻿import { PlaceholderPage } from "@/components/admin/PlaceholderPage";
+﻿"use client";
 
-export const metadata = {
-	title: "Integrações"
-};
+import { PlaceholderPage } from "@/components/admin/PlaceholderPage";
 
 export default function Page() {
 	return (
 		<PlaceholderPage
 			title="Integrações"
-			description="Google Agenda e outras conexões."
+			description="Google Agenda e outras integrações."
 			soon
 		/>
 	);

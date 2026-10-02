@@ -4,7 +4,7 @@ Alinhado a [`decisions.md`](./decisions.md) (respostas 2026-10-02).
 
 ---
 
-## MVP — primeira versão real (`/admin` em `app.fisiogeovane.com.br`)
+## MVP — primeira versão real (`/admin` em `www.fisiogeovane.com.br`)
 
 1. **NextAuth** — e-mail/senha + recuperação via Resend
 2. **Pacientes** — CRUD + busca + **arquivar**
@@ -21,7 +21,7 @@ Alinhado a [`decisions.md`](./decisions.md) (respostas 2026-10-02).
 13. **Placeholder Integrações** — Google Agenda “Em breve” (alta prioridade pós-MVP)
 14. **Empty/loading/error** básicos
 15. **Schema Neon + Drizzle** — roles `owner`/`staff` no modelo; **MVP single-user** (sem UI de equipe); authz na app
-16. **`/` (fisiogeovane.com.br)** — página “Em breve”
+16. **`/`** — página “Em breve” (mesmo host)
 17. **Password recovery** — Resend · from `nao-responda@fisiogeovane.com.br`
 
 ### Critério de pronto

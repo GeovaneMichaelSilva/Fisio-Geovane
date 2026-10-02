@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 
 import { Button } from "@/components/ui/Button";
@@ -8,6 +10,7 @@ import {
 	CardHeader,
 	CardTitle
 } from "@/components/ui/Card";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 const tiles = [
 	{
@@ -32,11 +35,9 @@ const tiles = [
 	}
 ];
 
-export const metadata = {
-	title: "Início"
-};
-
 export default function AdminHomePage() {
+	usePageTitle("Início");
+
 	return (
 		<div className="space-y-6">
 			<div>
