@@ -140,6 +140,7 @@ export default function SettingsPage() {
 							/>
 							<Input
 								label={{ text: "Profissão", required: true }}
+								helperText="Aparece no cabeçalho do PDF (ex.: Fisioterapeuta)."
 								error={form.formState.errors.professionLabel?.message}
 								{...form.register("professionLabel")}
 							/>

@@ -113,10 +113,14 @@ export default function AdminHomePage() {
 				description="Resumo do dia e atalhos para as áreas principais."
 				actions={
 					<>
-						<Button asChild>
+						<Button asChild className="min-h-11 w-full sm:min-h-10 sm:w-auto">
 							<Link href="/admin/agenda">Abrir agenda</Link>
 						</Button>
-						<Button asChild variant="secondary">
+						<Button
+							asChild
+							variant="secondary"
+							className="min-h-11 w-full sm:min-h-10 sm:w-auto"
+						>
 							<Link href="/admin/patients/new">Novo paciente</Link>
 						</Button>
 					</>
@@ -245,20 +249,18 @@ export default function AdminHomePage() {
 
 			<div className="grid gap-4 sm:grid-cols-2">
 				{tiles.map((tile) => (
-					<Card
+					<Link
 						key={tile.href}
-						className="hover:border-brand transition-colors"
+						href={tile.href}
+						className="focus-visible:ring-ring/70 rounded-xl focus-visible:ring-[3px] focus-visible:outline-hidden"
 					>
-						<CardHeader>
-							<CardTitle>{tile.title}</CardTitle>
-							<CardDescription>{tile.description}</CardDescription>
-						</CardHeader>
-						<CardContent>
-							<Button asChild variant="secondary">
-								<Link href={tile.href}>Abrir</Link>
-							</Button>
-						</CardContent>
-					</Card>
+						<Card className="hover:border-brand h-full transition-colors">
+							<CardHeader>
+								<CardTitle>{tile.title}</CardTitle>
+								<CardDescription>{tile.description}</CardDescription>
+							</CardHeader>
+						</Card>
+					</Link>
 				))}
 			</div>
 		</div>

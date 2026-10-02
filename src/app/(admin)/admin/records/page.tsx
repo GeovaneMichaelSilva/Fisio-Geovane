@@ -20,6 +20,7 @@ import {
 	CardTitle
 } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { useDebounce } from "@/hooks/useDebounce";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { normalizeTime } from "@/lib/sessions/agenda";
 
@@ -38,7 +39,8 @@ type RecordItem = {
 
 async function fetchRecords(q: string) {
 	const params = new URLSearchParams({ status: "completed" });
-	if (q) params.set("q", q);
+	const term = q.trim();
+	if (term) params.set("q", term);
 	const res = await fetch(`/api/admin/sessions?${params}`);
 	const json = await res.json();
 	if (!res.ok) throw new Error(json.error || "Falha ao listar atendimentos.");
@@ -55,7 +57,7 @@ function formatBrl(value: string) {
 export default function RecordsPage() {
 	usePageTitle("Atendimentos");
 	const [q, setQ] = useState("");
-	const [search, setSearch] = useState("");
+	const search = useDebounce(q, 300).trim();
 
 	const listQuery = useQuery({
 		queryKey: ["records", search],
@@ -66,7 +68,7 @@ export default function RecordsPage() {
 		<div className="space-y-6">
 			<PageHeader
 				title="Atendimentos"
-				description="Sessões realizadas — busca por nome do paciente."
+				description="Sessões realizadas — a busca roda ao digitar."
 				actions={
 					<Button asChild variant="outline">
 						<Link href="/admin/agenda">Ir para agenda</Link>
@@ -82,38 +84,13 @@ export default function RecordsPage() {
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="space-y-4">
-					<form
-						className="flex flex-col gap-3 sm:flex-row sm:items-end"
-						onSubmit={(e) => {
-							e.preventDefault();
-							setSearch(q.trim());
-						}}
-					>
-						<Input
-							className="sm:flex-1"
-							label={{ text: "Buscar paciente" }}
-							placeholder="Nome"
-							value={q}
-							onChange={(e) => setQ(e.target.value)}
-						/>
-						<div className="flex flex-wrap gap-2">
-							<Button type="submit" variant="secondary">
-								Buscar
-							</Button>
-							{search ? (
-								<Button
-									type="button"
-									variant="ghost"
-									onClick={() => {
-										setQ("");
-										setSearch("");
-									}}
-								>
-									Limpar
-								</Button>
-							) : null}
-						</div>
-					</form>
+					<Input
+						label={{ text: "Buscar paciente" }}
+						placeholder="Nome"
+						value={q}
+						onChange={(e) => setQ(e.target.value)}
+						autoComplete="off"
+					/>
 
 					{listQuery.isLoading ? (
 						<ListSkeleton />
@@ -131,7 +108,7 @@ export default function RecordsPage() {
 							}
 							description={
 								search
-									? "Tente outro nome ou limpe a busca."
+									? "Tente outro nome."
 									: "Conclua uma sessão na agenda para aparecer aqui."
 							}
 							action={

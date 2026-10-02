@@ -1,0 +1,16 @@
+{
+  "autorun": true,
+  "autokill": true,
+  "terminals": [
+    {
+      "name": "Fisio",
+      "icon": "code",
+      "color": "terminal.ansiGreen"
+    },
+    {
+      "name": "Fisio - GIT",
+      "icon": "mark-github",
+      "color": "terminal.ansiGreen"
+    }
+  ]
+}

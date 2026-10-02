@@ -6,7 +6,19 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { OverlapConfirmDialog } from "@/components/admin/OverlapConfirmDialog";
 import { ErrorState } from "@/components/admin/PageStates";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	AlertDialogTrigger
+} from "@/components/ui/AlertDialog";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import {
@@ -17,7 +29,7 @@ import {
 	CardTitle
 } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
-import { Label } from "@/components/ui/Label";
+import { Select } from "@/components/ui/Select";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Textarea } from "@/components/ui/Textarea";
 import { usePageTitle } from "@/hooks/usePageTitle";
@@ -390,18 +402,20 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 				</div>
 			</div>
 
-			<div className="flex flex-wrap gap-2">
+			<div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
 				<Button
 					type="button"
 					size="sm"
+					className="min-h-11 sm:min-h-9"
 					variant={mode === "schedule" ? "default" : "outline"}
 					onClick={() => setModeUrl("schedule")}
 				>
-					Agendamento
+					Agenda
 				</Button>
 				<Button
 					type="button"
 					size="sm"
+					className="min-h-11 sm:min-h-9"
 					variant={mode === "clinical" ? "default" : "outline"}
 					onClick={goClinical}
 				>
@@ -410,6 +424,7 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 				<Button
 					type="button"
 					size="sm"
+					className="min-h-11 sm:min-h-9"
 					variant={mode === "finance" ? "default" : "outline"}
 					onClick={() => setModeUrl("finance")}
 				>
@@ -433,46 +448,38 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 								<Skeleton className="h-10 w-full" />
 							</div>
 						) : (
-							<div className="grid gap-4 md:grid-cols-2">
-								<Label label={{ text: "Paciente", required: true }}>
-									<select
-										className="border-input bg-background flex h-10 w-full rounded-md border px-3 text-sm"
-										value={formPatientId}
-										onChange={(e) => setPatientId(e.target.value)}
-									>
-										{(
-											patientsQuery.data ?? [
-												{ id: formPatientId, fullName: s!.patientName }
-											]
-										).map((p) => (
-											<option key={p.id} value={p.id}>
-												{p.fullName}
-											</option>
-										))}
-									</select>
-								</Label>
-								<Label label={{ text: "Tipo", required: true }}>
-									<select
-										className="border-input bg-background flex h-10 w-full rounded-md border px-3 text-sm"
-										value={formServiceTypeId}
-										onChange={(e) => {
-											setServiceTypeId(e.target.value);
-											const t = typesQuery.data?.find(
-												(x) => x.id === e.target.value
-											);
-											if (t) {
-												setDurationMinutes(t.defaultDurationMinutes);
-												setValueBrl(Number(t.defaultValueBrl));
-											}
-										}}
-									>
-										{(typesQuery.data ?? []).map((t) => (
-											<option key={t.id} value={t.id}>
-												{t.name}
-											</option>
-										))}
-									</select>
-								</Label>
+							<div className="grid gap-4 sm:grid-cols-2">
+								<Select
+									label={{ text: "Paciente", required: true }}
+									value={formPatientId}
+									onChange={(e) => setPatientId(e.target.value)}
+									options={(
+										patientsQuery.data ?? [
+											{ id: formPatientId, fullName: s!.patientName }
+										]
+									).map((p) => ({
+										value: p.id,
+										label: p.fullName
+									}))}
+								/>
+								<Select
+									label={{ text: "Tipo", required: true }}
+									value={formServiceTypeId}
+									onChange={(e) => {
+										setServiceTypeId(e.target.value);
+										const t = typesQuery.data?.find(
+											(x) => x.id === e.target.value
+										);
+										if (t) {
+											setDurationMinutes(t.defaultDurationMinutes);
+											setValueBrl(Number(t.defaultValueBrl));
+										}
+									}}
+									options={(typesQuery.data ?? []).map((t) => ({
+										value: t.id,
+										label: t.name
+									}))}
+								/>
 								<Input
 									label={{ text: "Data", required: true }}
 									type="date"
@@ -488,6 +495,7 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 								<Input
 									label={{ text: "Duração (min)", required: true }}
 									type="number"
+									inputMode="numeric"
 									min={5}
 									max={480}
 									value={formDuration}
@@ -496,28 +504,30 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 								<Input
 									label={{ text: "Valor (R$)", required: true }}
 									type="number"
+									inputMode="decimal"
 									min={0}
 									step="0.01"
 									value={formValue}
 									onChange={(e) => setValueBrl(Number(e.target.value))}
 								/>
-								<Label label={{ text: "Status", required: true }}>
-									<select
-										className="border-input bg-background flex h-10 w-full rounded-md border px-3 text-sm"
-										value={formStatus}
-										onChange={(e) =>
-											setStatus(e.target.value as SessionDetail["status"])
+								<Select
+									label={{ text: "Status", required: true }}
+									value={formStatus}
+									onChange={(e) =>
+										setStatus(e.target.value as SessionDetail["status"])
+									}
+									options={[
+										{ value: "scheduled", label: "Agendado" },
+										{ value: "canceled", label: "Cancelado" },
+										{ value: "no_show", label: "Faltou" },
+										{
+											value: "completed",
+											label: "Realizado (via clínico)",
+											disabled: formStatus !== "completed"
 										}
-									>
-										<option value="scheduled">Agendado</option>
-										<option value="canceled">Cancelado</option>
-										<option value="no_show">Faltou</option>
-										<option value="completed" disabled>
-											Realizado (via clínico)
-										</option>
-									</select>
-								</Label>
-								<div className="md:col-span-2">
+									]}
+								/>
+								<div className="sm:col-span-2">
 									<Textarea
 										label={{ text: "Motivo da edição", required: true }}
 										rows={2}
@@ -526,43 +536,19 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 									/>
 								</div>
 
-								{pendingOverlap ? (
-									<div className="md:col-span-2 space-y-3 rounded-md border border-amber-300 bg-amber-50 p-3">
-										<p className="text-sm font-medium text-amber-900">
-											Sobreposição detectada. Informe o motivo do override.
-										</p>
-										<Input
-											label={{ text: "Motivo do override", required: true }}
-											value={overlapReason}
-											onChange={(e) => setOverlapReason(e.target.value)}
-										/>
-										<Button
-											type="button"
-											disabled={
-												saveScheduleMutation.isPending ||
-												!overlapReason.trim()
-											}
-											onClick={() => saveScheduleMutation.mutate(true)}
-										>
-											Salvar mesmo assim
-										</Button>
-									</div>
-								) : null}
-
-								<div className="flex flex-wrap gap-2 md:col-span-2">
-									{!pendingOverlap ? (
-										<Button
-											type="button"
-											disabled={
-												saveScheduleMutation.isPending || !reason.trim()
-											}
-											onClick={() => saveScheduleMutation.mutate(false)}
-										>
-											{saveScheduleMutation.isPending
-												? "Salvando…"
-												: "Salvar"}
-										</Button>
-									) : null}
+								<div className="bg-background/95 sticky bottom-16 z-10 -mx-4 flex flex-wrap gap-2 border-t px-4 py-3 sm:static sm:bottom-0 sm:col-span-2 sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 md:bottom-0">
+									<Button
+										type="button"
+										className="min-h-11 flex-1 sm:min-h-10 sm:flex-none"
+										disabled={
+											saveScheduleMutation.isPending || !reason.trim()
+										}
+										onClick={() => saveScheduleMutation.mutate(false)}
+									>
+										{saveScheduleMutation.isPending
+											? "Salvando…"
+											: "Salvar"}
+									</Button>
 								</div>
 							</div>
 						)}
@@ -613,31 +599,52 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 											bloqueado.
 										</p>
 									) : (
-										<div className="flex flex-wrap gap-2">
+										<div className="bg-background/95 sticky bottom-16 z-10 -mx-4 flex flex-wrap gap-2 border-t px-4 py-3 sm:static sm:bottom-0 sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">
 											<Button
 												type="button"
 												variant="secondary"
+												className="min-h-11 flex-1 sm:min-h-10 sm:flex-none"
 												disabled={saveClinicalMutation.isPending}
 												onClick={() => saveClinicalMutation.mutate(false)}
 											>
 												Salvar rascunho
 											</Button>
 											{s?.status !== "completed" ? (
-												<Button
-													type="button"
-													disabled={
-														saveClinicalMutation.isPending ||
-														!formEvolution.trim()
-													}
-													onClick={() => {
-														const ok = window.confirm(
-															"Concluir atendimento? Status passará para Realizado."
-														);
-														if (ok) saveClinicalMutation.mutate(true);
-													}}
-												>
-													Concluir atendimento
-												</Button>
+												<AlertDialog>
+													<AlertDialogTrigger asChild>
+														<Button
+															type="button"
+															className="min-h-11 flex-1 sm:min-h-10 sm:flex-none"
+															disabled={
+																saveClinicalMutation.isPending ||
+																!formEvolution.trim()
+															}
+														>
+															Concluir atendimento
+														</Button>
+													</AlertDialogTrigger>
+													<AlertDialogContent>
+														<AlertDialogHeader>
+															<AlertDialogTitle>
+																Concluir atendimento?
+															</AlertDialogTitle>
+															<AlertDialogDescription>
+																O status passará para Realizado. A evolução
+																já preenchida será salva.
+															</AlertDialogDescription>
+														</AlertDialogHeader>
+														<AlertDialogFooter>
+															<AlertDialogCancel>Cancelar</AlertDialogCancel>
+															<AlertDialogAction
+																onClick={() =>
+																	saveClinicalMutation.mutate(true)
+																}
+															>
+																Concluir
+															</AlertDialogAction>
+														</AlertDialogFooter>
+													</AlertDialogContent>
+												</AlertDialog>
 											) : (
 												<Button
 													type="button"
@@ -815,6 +822,18 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 					)}
 				</CardContent>
 			</Card>
+
+			<OverlapConfirmDialog
+				open={pendingOverlap}
+				reason={overlapReason}
+				pending={saveScheduleMutation.isPending}
+				onReasonChange={setOverlapReason}
+				onConfirm={() => saveScheduleMutation.mutate(true)}
+				onCancel={() => {
+					setPendingOverlap(false);
+					setOverlapReason("");
+				}}
+			/>
 		</div>
 	);
 }

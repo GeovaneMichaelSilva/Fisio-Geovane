@@ -8,6 +8,17 @@ import { toast } from "sonner";
 
 import { ErrorState, PageHeader } from "@/components/admin/PageStates";
 import { PatientForm } from "@/components/patients/PatientForm";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	AlertDialogTrigger
+} from "@/components/ui/AlertDialog";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import {
@@ -219,23 +230,38 @@ export default function PatientDetailPage({
 					>
 						{pdfMutation.isPending ? "Gerando PDF…" : "Exportar PDF"}
 					</Button>
-					<Button
-						type="button"
-						variant="ghost"
-						color="destructive"
-						disabled={archiveMutation.isPending}
-						onClick={() => {
-							const next = !archived;
-							const ok = window.confirm(
-								next
-									? "Arquivar este paciente? Ele sairá da lista ativa."
-									: "Restaurar este paciente para a lista ativa?"
-							);
-							if (ok) archiveMutation.mutate(next);
-						}}
-					>
-						{archived ? "Restaurar" : "Arquivar"}
-					</Button>
+					<AlertDialog>
+						<AlertDialogTrigger asChild>
+							<Button
+								type="button"
+								variant="ghost"
+								color="destructive"
+								disabled={archiveMutation.isPending}
+							>
+								{archived ? "Restaurar" : "Arquivar"}
+							</Button>
+						</AlertDialogTrigger>
+						<AlertDialogContent>
+							<AlertDialogHeader>
+								<AlertDialogTitle>
+									{archived ? "Restaurar paciente?" : "Arquivar paciente?"}
+								</AlertDialogTitle>
+								<AlertDialogDescription>
+									{archived
+										? "O paciente voltará para a lista ativa e poderá ser agendado."
+										: "Ele sairá da lista ativa e não poderá ser agendado até ser restaurado."}
+								</AlertDialogDescription>
+							</AlertDialogHeader>
+							<AlertDialogFooter>
+								<AlertDialogCancel>Cancelar</AlertDialogCancel>
+								<AlertDialogAction
+									onClick={() => archiveMutation.mutate(!archived)}
+								>
+									{archived ? "Restaurar" : "Arquivar"}
+								</AlertDialogAction>
+							</AlertDialogFooter>
+						</AlertDialogContent>
+					</AlertDialog>
 				</div>
 			</div>
 

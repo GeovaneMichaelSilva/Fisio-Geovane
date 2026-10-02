@@ -20,6 +20,7 @@ import {
 	CardTitle
 } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { useDebounce } from "@/hooks/useDebounce";
 import { usePageTitle } from "@/hooks/usePageTitle";
 
 type PatientListItem = {
@@ -32,7 +33,8 @@ type PatientListItem = {
 
 async function fetchPatients(q: string, archived: boolean) {
 	const params = new URLSearchParams();
-	if (q) params.set("q", q);
+	const term = q.trim();
+	if (term) params.set("q", term);
 	if (archived) params.set("archived", "1");
 	const res = await fetch(`/api/admin/patients?${params}`);
 	const json = await res.json();
@@ -43,7 +45,7 @@ async function fetchPatients(q: string, archived: boolean) {
 export default function PatientsPage() {
 	usePageTitle("Pacientes");
 	const [q, setQ] = useState("");
-	const [search, setSearch] = useState("");
+	const search = useDebounce(q, 300).trim();
 	const [showArchived, setShowArchived] = useState(false);
 
 	const listQuery = useQuery({
@@ -57,7 +59,7 @@ export default function PatientsPage() {
 				title="Pacientes"
 				description="Cadastro, busca e arquivamento."
 				actions={
-					<Button asChild>
+					<Button asChild className="min-h-11 w-full sm:min-h-10 sm:w-auto">
 						<Link href="/admin/patients/new">Novo paciente</Link>
 					</Button>
 				}
@@ -67,49 +69,28 @@ export default function PatientsPage() {
 				<CardHeader>
 					<CardTitle>Lista</CardTitle>
 					<CardDescription>
-						Busque por nome. Arquivados ficam fora da agenda.
+						A busca roda automaticamente ao digitar. Arquivados ficam fora da
+						agenda.
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="space-y-4">
-					<form
-						className="flex flex-col gap-3 sm:flex-row sm:items-end"
-						onSubmit={(e) => {
-							e.preventDefault();
-							setSearch(q.trim());
-						}}
-					>
+					<div className="flex flex-col gap-3 sm:flex-row sm:items-end">
 						<Input
 							className="sm:flex-1"
 							label={{ text: "Buscar" }}
 							placeholder="Nome do paciente"
 							value={q}
 							onChange={(e) => setQ(e.target.value)}
+							autoComplete="off"
 						/>
-						<div className="flex flex-wrap gap-2">
-							<Button type="submit" variant="secondary">
-								Buscar
-							</Button>
-							{search ? (
-								<Button
-									type="button"
-									variant="ghost"
-									onClick={() => {
-										setQ("");
-										setSearch("");
-									}}
-								>
-									Limpar
-								</Button>
-							) : null}
-							<Button
-								type="button"
-								variant={showArchived ? "default" : "outline"}
-								onClick={() => setShowArchived((v) => !v)}
-							>
-								{showArchived ? "Ver ativos" : "Ver arquivados"}
-							</Button>
-						</div>
-					</form>
+						<Button
+							type="button"
+							variant={showArchived ? "default" : "outline"}
+							onClick={() => setShowArchived((v) => !v)}
+						>
+							{showArchived ? "Ver ativos" : "Ver arquivados"}
+						</Button>
+					</div>
 
 					{listQuery.isLoading ? (
 						<ListSkeleton />
@@ -129,7 +110,7 @@ export default function PatientsPage() {
 							}
 							description={
 								search
-									? "Tente outro nome ou limpe a busca."
+									? "Tente outro nome."
 									: showArchived
 										? "Pacientes arquivados aparecem aqui."
 										: "Cadastre o primeiro paciente para agendar atendimentos."
@@ -147,7 +128,7 @@ export default function PatientsPage() {
 							{listQuery.data?.map((p) => (
 								<li
 									key={p.id}
-									className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"
+									className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between"
 								>
 									<div className="min-w-0 space-y-1">
 										<div className="flex flex-wrap items-center gap-2">
@@ -161,12 +142,22 @@ export default function PatientsPage() {
 											{p.phone ? ` · ${p.phone}` : ""}
 										</p>
 									</div>
-									<div className="flex flex-wrap gap-2">
-										<Button asChild variant="outline" size="sm">
+									<div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+										<Button
+											asChild
+											variant="outline"
+											size="sm"
+											className="min-h-11 sm:min-h-9"
+										>
 											<Link href={`/admin/patients/${p.id}`}>Abrir</Link>
 										</Button>
 										{!p.archivedAt ? (
-											<Button asChild variant="ghost" size="sm">
+											<Button
+												asChild
+												variant="ghost"
+												size="sm"
+												className="min-h-11 sm:min-h-9"
+											>
 												<Link href={`/admin/agenda?patientId=${p.id}`}>
 													Agendar
 												</Link>

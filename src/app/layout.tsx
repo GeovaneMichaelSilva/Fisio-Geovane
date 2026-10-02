@@ -2,7 +2,7 @@ import { Montserrat } from "next/font/google";
 
 import { Providers } from "@/providers/Providers";
 
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 
 import "@/styles/styles.css";
 
@@ -18,6 +18,13 @@ export const metadata: Metadata = {
 		template: "%s · Fisio Geovane"
 	},
 	description: "Gestão de atendimentos — Geovane Michael da Silva"
+};
+
+export const viewport: Viewport = {
+	width: "device-width",
+	initialScale: 1,
+	viewportFit: "cover",
+	themeColor: "#1f4d3a"
 };
 
 export default function RootLayout({

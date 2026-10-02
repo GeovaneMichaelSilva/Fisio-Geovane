@@ -6,18 +6,20 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { OverlapConfirmDialog } from "@/components/admin/OverlapConfirmDialog";
 import { EmptyState, ErrorState, PageHeader } from "@/components/admin/PageStates";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle
-} from "@/components/ui/Card";
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle
+} from "@/components/ui/Dialog";
 import { Input } from "@/components/ui/Input";
-import { Label } from "@/components/ui/Label";
+import { Select } from "@/components/ui/Select";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import {
@@ -97,6 +99,31 @@ function statusVariant(status: string) {
 	return "outline" as const;
 }
 
+function SessionCard({ s }: { s: AgendaSession }) {
+	return (
+		<div className="border-border hover:border-brand rounded-md border-l-brand border border-l-4 bg-white p-3 shadow-xs transition-colors">
+			<Link href={`/admin/sessions/${s.id}`} className="block">
+				<p className="text-xs font-medium">
+					{normalizeTime(String(s.scheduledTime)).slice(0, 5)} ·{" "}
+					{s.durationMinutes}min
+				</p>
+				<p className="truncate text-sm font-medium">{s.patientName}</p>
+				<p className="text-muted-foreground truncate text-xs">
+					{s.serviceTypeName}
+				</p>
+				<Badge variant={statusVariant(s.status)} className="mt-1">
+					{STATUS_LABEL[s.status] ?? s.status}
+				</Badge>
+			</Link>
+			{s.status === "scheduled" ? (
+				<Button asChild size="sm" className="mt-2 min-h-11 w-full sm:min-h-9">
+					<Link href={`/admin/sessions/${s.id}?mode=clinical`}>INICIAR</Link>
+				</Button>
+			) : null}
+		</div>
+	);
+}
+
 export default function AgendaClient() {
 	usePageTitle("Agenda");
 	const router = useRouter();
@@ -165,6 +192,9 @@ export default function AgendaClient() {
 		return map;
 	}, [days, weekQuery.data]);
 
+	const mobileDaySessions = sessionsByDay.get(selectedDay) ?? [];
+	const todayStr = toDateString(new Date());
+
 	function applyServiceType(typeId: string) {
 		setServiceTypeId(typeId);
 		const t = typesQuery.data?.find((x) => x.id === typeId);
@@ -186,6 +216,12 @@ export default function AgendaClient() {
 		if (!durationMinutes && clinicQuery.data) {
 			setDurationMinutes(clinicQuery.data.defaultSessionDurationMinutes);
 		}
+	}
+
+	function closeComposer() {
+		setComposerOpen(false);
+		setPendingOverlap(false);
+		setOverlapReason("");
 	}
 
 	function onPatientChange(id: string) {
@@ -227,15 +263,15 @@ export default function AgendaClient() {
 			}
 			queryClient.invalidateQueries({ queryKey: ["sessions-week"] });
 			toast.success("Agendamento criado.");
-			setComposerOpen(false);
-			setPendingOverlap(false);
-			setOverlapReason("");
+			closeComposer();
 			router.push(`/admin/sessions/${result.data.id}`);
 		},
 		onError: (err: Error) => toast.error(err.message)
 	});
 
-	const todayStr = toDateString(new Date());
+	const canSave =
+		Boolean(patientId && serviceTypeId && selectedDay && scheduledTime) &&
+		!createMutation.isPending;
 
 	return (
 		<div className="space-y-6">
@@ -244,195 +280,176 @@ export default function AgendaClient() {
 				description={`Semana ${formatWeekLabel(monday)}`}
 				actions={
 					<>
+						<div className="flex flex-wrap gap-2">
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								className="min-h-11 sm:min-h-9"
+								onClick={() => setWeekAnchor(addDays(monday, -7))}
+							>
+								Anterior
+							</Button>
+							<Button
+								type="button"
+								variant="secondary"
+								size="sm"
+								className="min-h-11 sm:min-h-9"
+								onClick={() => {
+									const now = new Date();
+									setWeekAnchor(startOfWeekMonday(now));
+									setSelectedDay(toDateString(now));
+								}}
+							>
+								Hoje
+							</Button>
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								className="min-h-11 sm:min-h-9"
+								onClick={() => setWeekAnchor(addDays(monday, 7))}
+							>
+								Próxima
+							</Button>
+						</div>
 						<Button
 							type="button"
-							variant="outline"
-							onClick={() => setWeekAnchor(addDays(monday, -7))}
+							className="min-h-11 w-full sm:min-h-10 sm:w-auto"
+							onClick={() => openComposer(selectedDay || todayStr)}
 						>
-							Semana anterior
-						</Button>
-						<Button
-							type="button"
-							variant="secondary"
-							onClick={() => setWeekAnchor(startOfWeekMonday(new Date()))}
-						>
-							Hoje
-						</Button>
-						<Button
-							type="button"
-							variant="outline"
-							onClick={() => setWeekAnchor(addDays(monday, 7))}
-						>
-							Próxima semana
-						</Button>
-						<Button type="button" onClick={() => openComposer(todayStr)}>
 							+ Agendar
 						</Button>
 					</>
 				}
 			/>
 
-			{composerOpen ? (
-				<Card>
-					<CardHeader>
-						<CardTitle>Novo agendamento</CardTitle>
-						<CardDescription>
-							Duração padrão 50 min (ou do tipo). Sobreposição exige override.
-						</CardDescription>
-					</CardHeader>
-					<CardContent className="grid gap-4 md:grid-cols-2">
-						{!patientsQuery.isLoading &&
-						(patientsQuery.data?.length ?? 0) === 0 ? (
-							<div className="md:col-span-2">
-								<EmptyState
-									title="Cadastre um paciente antes de agendar"
-									description="A agenda precisa de ao menos um paciente ativo."
-									action={
-										<Button asChild size="sm">
-											<Link href="/admin/patients/new">Novo paciente</Link>
-										</Button>
-									}
-								/>
-							</div>
-						) : null}
-						<Label
-							label={{ text: "Paciente", required: true }}
-							htmlFor="agenda-patient"
-						>
-							<select
-								id="agenda-patient"
-								className="border-input bg-background flex h-10 w-full rounded-md border px-3 text-sm"
+			<Dialog
+				open={composerOpen}
+				onOpenChange={(open) => {
+					if (!open) closeComposer();
+					else setComposerOpen(true);
+				}}
+			>
+				<DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+					<DialogHeader>
+						<DialogTitle>Novo agendamento</DialogTitle>
+						<DialogDescription>
+							Duração padrão do tipo. Sobreposição exige override.
+						</DialogDescription>
+					</DialogHeader>
+
+					{!patientsQuery.isLoading &&
+					(patientsQuery.data?.length ?? 0) === 0 ? (
+						<EmptyState
+							title="Cadastre um paciente antes de agendar"
+							description="A agenda precisa de ao menos um paciente ativo."
+							action={
+								<Button asChild size="sm">
+									<Link href="/admin/patients/new">Novo paciente</Link>
+								</Button>
+							}
+						/>
+					) : (
+						<div className="grid gap-4 sm:grid-cols-2">
+							<Select
+								className="sm:col-span-2"
+								label={{ text: "Paciente", required: true }}
 								value={patientId}
 								onChange={(e) => onPatientChange(e.target.value)}
-							>
-								<option value="">Selecione…</option>
-								{(patientsQuery.data ?? []).map((p) => (
-									<option key={p.id} value={p.id}>
-										{p.fullName}
-									</option>
-								))}
-							</select>
-						</Label>
-						<Label
-							label={{ text: "Tipo", required: true }}
-							htmlFor="agenda-type"
-						>
-							<select
-								id="agenda-type"
-								className="border-input bg-background flex h-10 w-full rounded-md border px-3 text-sm"
+								placeholder="Selecione…"
+								options={(patientsQuery.data ?? []).map((p) => ({
+									value: p.id,
+									label: p.fullName
+								}))}
+							/>
+							<Select
+								className="sm:col-span-2"
+								label={{ text: "Tipo", required: true }}
 								value={serviceTypeId}
 								onChange={(e) => applyServiceType(e.target.value)}
-							>
-								<option value="">Selecione…</option>
-								{(typesQuery.data ?? [])
+								placeholder="Selecione…"
+								options={(typesQuery.data ?? [])
 									.filter((t) => t.isActive)
-									.map((t) => (
-										<option key={t.id} value={t.id}>
-											{t.name}
-										</option>
-									))}
-							</select>
-						</Label>
-						<Input
-							label={{ text: "Data", required: true }}
-							type="date"
-							value={selectedDay}
-							onChange={(e) => setSelectedDay(e.target.value)}
-						/>
-						<Input
-							label={{ text: "Horário", required: true }}
-							type="time"
-							value={scheduledTime}
-							onChange={(e) => setScheduledTime(e.target.value)}
-						/>
-						<Input
-							label={{ text: "Duração (min)", required: true }}
-							type="number"
-							min={5}
-							max={480}
-							value={durationMinutes}
-							onChange={(e) => setDurationMinutes(Number(e.target.value))}
-						/>
-						<Input
-							label={{ text: "Valor (R$)", required: true }}
-							type="number"
-							min={0}
-							step="0.01"
-							value={valueBrl}
-							onChange={(e) => setValueBrl(Number(e.target.value))}
-						/>
-
-						{pendingOverlap ? (
-							<div className="md:col-span-2 space-y-3 rounded-md border border-amber-300 bg-amber-50 p-3">
-								<p className="text-sm font-medium text-amber-900">
-									Existe sobreposição de horário. Para salvar mesmo assim,
-									informe o motivo.
-								</p>
-								<Input
-									label={{ text: "Motivo do override", required: true }}
-									value={overlapReason}
-									onChange={(e) => setOverlapReason(e.target.value)}
-								/>
-								<div className="flex flex-wrap gap-2">
-									<Button
-										type="button"
-										disabled={
-											createMutation.isPending || !overlapReason.trim()
-										}
-										onClick={() => createMutation.mutate(true)}
-									>
-										Salvar mesmo assim
-									</Button>
-									<Button
-										type="button"
-										variant="ghost"
-										onClick={() => {
-											setPendingOverlap(false);
-											setOverlapReason("");
-										}}
-									>
-										Ajustar horário
-									</Button>
-								</div>
-							</div>
-						) : null}
-
-						<div className="flex flex-wrap gap-2 md:col-span-2">
-							{!pendingOverlap ? (
-								<Button
-									type="button"
-									disabled={
-										createMutation.isPending ||
-										!patientId ||
-										!serviceTypeId ||
-										!selectedDay ||
-										!scheduledTime
-									}
-									onClick={() => createMutation.mutate(false)}
-								>
-									{createMutation.isPending ? "Salvando…" : "Salvar agendamento"}
-								</Button>
-							) : null}
-							<Button
-								type="button"
-								variant="ghost"
-								onClick={() => {
-									setComposerOpen(false);
-									setPendingOverlap(false);
-								}}
-							>
-								Cancelar
-							</Button>
+									.map((t) => ({
+										value: t.id,
+										label: t.name
+									}))}
+							/>
+							<Input
+								label={{ text: "Data", required: true }}
+								type="date"
+								value={selectedDay}
+								onChange={(e) => setSelectedDay(e.target.value)}
+							/>
+							<Input
+								label={{ text: "Horário", required: true }}
+								type="time"
+								value={scheduledTime}
+								onChange={(e) => setScheduledTime(e.target.value)}
+							/>
+							<Input
+								label={{ text: "Duração (min)", required: true }}
+								type="number"
+								inputMode="numeric"
+								min={5}
+								max={480}
+								value={durationMinutes}
+								onChange={(e) => setDurationMinutes(Number(e.target.value))}
+							/>
+							<Input
+								label={{ text: "Valor (R$)", required: true }}
+								type="number"
+								inputMode="decimal"
+								min={0}
+								step="0.01"
+								value={valueBrl}
+								onChange={(e) => setValueBrl(Number(e.target.value))}
+							/>
 						</div>
-					</CardContent>
-				</Card>
-			) : null}
+					)}
+
+					<DialogFooter className="gap-2 sm:gap-0">
+						<Button type="button" variant="ghost" onClick={closeComposer}>
+							Cancelar
+						</Button>
+						<Button
+							type="button"
+							className="min-h-11 sm:min-h-10"
+							disabled={!canSave}
+							onClick={() => createMutation.mutate(false)}
+						>
+							{createMutation.isPending ? "Salvando…" : "Salvar agendamento"}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			<OverlapConfirmDialog
+				open={pendingOverlap}
+				reason={overlapReason}
+				pending={createMutation.isPending}
+				onReasonChange={setOverlapReason}
+				onConfirm={() => createMutation.mutate(true)}
+				onCancel={() => {
+					setPendingOverlap(false);
+					setOverlapReason("");
+				}}
+			/>
 
 			{weekQuery.isLoading ? (
-				<div className="grid gap-3 md:grid-cols-7">
-					{Array.from({ length: 7 }).map((_, i) => (
-						<Skeleton key={i} className="h-48 w-full" />
-					))}
+				<div className="space-y-3">
+					<div className="flex gap-2 md:hidden">
+						{Array.from({ length: 7 }).map((_, i) => (
+							<Skeleton key={i} className="h-14 flex-1" />
+						))}
+					</div>
+					<Skeleton className="h-48 w-full md:hidden" />
+					<div className="hidden gap-3 md:grid md:grid-cols-7">
+						{Array.from({ length: 7 }).map((_, i) => (
+							<Skeleton key={i} className="h-48 w-full" />
+						))}
+					</div>
 				</div>
 			) : weekQuery.isError ? (
 				<ErrorState
@@ -440,91 +457,124 @@ export default function AgendaClient() {
 					onRetry={() => weekQuery.refetch()}
 				/>
 			) : (
-				<div className="-mx-4 overflow-x-auto px-4 md:mx-0 md:overflow-visible md:px-0">
-					<div className="grid min-w-[640px] gap-3 md:min-w-0 md:grid-cols-7">
-					{days.map((day, index) => {
-						const dateStr = toDateString(day);
-						const items = sessionsByDay.get(dateStr) ?? [];
-						const isToday = dateStr === todayStr;
+				<>
+					{/* Mobile: seletor de dia + lista */}
+					<div className="space-y-4 md:hidden">
+						<div className="grid grid-cols-7 gap-1">
+							{days.map((day, index) => {
+								const dateStr = toDateString(day);
+								const count = sessionsByDay.get(dateStr)?.length ?? 0;
+								const isSelected = dateStr === selectedDay;
+								const isToday = dateStr === todayStr;
 
-						return (
-							<section
-								key={dateStr}
-								className={cn(
-									"border-border bg-card flex min-h-48 flex-col rounded-xl border",
-									isToday && "border-brand border-2"
-								)}
+								return (
+									<button
+										key={dateStr}
+										type="button"
+										onClick={() => setSelectedDay(dateStr)}
+										className={cn(
+											"flex min-h-14 flex-col items-center justify-center rounded-lg border px-0.5 py-1 text-center transition-colors",
+											isSelected
+												? "border-brand bg-brand/10 text-foreground"
+												: "border-border bg-card",
+											isToday && !isSelected && "border-brand/50"
+										)}
+									>
+										<span className="text-muted-foreground text-[10px] uppercase">
+											{WEEKDAY_LABELS[index].slice(0, 3)}
+										</span>
+										<span className="text-sm font-medium">
+											{day.getDate()}
+										</span>
+										{count > 0 ? (
+											<span className="bg-brand mt-0.5 size-1.5 rounded-full" />
+										) : (
+											<span className="mt-0.5 size-1.5" />
+										)}
+									</button>
+								);
+							})}
+						</div>
+
+						<div className="flex items-center justify-between gap-2">
+							<p className="text-sm font-medium">
+								{parseDateString(selectedDay).toLocaleDateString("pt-BR", {
+									weekday: "long",
+									day: "2-digit",
+									month: "long"
+								})}
+							</p>
+							<Button
+								type="button"
+								size="sm"
+								variant="outline"
+								className="min-h-11"
+								onClick={() => openComposer(selectedDay)}
 							>
-								<button
-									type="button"
-									className="hover:bg-accent/40 border-border border-b px-2 py-2 text-left"
-									onClick={() => openComposer(dateStr)}
-								>
-									<p className="text-muted-foreground text-xs tracking-wide uppercase">
-										{WEEKDAY_LABELS[index]}
-									</p>
-									<p className="text-sm font-medium">
-										{day.toLocaleDateString("pt-BR", {
-											day: "2-digit",
-											month: "2-digit"
-										})}
-									</p>
-								</button>
-								<div className="flex flex-1 flex-col gap-2 p-2">
-									{items.length === 0 ? (
-										<p className="text-muted-foreground px-1 text-xs">
-											Sem horários
-										</p>
-									) : (
-										items.map((s) => (
-											<div
-												key={s.id}
-												className="border-border hover:border-brand rounded-md border-l-brand border border-l-4 bg-white p-2 shadow-xs transition-colors"
-											>
-												<Link
-													href={`/admin/sessions/${s.id}`}
-													className="block"
-												>
-													<p className="text-xs font-medium">
-														{normalizeTime(String(s.scheduledTime)).slice(
-															0,
-															5
-														)}{" "}
-														· {s.durationMinutes}min
-													</p>
-													<p className="truncate text-sm">{s.patientName}</p>
-													<p className="text-muted-foreground truncate text-xs">
-														{s.serviceTypeName}
-													</p>
-													<Badge
-														variant={statusVariant(s.status)}
-														className="mt-1"
-													>
-														{STATUS_LABEL[s.status] ?? s.status}
-													</Badge>
-												</Link>
-												{s.status === "scheduled" ? (
-													<Button
-														asChild
-														size="xs"
-														className="mt-2 w-full"
-													>
-														<Link
-															href={`/admin/sessions/${s.id}?mode=clinical`}
-														>
-															INICIAR
-														</Link>
-													</Button>
-												) : null}
-											</div>
-										))
-									)}
-								</div>
-							</section>
-						);
-					})}
+								+ Neste dia
+							</Button>
+						</div>
+
+						{mobileDaySessions.length === 0 ? (
+							<EmptyState
+								title="Sem horários neste dia"
+								description="Toque em + Neste dia para agendar."
+							/>
+						) : (
+							<ul className="space-y-2">
+								{mobileDaySessions.map((s) => (
+									<li key={s.id}>
+										<SessionCard s={s} />
+									</li>
+								))}
+							</ul>
+						)}
 					</div>
-				</div>
+
+					{/* Desktop: grade semanal */}
+					<div className="hidden gap-3 md:grid md:grid-cols-7">
+						{days.map((day, index) => {
+							const dateStr = toDateString(day);
+							const items = sessionsByDay.get(dateStr) ?? [];
+							const isToday = dateStr === todayStr;
+
+							return (
+								<section
+									key={dateStr}
+									className={cn(
+										"border-border bg-card flex min-h-48 flex-col rounded-xl border",
+										isToday && "border-brand border-2"
+									)}
+								>
+									<button
+										type="button"
+										className="hover:bg-accent/40 border-border border-b px-2 py-2 text-left"
+										onClick={() => openComposer(dateStr)}
+									>
+										<p className="text-muted-foreground text-xs tracking-wide uppercase">
+											{WEEKDAY_LABELS[index]}
+										</p>
+										<p className="text-sm font-medium">
+											{day.toLocaleDateString("pt-BR", {
+												day: "2-digit",
+												month: "2-digit"
+											})}
+										</p>
+									</button>
+									<div className="flex flex-1 flex-col gap-2 p-2">
+										{items.length === 0 ? (
+											<p className="text-muted-foreground px-1 text-xs">
+												Sem horários
+											</p>
+										) : (
+											items.map((s) => <SessionCard key={s.id} s={s} />)
+										)}
+									</div>
+								</section>
+							);
+						})}
+					</div>
+				</>
 			)}
 		</div>
 	);

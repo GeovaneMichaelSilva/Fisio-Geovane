@@ -1,0 +1,67 @@
+{
+	"editor.formatOnSave": true,
+	"editor.tabSize": 2,
+	"editor.insertSpaces": false,
+	"editor.detectIndentation": false,
+	"explorer.compactFolders": false,
+	"editor.defaultFormatter": "esbenp.prettier-vscode",
+	"editor.formatOnSaveMode": "file",
+	"editor.rulers": [80],
+	"editor.codeActionsOnSave": {
+		"source.organizeImports": "explicit"
+	},
+	"typescript.tsdk": "./node_modules/typescript/lib",
+	"typescript.enablePromptUseWorkspaceTsdk": true,
+	"files.associations": {
+		"*.env": "properties",
+		".env*": "properties"
+	},
+	"conventionalCommits.promptBody": false,
+	"conventionalCommits.showNewVersionNotes": false,
+	"conventionalCommits.promptFooter": false,
+	"conventionalCommits.promptScopes": false,
+	"conventionalCommits.promptCI": false,
+	"files.exclude": {
+		"**/.next": true,
+		"**/node_modules": true,
+		"**/next-env.d.ts": true,
+		"**/.eslintignore": true,
+		".eslintrc.json": true,
+		"**/.prettierignore": true,
+		".prettierrc.json": true,
+		"**/postcss.config.mjs": true,
+		"**/postcss.config.js": true,
+		".gitignore": true,
+		"**/.svgrrc.js": true,
+		"**/.turbo": true,
+		"**/package-lock.json": true,
+		"pnpm-workspace.yaml": true
+	},
+	"sonarlint.connectedMode.project": {
+		"connectionId": "http-localhost-9000",
+		"projectKey": "everinbox-app"
+	},
+	"i18n-ally.sourceLanguage": "pt-BR",
+	"i18n-ally.displayLanguage": "pt-BR",
+	"i18n-ally.enabledFrameworks": ["next-intl"],
+	"i18n-ally.localesPaths": ["locales", "src/i18n"],
+	"i18n-ally.keystyle": "nested",
+	"i18n-ally.namespace": true,
+	"i18n-ally.pathMatcher": "{locale}/{namespaces}.{ext}",
+
+	"todo-tree.tags": ["TODO", "FIXME", "@TODO", "@FIXME"],
+	"todo-tree.regex.regex": "((//|#|<!--|;|/\\*|^)\\s*($TAGS)|^\\s*\\*\\s*($TAGS)|(^|\\s)\\*\\s*($TAGS)|(\\{|/\\*|\\*|<!--)\\s*($TAGS))",
+
+	"eslint.workingDirectories": [
+		{
+			"mode": "auto"
+		}
+	],
+
+	"jest.enable": true,
+	"todo-tree.general.tags": ["TODO", "FIXME", "@TODO", "@FIXME"],
+
+	"tailwindCSS.experimental.classRegex": [
+		["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"]
+	]
+}

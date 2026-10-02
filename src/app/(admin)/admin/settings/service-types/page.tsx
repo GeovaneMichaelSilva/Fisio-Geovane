@@ -1,12 +1,18 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { ListSkeleton } from "@/components/admin/LoadingStates";
+import {
+	EmptyState,
+	ErrorState,
+	PageHeader
+} from "@/components/admin/PageStates";
 import { SettingsNav } from "@/components/admin/SettingsNav";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -17,8 +23,15 @@ import {
 	CardHeader,
 	CardTitle
 } from "@/components/ui/Card";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle
+} from "@/components/ui/Dialog";
 import { Input } from "@/components/ui/Input";
-import { Skeleton } from "@/components/ui/Skeleton";
 import { usePageTitle } from "@/hooks/usePageTitle";
 
 type ServiceType = {
@@ -59,9 +72,17 @@ function formatBrl(value: string | number) {
 	return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+const emptyForm: FormValues = {
+	name: "",
+	defaultDurationMinutes: 50,
+	defaultValueBrl: 220,
+	isActive: true
+};
+
 export default function ServiceTypesPage() {
 	usePageTitle("Tipos de atendimento");
 	const queryClient = useQueryClient();
+	const [open, setOpen] = useState(false);
 	const [editingId, setEditingId] = useState<string | null>(null);
 
 	const listQuery = useQuery({
@@ -71,34 +92,24 @@ export default function ServiceTypesPage() {
 
 	const form = useForm<FormValues>({
 		resolver: zodResolver(formSchema),
-		defaultValues: {
-			name: "",
-			defaultDurationMinutes: 50,
-			defaultValueBrl: 220,
-			isActive: true
-		}
+		defaultValues: emptyForm
 	});
 
-	useEffect(() => {
-		if (!editingId || !listQuery.data) return;
-		const row = listQuery.data.find((t) => t.id === editingId);
-		if (!row) return;
+	function openCreate() {
+		setEditingId(null);
+		form.reset(emptyForm);
+		setOpen(true);
+	}
+
+	function openEdit(row: ServiceType) {
+		setEditingId(row.id);
 		form.reset({
 			name: row.name,
 			defaultDurationMinutes: row.defaultDurationMinutes,
 			defaultValueBrl: Number(row.defaultValueBrl),
 			isActive: row.isActive
 		});
-	}, [editingId, listQuery.data, form]);
-
-	function startCreate() {
-		setEditingId(null);
-		form.reset({
-			name: "",
-			defaultDurationMinutes: 50,
-			defaultValueBrl: 220,
-			isActive: true
-		});
+		setOpen(true);
 	}
 
 	const saveMutation = useMutation({
@@ -126,7 +137,9 @@ export default function ServiceTypesPage() {
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["service-types"] });
 			toast.success(editingId ? "Tipo atualizado." : "Tipo criado.");
-			startCreate();
+			setOpen(false);
+			setEditingId(null);
+			form.reset(emptyForm);
 		},
 		onError: (err: Error) => toast.error(err.message)
 	});
@@ -152,154 +165,165 @@ export default function ServiceTypesPage() {
 	return (
 		<div className="space-y-6">
 			<div className="space-y-3">
-				<div>
-					<h1 className="text-2xl font-medium">Tipos de atendimento</h1>
-					<p className="text-muted-foreground text-sm">
-						Nome, duração e valor padrão usados na agenda e nos pacientes.
-					</p>
-				</div>
+				<PageHeader
+					title="Tipos de atendimento"
+					description="Nome, duração e valor padrão usados na agenda e nos pacientes."
+					actions={
+						<Button type="button" onClick={openCreate}>
+							Novo tipo
+						</Button>
+					}
+				/>
 				<SettingsNav />
 			</div>
 
-			<div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-				<Card>
-					<CardHeader>
-						<CardTitle>Cadastrados</CardTitle>
-						<CardDescription>
-							Tipos inativos não aparecem em novos agendamentos.
-						</CardDescription>
-					</CardHeader>
-					<CardContent>
-						{listQuery.isLoading ? (
-							<div className="space-y-2">
-								<Skeleton className="h-12 w-full" />
-								<Skeleton className="h-12 w-full" />
-								<Skeleton className="h-12 w-full" />
-							</div>
-						) : listQuery.isError ? (
-							<p className="text-destructive text-sm" role="alert">
-								{(listQuery.error as Error).message}
-							</p>
-						) : listQuery.data?.length === 0 ? (
-							<p className="text-muted-foreground text-sm">
-								Nenhum tipo cadastrado ainda.
-							</p>
-						) : (
-							<ul className="divide-border divide-y">
-								{listQuery.data?.map((row) => (
-									<li
-										key={row.id}
-										className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between"
-									>
-										<div className="min-w-0 space-y-1">
-											<div className="flex flex-wrap items-center gap-2">
-												<p className="font-medium">{row.name}</p>
-												<Badge
-													variant={row.isActive ? "default" : "secondary"}
-												>
-													{row.isActive ? "Ativo" : "Inativo"}
-												</Badge>
-											</div>
-											<p className="text-muted-foreground text-sm">
-												{row.defaultDurationMinutes} min ·{" "}
-												{formatBrl(row.defaultValueBrl)}
-											</p>
+			<Card>
+				<CardHeader>
+					<CardTitle>Cadastrados</CardTitle>
+					<CardDescription>
+						Tipos inativos não aparecem em novos agendamentos.
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					{listQuery.isLoading ? (
+						<ListSkeleton />
+					) : listQuery.isError ? (
+						<ErrorState
+							message={(listQuery.error as Error).message}
+							onRetry={() => listQuery.refetch()}
+						/>
+					) : listQuery.data?.length === 0 ? (
+						<EmptyState
+							title="Nenhum tipo cadastrado"
+							description="Crie o primeiro tipo para usar na agenda."
+							action={
+								<Button type="button" size="sm" onClick={openCreate}>
+									Novo tipo
+								</Button>
+							}
+						/>
+					) : (
+						<ul className="divide-border divide-y">
+							{listQuery.data?.map((row) => (
+								<li
+									key={row.id}
+									className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+								>
+									<div className="min-w-0 space-y-1">
+										<div className="flex flex-wrap items-center gap-2">
+											<p className="font-medium">{row.name}</p>
+											<Badge variant={row.isActive ? "default" : "secondary"}>
+												{row.isActive ? "Ativo" : "Inativo"}
+											</Badge>
 										</div>
-										<div className="flex flex-wrap gap-2">
-											<Button
-												type="button"
-												variant="outline"
-												size="sm"
-												onClick={() => setEditingId(row.id)}
-											>
-												Editar
-											</Button>
-											<Button
-												type="button"
-												variant="ghost"
-												size="sm"
-												disabled={toggleMutation.isPending}
-												onClick={() => toggleMutation.mutate(row)}
-											>
-												{row.isActive ? "Desativar" : "Ativar"}
-											</Button>
-										</div>
-									</li>
-								))}
-							</ul>
-						)}
-					</CardContent>
-				</Card>
+										<p className="text-muted-foreground text-sm">
+											{row.defaultDurationMinutes} min ·{" "}
+											{formatBrl(row.defaultValueBrl)}
+										</p>
+									</div>
+									<div className="flex flex-wrap gap-2">
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											onClick={() => openEdit(row)}
+										>
+											Editar
+										</Button>
+										<Button
+											type="button"
+											variant="ghost"
+											size="sm"
+											disabled={toggleMutation.isPending}
+											onClick={() => toggleMutation.mutate(row)}
+										>
+											{row.isActive ? "Desativar" : "Ativar"}
+										</Button>
+									</div>
+								</li>
+							))}
+						</ul>
+					)}
+				</CardContent>
+			</Card>
 
-				<Card>
-					<CardHeader>
-						<CardTitle>{editingId ? "Editar tipo" : "Novo tipo"}</CardTitle>
-						<CardDescription>
+			<Dialog
+				open={open}
+				onOpenChange={(next) => {
+					setOpen(next);
+					if (!next) {
+						setEditingId(null);
+						form.reset(emptyForm);
+					}
+				}}
+			>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>
+							{editingId ? "Editar tipo" : "Novo tipo"}
+						</DialogTitle>
+						<DialogDescription>
 							{editingId
 								? "Altere e salve. O slug é recalculado pelo nome."
 								: "Cadastre um novo tipo de atendimento."}
-						</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<form
-							className="space-y-4"
-							onSubmit={form.handleSubmit((values) =>
-								saveMutation.mutate(values)
-							)}
-						>
-							<Input
-								label={{ text: "Nome", required: true }}
-								error={form.formState.errors.name?.message}
-								{...form.register("name")}
+						</DialogDescription>
+					</DialogHeader>
+					<form
+						className="space-y-4"
+						onSubmit={form.handleSubmit((values) =>
+							saveMutation.mutate(values)
+						)}
+					>
+						<Input
+							label={{ text: "Nome", required: true }}
+							error={form.formState.errors.name?.message}
+							{...form.register("name")}
+						/>
+						<Input
+							label={{ text: "Duração padrão (min)", required: true }}
+							type="number"
+							min={5}
+							max={480}
+							error={form.formState.errors.defaultDurationMinutes?.message}
+							{...form.register("defaultDurationMinutes", {
+								valueAsNumber: true
+							})}
+						/>
+						<Input
+							label={{ text: "Valor padrão (R$)", required: true }}
+							type="number"
+							min={0}
+							step="0.01"
+							error={form.formState.errors.defaultValueBrl?.message}
+							{...form.register("defaultValueBrl", { valueAsNumber: true })}
+						/>
+						<label className="flex items-center gap-2 text-sm">
+							<input
+								type="checkbox"
+								className="border-input size-4 rounded"
+								{...form.register("isActive")}
 							/>
-							<Input
-								label={{ text: "Duração padrão (min)", required: true }}
-								type="number"
-								min={5}
-								max={480}
-								error={form.formState.errors.defaultDurationMinutes?.message}
-								{...form.register("defaultDurationMinutes", {
-									valueAsNumber: true
-								})}
-							/>
-							<Input
-								label={{ text: "Valor padrão (R$)", required: true }}
-								type="number"
-								min={0}
-								step="0.01"
-								error={form.formState.errors.defaultValueBrl?.message}
-								{...form.register("defaultValueBrl", { valueAsNumber: true })}
-							/>
-							<label className="flex items-center gap-2 text-sm">
-								<input
-									type="checkbox"
-									className="border-input size-4 rounded"
-									{...form.register("isActive")}
-								/>
-								Ativo
-							</label>
-							<div className="flex flex-wrap gap-2">
-								<Button type="submit" disabled={saveMutation.isPending}>
-									{saveMutation.isPending
-										? "Salvando…"
-										: editingId
-											? "Salvar alterações"
-											: "Criar tipo"}
-								</Button>
-								{editingId ? (
-									<Button
-										type="button"
-										variant="ghost"
-										onClick={startCreate}
-									>
-										Cancelar
-									</Button>
-								) : null}
-							</div>
-						</form>
-					</CardContent>
-				</Card>
-			</div>
+							Ativo
+						</label>
+						<DialogFooter>
+							<Button
+								type="button"
+								variant="outline"
+								onClick={() => setOpen(false)}
+							>
+								Cancelar
+							</Button>
+							<Button type="submit" disabled={saveMutation.isPending}>
+								{saveMutation.isPending
+									? "Salvando…"
+									: editingId
+										? "Salvar"
+										: "Criar tipo"}
+							</Button>
+						</DialogFooter>
+					</form>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

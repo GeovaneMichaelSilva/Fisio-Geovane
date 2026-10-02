@@ -35,7 +35,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>((props, ref) => {
 			ref={ref}
 			className={cn(buttonVariants({ variant, color, size, className }))}
 			tabIndex={visuallyDisabled ? -1 : tabIndex}
-			data-visually-disabled={visuallyDisabled || undefined}
+			data-visually-disabled={visuallyDisabled}
 			disabled={disabled}
 			{...restProps}
 		>
