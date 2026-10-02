@@ -1,0 +1,49 @@
+@layer base {
+	:root {
+		/* Identidade Fisio Geovane — docs/design/colors.md */
+		--background: 0 0% 97%; /* paper #f7f7f7 */
+		--foreground: 158 60% 16%; /* green #104031 */
+		--border: 36 20% 85%;
+		--ring: 40 35% 48%; /* gold #a5894f */
+		--radius: 0.5rem;
+
+		--primary: 158 60% 16%; /* green #104031 */
+		--primary-foreground: 0 0% 98%;
+		--primary-hover: 158 52% 22%; /* #1b5743 */
+
+		--secondary: 36 33% 90%; /* sand-ish */
+		--secondary-foreground: 158 60% 16%;
+		--secondary-hover: 36 45% 78%; /* sand #e0ccad */
+
+		--brand: 40 35% 48%; /* gold #a5894f */
+
+		--muted: 36 20% 92%;
+		--muted-foreground: 150 8% 42%;
+
+		--card: 0 0% 100%;
+		--card-foreground: 158 60% 16%;
+
+		--popover: 0 0% 100%;
+		--popover-foreground: 158 60% 16%;
+
+		--accent: 36 33% 90%;
+		--accent-foreground: 158 60% 16%;
+
+		--input-background: 0 0% 100%;
+		--input-border: 150 8% 78%;
+
+		--destructive: 4 68% 38%;
+		--destructive-foreground: 0 0% 98%;
+		--destructive-300: 4 68% 55%;
+
+		--success: 142 70% 35%;
+		--success-foreground: 0 0% 98%;
+
+		--sidebar: 158 60% 16%;
+		--sidebar-foreground: 36 45% 78%;
+		--sidebar-accent: 158 52% 22%;
+		--sidebar-accent-foreground: 0 0% 98%;
+		--sidebar-border: 158 40% 22%;
+		--sidebar-ring: 40 35% 48%;
+	}
+}

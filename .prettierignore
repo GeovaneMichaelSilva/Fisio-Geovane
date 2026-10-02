@@ -1,0 +1,29 @@
+# Ignore artifacts:
+public/*
+node_modules
+
+# compiled output
+.next
+dist
+
+# Logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.vscode/*
+!.vscode/settings.json
+
+# Others
+.env
+.env.local
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+*.yaml
+docs/references/prototype-app.js

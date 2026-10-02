@@ -1,0 +1,233 @@
+{
+  "version": 1,
+  "patients": [
+    {
+      "name": "Francisco Franciscano",
+      "phone": "54 99999-9999",
+      "cpf": "01501501515",
+      "birth": "2025-04-25",
+      "weight": "88",
+      "height": "168",
+      "type": "Vestibular",
+      "address": "Eugenio Engenho Genio 124",
+      "id": "0ddb66c7-a63f-4376-8c1b-87372948f135"
+    },
+    {
+      "name": "Franciscano Francisco",
+      "phone": "54 88888-8888",
+      "cpf": "01501501515",
+      "birth": "0001-01-25",
+      "weight": "88",
+      "height": "168",
+      "type": "Ortopédico",
+      "address": "Eugenio Genio Eu 124",
+      "id": "c85c9f34-f650-48de-b420-4e386517a995"
+    }
+  ],
+  "sessions": [
+    {
+      "patientId": "0ddb66c7-a63f-4376-8c1b-87372948f135",
+      "date": "2026-09-30",
+      "time": "16:45",
+      "duration": 50,
+      "type": "Vestibular",
+      "status": "Realizado",
+      "value": 220,
+      "paid": "Sim",
+      "paymentDate": "2026-09-30",
+      "invoice": "Não",
+      "assessment": "Jacksssss ",
+      "evolution": "Jacks Jacks",
+      "activities": "JacksJacksJacksJacks",
+      "id": "26ef544f-96c1-449d-8f89-a19a13a89c9e",
+      "audit": [
+        {
+          "at": "2026-10-01T01:06:51.767Z",
+          "reason": "Teste",
+          "before": {
+            "patientId": "0ddb66c7-a63f-4376-8c1b-87372948f135",
+            "date": "2026-09-30",
+            "time": "16:45",
+            "duration": 50,
+            "type": "Vestibular",
+            "status": "Agendado",
+            "value": 220,
+            "paid": "Sim",
+            "paymentDate": "2026-09-30",
+            "invoice": "Não",
+            "assessment": "Jacksssss ",
+            "evolution": "Jacks Jacks",
+            "activities": "JacksJacksJacksJacks",
+            "id": "26ef544f-96c1-449d-8f89-a19a13a89c9e"
+          }
+        }
+      ]
+    },
+    {
+      "assessment": "",
+      "evolution": "",
+      "activities": "",
+      "patientId": "c85c9f34-f650-48de-b420-4e386517a995",
+      "date": "2026-09-30",
+      "time": "09:00",
+      "duration": 50,
+      "type": "Vestibular",
+      "status": "Realizado",
+      "value": 0,
+      "paid": "Não",
+      "paymentDate": "",
+      "invoice": "Não",
+      "id": "70c4fece-d27e-42bc-9c01-3bed72ccce27",
+      "audit": [
+        {
+          "at": "2026-10-01T01:36:15.542Z",
+          "reason": "Realizado",
+          "before": {
+            "assessment": "",
+            "evolution": "",
+            "activities": "",
+            "patientId": "c85c9f34-f650-48de-b420-4e386517a995",
+            "date": "2026-09-30",
+            "time": "09:00",
+            "duration": 50,
+            "type": "Vestibular",
+            "status": "Agendado",
+            "value": 0,
+            "paid": "Não",
+            "paymentDate": "",
+            "invoice": "Não",
+            "id": "70c4fece-d27e-42bc-9c01-3bed72ccce27"
+          }
+        }
+      ]
+    },
+    {
+      "assessment": "",
+      "evolution": "",
+      "activities": "",
+      "patientId": "c85c9f34-f650-48de-b420-4e386517a995",
+      "date": "2026-09-30",
+      "time": "11:00",
+      "duration": 50,
+      "type": "Vestibular",
+      "status": "Agendado",
+      "value": 0,
+      "paid": "Não",
+      "paymentDate": "",
+      "invoice": "Não",
+      "id": "6636cd49-a1bd-4762-beb4-9a159d183259"
+    },
+    {
+      "assessment": "",
+      "evolution": "",
+      "activities": "",
+      "patientId": "0ddb66c7-a63f-4376-8c1b-87372948f135",
+      "date": "2026-09-30",
+      "time": "13:06",
+      "duration": 50,
+      "type": "Vestibular",
+      "status": "Realizado",
+      "value": 60.5,
+      "paid": "Sim",
+      "paymentDate": "2026-09-30",
+      "invoice": "Sim",
+      "id": "5289706f-5d6d-43fc-a04e-d6ecf84549f7",
+      "audit": [
+        {
+          "at": "2026-10-01T01:34:38.134Z",
+          "reason": "Pagou",
+          "before": {
+            "assessment": "",
+            "evolution": "",
+            "activities": "",
+            "patientId": "0ddb66c7-a63f-4376-8c1b-87372948f135",
+            "date": "2026-09-30",
+            "time": "13:06",
+            "duration": 50,
+            "type": "Vestibular",
+            "status": "Agendado",
+            "value": 0,
+            "paid": "Não",
+            "paymentDate": "",
+            "invoice": "Não",
+            "id": "5289706f-5d6d-43fc-a04e-d6ecf84549f7"
+          }
+        },
+        {
+          "at": "2026-10-01T01:35:47.566Z",
+          "reason": "Realizado",
+          "before": {
+            "assessment": "",
+            "evolution": "",
+            "activities": "",
+            "patientId": "0ddb66c7-a63f-4376-8c1b-87372948f135",
+            "date": "2026-09-30",
+            "time": "13:06",
+            "duration": 50,
+            "type": "Vestibular",
+            "status": "Agendado",
+            "value": 60.5,
+            "paid": "Sim",
+            "paymentDate": "2026-09-30",
+            "invoice": "Sim",
+            "id": "5289706f-5d6d-43fc-a04e-d6ecf84549f7"
+          }
+        }
+      ]
+    },
+    {
+      "assessment": "",
+      "evolution": "",
+      "activities": "",
+      "patientId": "c85c9f34-f650-48de-b420-4e386517a995",
+      "date": "2026-10-29",
+      "time": "09:00",
+      "duration": 50,
+      "type": "Vestibular",
+      "status": "Agendado",
+      "value": 0,
+      "paid": "Não",
+      "paymentDate": "",
+      "invoice": "Não",
+      "id": "ccdbdd04-516c-4d32-aa60-893b072cd503"
+    },
+    {
+      "assessment": "",
+      "evolution": "",
+      "activities": "",
+      "patientId": "c85c9f34-f650-48de-b420-4e386517a995",
+      "date": "2026-11-11",
+      "time": "09:00",
+      "duration": 50,
+      "type": "Vestibular",
+      "status": "Agendado",
+      "value": 50,
+      "paid": "Sim",
+      "paymentDate": "2026-09-30",
+      "invoice": "Sim",
+      "id": "73b22fc9-550a-4a92-a976-6f1109f37e4a",
+      "audit": [
+        {
+          "at": "2026-10-01T01:33:53.375Z",
+          "reason": "Pagou",
+          "before": {
+            "assessment": "",
+            "evolution": "",
+            "activities": "",
+            "patientId": "c85c9f34-f650-48de-b420-4e386517a995",
+            "date": "2026-11-11",
+            "time": "09:00",
+            "duration": 50,
+            "type": "Vestibular",
+            "status": "Agendado",
+            "value": 0,
+            "paid": "Não",
+            "paymentDate": "",
+            "invoice": "Não",
+            "id": "73b22fc9-550a-4a92-a976-6f1109f37e4a"
+          }
+        }
+      ]
+    }
+  ]
+}
