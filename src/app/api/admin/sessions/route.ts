@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { and, asc, desc, eq, gte, ilike, isNull, lte } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, ilike, isNull, lte } from "drizzle-orm";
 
 import { getDb } from "@/db";
 import { patients, serviceTypes, sessions } from "@/db/schema";
 import { getOrCreateClinicContext } from "@/lib/clinic/context";
+import { paginationMeta, parsePagination } from "@/lib/pagination";
 import { normalizeTime } from "@/lib/sessions/agenda";
 import { writeSessionAudit } from "@/lib/sessions/audit";
 import { getOverlappingSessions } from "@/lib/sessions/overlap";
@@ -17,6 +18,7 @@ export async function GET(request: Request) {
 		const to = searchParams.get("to");
 		const status = searchParams.get("status");
 		const q = (searchParams.get("q") ?? "").trim();
+		const weekRange = Boolean(from && to);
 
 		const db = getDb();
 		const conditions = [eq(sessions.clinicId, ctx.clinic.id)];
@@ -53,6 +55,49 @@ export async function GET(request: Request) {
 			conditions.push(ilike(patients.fullName, `%${q}%`));
 		}
 
+		const where = and(...conditions);
+		const orderBy =
+			status === "completed"
+				? [desc(sessions.scheduledDate), desc(sessions.scheduledTime)]
+				: [asc(sessions.scheduledDate), asc(sessions.scheduledTime)];
+
+		// Agenda semanal: devolve o intervalo inteiro (sem paginar).
+		if (weekRange) {
+			const rows = await db
+				.select({
+					id: sessions.id,
+					patientId: sessions.patientId,
+					patientName: patients.fullName,
+					scheduledDate: sessions.scheduledDate,
+					scheduledTime: sessions.scheduledTime,
+					durationMinutes: sessions.durationMinutes,
+					serviceTypeId: sessions.serviceTypeId,
+					serviceTypeName: serviceTypes.name,
+					status: sessions.status,
+					valueBrl: sessions.valueBrl,
+					paid: sessions.paid,
+					invoiceIssued: sessions.invoiceIssued,
+					evolution: sessions.evolution
+				})
+				.from(sessions)
+				.innerJoin(patients, eq(patients.id, sessions.patientId))
+				.innerJoin(serviceTypes, eq(serviceTypes.id, sessions.serviceTypeId))
+				.where(where)
+				.orderBy(...orderBy)
+				.limit(500);
+
+			return NextResponse.json({ data: rows });
+		}
+
+		const { page, pageSize } = parsePagination(searchParams);
+		const [totalRow] = await db
+			.select({ value: count() })
+			.from(sessions)
+			.innerJoin(patients, eq(patients.id, sessions.patientId))
+			.where(where);
+		const total = totalRow?.value ?? 0;
+		const meta = paginationMeta(total, page, pageSize);
+
 		const rows = await db
 			.select({
 				id: sessions.id,
@@ -72,18 +117,12 @@ export async function GET(request: Request) {
 			.from(sessions)
 			.innerJoin(patients, eq(patients.id, sessions.patientId))
 			.innerJoin(serviceTypes, eq(serviceTypes.id, sessions.serviceTypeId))
-			.where(and(...conditions))
-			.orderBy(
-				status === "completed"
-					? desc(sessions.scheduledDate)
-					: asc(sessions.scheduledDate),
-				status === "completed"
-					? desc(sessions.scheduledTime)
-					: asc(sessions.scheduledTime)
-			)
-			.limit(200);
+			.where(where)
+			.orderBy(...orderBy)
+			.limit(meta.pageSize)
+			.offset(meta.offset);
 
-		return NextResponse.json({ data: rows });
+		return NextResponse.json({ data: rows, meta });
 	} catch (err) {
 		if (err instanceof Response) return err;
 		console.error(err);

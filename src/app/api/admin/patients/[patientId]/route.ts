@@ -130,6 +130,13 @@ export async function PUT(request: Request, { params }: Params) {
 			);
 		}
 
+		if (existing.archivedAt) {
+			return NextResponse.json(
+				{ error: "Paciente arquivado. Restaure antes de editar." },
+				{ status: 400 }
+			);
+		}
+
 		const [typeOk] = await db
 			.select({ id: serviceTypes.id })
 			.from(serviceTypes)

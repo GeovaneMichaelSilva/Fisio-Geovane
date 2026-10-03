@@ -80,7 +80,7 @@ async function fetchWeek(from: string, to: string) {
 }
 
 async function fetchPatients() {
-	const res = await fetch("/api/admin/patients");
+	const res = await fetch("/api/admin/patients?pageSize=100");
 	const json = await res.json();
 	if (!res.ok) throw new Error(json.error || "Falha ao carregar pacientes.");
 	return json.data as PatientOption[];
@@ -184,7 +184,7 @@ export default function AgendaClient() {
 	});
 
 	const patientsQuery = useQuery({
-		queryKey: ["patients", "", false],
+		queryKey: ["patients-options"],
 		queryFn: fetchPatients
 	});
 

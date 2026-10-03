@@ -76,8 +76,9 @@ export function PatientForm({
 					/>
 					<Input
 						label={{ text: "CPF" }}
-						helperText="Apenas dígitos"
+						helperText="Opcional · 11 dígitos, com ou sem pontuação"
 						inputMode="numeric"
+						autoComplete="off"
 						disabled={disabled}
 						error={form.formState.errors.cpf?.message}
 						{...form.register("cpf")}

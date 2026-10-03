@@ -179,7 +179,7 @@ export async function PUT(request: Request, { params }: Params) {
 
 		if (data.patientId) {
 			const [patient] = await db
-				.select({ id: patients.id })
+				.select({ id: patients.id, archivedAt: patients.archivedAt })
 				.from(patients)
 				.where(
 					and(
@@ -191,6 +191,12 @@ export async function PUT(request: Request, { params }: Params) {
 			if (!patient) {
 				return NextResponse.json(
 					{ error: "Paciente inválido." },
+					{ status: 400 }
+				);
+			}
+			if (patient.archivedAt) {
+				return NextResponse.json(
+					{ error: "Não é possível vincular sessão a paciente arquivado." },
 					{ status: 400 }
 				);
 			}

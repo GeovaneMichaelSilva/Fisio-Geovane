@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { and, asc, eq, ilike, isNotNull, isNull } from "drizzle-orm";
+import { and, asc, count, eq, ilike, isNotNull, isNull, or, sql } from "drizzle-orm";
 
 import { getDb } from "@/db";
 import { patients, serviceTypes } from "@/db/schema";
 import { getOrCreateClinicContext } from "@/lib/clinic/context";
-import { patientFormSchema } from "@/lib/patients/schema";
+import { paginationMeta, parsePagination } from "@/lib/pagination";
+import { digitsOnly, patientFormSchema } from "@/lib/patients/schema";
 
 export async function GET(request: Request) {
 	try {
@@ -12,6 +13,7 @@ export async function GET(request: Request) {
 		const { searchParams } = new URL(request.url);
 		const q = (searchParams.get("q") ?? "").trim();
 		const archived = searchParams.get("archived") === "1";
+		const { page, pageSize } = parsePagination(searchParams);
 
 		const db = getDb();
 		const conditions = [
@@ -20,8 +22,26 @@ export async function GET(request: Request) {
 		];
 
 		if (q) {
-			conditions.push(ilike(patients.fullName, `%${q}%`));
+			const digits = digitsOnly(q);
+			const search = or(
+				ilike(patients.fullName, `%${q}%`),
+				ilike(patients.phone, `%${q}%`),
+				digits
+					? sql`regexp_replace(coalesce(${patients.cpf}, ''), '\\D', '', 'g') like ${`%${digits}%`}`
+					: undefined
+			);
+			if (search) conditions.push(search);
 		}
+
+		const where = and(...conditions);
+
+		const [totalRow] = await db
+			.select({ value: count() })
+			.from(patients)
+			.where(where);
+
+		const total = totalRow?.value ?? 0;
+		const meta = paginationMeta(total, page, pageSize);
 
 		const rows = await db
 			.select({
@@ -39,11 +59,12 @@ export async function GET(request: Request) {
 				serviceTypes,
 				eq(serviceTypes.id, patients.preferredServiceTypeId)
 			)
-			.where(and(...conditions))
+			.where(where)
 			.orderBy(asc(patients.fullName))
-			.limit(200);
+			.limit(meta.pageSize)
+			.offset(meta.offset);
 
-		return NextResponse.json({ data: rows });
+		return NextResponse.json({ data: rows, meta });
 	} catch (err) {
 		if (err instanceof Response) return err;
 		console.error(err);

@@ -31,7 +31,7 @@ export function AdminShell({ email, children }: AdminShellProps) {
 					<Link href="/admin" className="flex min-w-0 shrink items-center gap-2.5 sm:gap-3">
 						<Image
 							src="/brand/logo.png"
-							alt=""
+							alt="Geovane Michael da Silva"
 							width={48}
 							height={48}
 							className="size-10 shrink-0 rounded-md bg-white sm:size-14"

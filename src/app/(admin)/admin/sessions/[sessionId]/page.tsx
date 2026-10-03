@@ -94,7 +94,7 @@ async function fetchSession(id: string) {
 }
 
 async function fetchPatients() {
-	const res = await fetch("/api/admin/patients");
+	const res = await fetch("/api/admin/patients?pageSize=100");
 	const json = await res.json();
 	if (!res.ok) throw new Error(json.error || "Falha ao carregar pacientes.");
 	return json.data as PatientOption[];
@@ -127,7 +127,7 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 		queryFn: () => fetchSession(sessionId)
 	});
 	const patientsQuery = useQuery({
-		queryKey: ["patients", "", false],
+		queryKey: ["patients-options"],
 		queryFn: fetchPatients
 	});
 	const typesQuery = useQuery({
@@ -169,6 +169,7 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 	const [invoiceIssued, setInvoiceIssued] = useState<boolean | null>(null);
 	const [financeReason, setFinanceReason] = useState("");
 	const [financeValue, setFinanceValue] = useState<number | null>(null);
+	const [pdfPending, setPdfPending] = useState(false);
 
 	const s = sessionQuery.data;
 	const formPatientId = patientId ?? s?.patientId ?? "";
@@ -420,7 +421,9 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 						<Button
 							type="button"
 							variant="secondary"
+							disabled={pdfPending}
 							onClick={async () => {
+								setPdfPending(true);
 								try {
 									const res = await fetch(
 										`/api/admin/patients/${s.patientId}/pdf`
@@ -436,10 +439,12 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 									toast.error(
 										err instanceof Error ? err.message : "Falha no PDF."
 									);
+								} finally {
+									setPdfPending(false);
 								}
 							}}
 						>
-							Exportar PDF
+							{pdfPending ? "Gerando PDF…" : "Exportar PDF"}
 						</Button>
 					) : null}
 					{s ? (

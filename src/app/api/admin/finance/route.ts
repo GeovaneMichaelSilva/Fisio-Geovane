@@ -1,17 +1,44 @@
 import { NextResponse } from "next/server";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 
 import { getDb } from "@/db";
 import { patients, serviceTypes, sessions } from "@/db/schema";
 import { getOrCreateClinicContext } from "@/lib/clinic/context";
+import { financeQuerySchema } from "@/lib/finance/schema";
+import { paginationMeta, parsePagination } from "@/lib/pagination";
 
 /**
- * KPIs financeiros + lista de sessões realizadas.
+ * KPIs financeiros + lista paginada de sessões realizadas.
  */
-export async function GET() {
+export async function GET(request: Request) {
 	try {
 		const ctx = await getOrCreateClinicContext();
+		const { searchParams } = new URL(request.url);
+		const parsed = financeQuerySchema.safeParse({
+			from: searchParams.get("from") ?? undefined,
+			to: searchParams.get("to") ?? undefined
+		});
+
+		if (!parsed.success) {
+			return NextResponse.json(
+				{
+					error: "Período inválido.",
+					issues: parsed.error.flatten().fieldErrors
+				},
+				{ status: 400 }
+			);
+		}
+
+		const { from, to } = parsed.data;
+		const { page, pageSize } = parsePagination(searchParams);
 		const db = getDb();
+
+		const where = and(
+			eq(sessions.clinicId, ctx.clinic.id),
+			eq(sessions.status, "completed"),
+			from ? gte(sessions.scheduledDate, from) : undefined,
+			to ? lte(sessions.scheduledDate, to) : undefined
+		);
 
 		const [stats] = await db
 			.select({
@@ -21,12 +48,10 @@ export async function GET() {
 				pendingCount: sql<number>`count(*) filter (where ${sessions.paid} = false)::int`
 			})
 			.from(sessions)
-			.where(
-				and(
-					eq(sessions.clinicId, ctx.clinic.id),
-					eq(sessions.status, "completed")
-				)
-			);
+			.where(where);
+
+		const total = stats?.completedCount ?? 0;
+		const meta = paginationMeta(total, page, pageSize);
 
 		const rows = await db
 			.select({
@@ -44,17 +69,14 @@ export async function GET() {
 			.from(sessions)
 			.innerJoin(patients, eq(patients.id, sessions.patientId))
 			.innerJoin(serviceTypes, eq(serviceTypes.id, sessions.serviceTypeId))
-			.where(
-				and(
-					eq(sessions.clinicId, ctx.clinic.id),
-					eq(sessions.status, "completed")
-				)
-			)
+			.where(where)
 			.orderBy(desc(sessions.scheduledDate), desc(sessions.scheduledTime))
-			.limit(200);
+			.limit(meta.pageSize)
+			.offset(meta.offset);
 
 		return NextResponse.json({
 			data: {
+				period: from && to ? { from, to } : null,
 				kpis: {
 					completedCount: stats?.completedCount ?? 0,
 					receivedTotal: String(stats?.receivedTotal ?? "0"),
@@ -62,7 +84,8 @@ export async function GET() {
 					pendingCount: stats?.pendingCount ?? 0
 				},
 				sessions: rows
-			}
+			},
+			meta
 		});
 	} catch (err) {
 		if (err instanceof Response) return err;

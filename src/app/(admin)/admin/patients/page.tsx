@@ -1,10 +1,11 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 
 import { ListSkeleton } from "@/components/admin/LoadingStates";
+import { PaginationControls } from "@/components/admin/PaginationControls";
 import {
 	EmptyState,
 	ErrorState,
@@ -23,6 +24,8 @@ import { Input } from "@/components/ui/Input";
 import { useDebounce } from "@/hooks/useDebounce";
 import { usePageTitle } from "@/hooks/usePageTitle";
 
+import type { PaginationMeta } from "@/lib/pagination";
+
 type PatientListItem = {
 	id: string;
 	fullName: string;
@@ -31,15 +34,18 @@ type PatientListItem = {
 	archivedAt: string | null;
 };
 
-async function fetchPatients(q: string, archived: boolean) {
-	const params = new URLSearchParams();
+async function fetchPatients(q: string, archived: boolean, page: number) {
+	const params = new URLSearchParams({ page: String(page), pageSize: "20" });
 	const term = q.trim();
 	if (term) params.set("q", term);
 	if (archived) params.set("archived", "1");
 	const res = await fetch(`/api/admin/patients?${params}`);
 	const json = await res.json();
 	if (!res.ok) throw new Error(json.error || "Falha ao listar.");
-	return json.data as PatientListItem[];
+	return {
+		data: json.data as PatientListItem[],
+		meta: json.meta as PaginationMeta
+	};
 }
 
 export default function PatientsPage() {
@@ -47,11 +53,19 @@ export default function PatientsPage() {
 	const [q, setQ] = useState("");
 	const search = useDebounce(q, 300).trim();
 	const [showArchived, setShowArchived] = useState(false);
+	const [page, setPage] = useState(1);
+
+	useEffect(() => {
+		setPage(1);
+	}, [search, showArchived]);
 
 	const listQuery = useQuery({
-		queryKey: ["patients", search, showArchived],
-		queryFn: () => fetchPatients(search, showArchived)
+		queryKey: ["patients", search, showArchived, page],
+		queryFn: () => fetchPatients(search, showArchived, page)
 	});
+
+	const rows = listQuery.data?.data ?? [];
+	const meta = listQuery.data?.meta;
 
 	return (
 		<div className="space-y-6">
@@ -78,13 +92,14 @@ export default function PatientsPage() {
 						<Input
 							className="sm:flex-1"
 							label={{ text: "Buscar" }}
-							placeholder="Nome do paciente"
+							placeholder="Nome, telefone ou CPF"
 							value={q}
 							onChange={(e) => setQ(e.target.value)}
 							autoComplete="off"
 						/>
 						<Button
 							type="button"
+							className="min-h-11 sm:min-h-10"
 							variant={showArchived ? "default" : "outline"}
 							onClick={() => setShowArchived((v) => !v)}
 						>
@@ -99,7 +114,7 @@ export default function PatientsPage() {
 							message={(listQuery.error as Error).message}
 							onRetry={() => listQuery.refetch()}
 						/>
-					) : listQuery.data?.length === 0 ? (
+					) : rows.length === 0 ? (
 						<EmptyState
 							title={
 								search
@@ -110,7 +125,7 @@ export default function PatientsPage() {
 							}
 							description={
 								search
-									? "Tente outro nome."
+									? "Tente outro nome, telefone ou CPF."
 									: showArchived
 										? "Pacientes arquivados aparecem aqui."
 										: "Cadastre o primeiro paciente para agendar atendimentos."
@@ -124,49 +139,61 @@ export default function PatientsPage() {
 							}
 						/>
 					) : (
-						<ul className="divide-border divide-y">
-							{listQuery.data?.map((p) => (
-								<li
-									key={p.id}
-									className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between"
-								>
-									<div className="min-w-0 space-y-1">
-										<div className="flex flex-wrap items-center gap-2">
-											<p className="font-medium">{p.fullName}</p>
-											{p.archivedAt ? (
-												<Badge variant="secondary">Arquivado</Badge>
-											) : null}
+						<>
+							<ul className="divide-border divide-y">
+								{rows.map((p) => (
+									<li
+										key={p.id}
+										className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+									>
+										<div className="min-w-0 space-y-1">
+											<div className="flex flex-wrap items-center gap-2">
+												<p className="font-medium">{p.fullName}</p>
+												{p.archivedAt ? (
+													<Badge variant="secondary">Arquivado</Badge>
+												) : null}
+											</div>
+											<p className="text-muted-foreground text-sm">
+												{p.preferredServiceTypeName}
+												{p.phone ? ` · ${p.phone}` : ""}
+											</p>
 										</div>
-										<p className="text-muted-foreground text-sm">
-											{p.preferredServiceTypeName}
-											{p.phone ? ` · ${p.phone}` : ""}
-										</p>
-									</div>
-									<div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-										<Button
-											asChild
-											variant="outline"
-											size="sm"
-											className="min-h-11 sm:min-h-9"
-										>
-											<Link href={`/admin/patients/${p.id}`}>Abrir</Link>
-										</Button>
-										{!p.archivedAt ? (
+										<div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
 											<Button
 												asChild
-												variant="ghost"
+												variant="outline"
 												size="sm"
 												className="min-h-11 sm:min-h-9"
 											>
-												<Link href={`/admin/agenda?patientId=${p.id}`}>
-													Agendar
-												</Link>
+												<Link href={`/admin/patients/${p.id}`}>Abrir</Link>
 											</Button>
-										) : null}
-									</div>
-								</li>
-							))}
-						</ul>
+											{!p.archivedAt ? (
+												<Button
+													asChild
+													variant="ghost"
+													size="sm"
+													className="min-h-11 sm:min-h-9"
+												>
+													<Link href={`/admin/agenda?patientId=${p.id}`}>
+														Agendar
+													</Link>
+												</Button>
+											) : null}
+										</div>
+									</li>
+								))}
+							</ul>
+							{meta ? (
+								<PaginationControls
+									page={meta.page}
+									totalPages={meta.totalPages}
+									total={meta.total}
+									pageSize={meta.pageSize}
+									pending={listQuery.isFetching}
+									onPageChange={setPage}
+								/>
+							) : null}
+						</>
 					)}
 				</CardContent>
 			</Card>

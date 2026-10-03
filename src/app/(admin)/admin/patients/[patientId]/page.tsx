@@ -328,7 +328,7 @@ export default function PatientDetailPage({
 				<CardHeader>
 					<CardTitle>Histórico de sessões</CardTitle>
 					<CardDescription>
-						Últimas sessões deste paciente (agenda ainda em construção).
+						Últimas sessões deste paciente.
 					</CardDescription>
 				</CardHeader>
 				<CardContent>

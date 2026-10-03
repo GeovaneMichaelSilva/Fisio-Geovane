@@ -52,7 +52,7 @@ async function fetchToday() {
 async function fetchFinance() {
 	const res = await fetch("/api/admin/finance");
 	const json = await res.json();
-	if (!res.ok) return null;
+	if (!res.ok) throw new Error(json.error || "Falha ao carregar financeiro.");
 	return json.data.kpis as FinanceKpis;
 }
 
@@ -219,6 +219,11 @@ export default function AdminHomePage() {
 					<CardContent className="space-y-4">
 						{financeQuery.isLoading ? (
 							<Skeleton className="h-16 w-full" />
+						) : financeQuery.isError ? (
+							<ErrorState
+								message={(financeQuery.error as Error).message}
+								onRetry={() => financeQuery.refetch()}
+							/>
 						) : financeQuery.data ? (
 							<>
 								<div>

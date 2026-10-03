@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { isValidCpf } from "@/lib/patients/cpf";
+
 /** Mantém só dígitos. */
 export function digitsOnly(value: string | null | undefined): string {
 	return (value ?? "").replace(/\D/g, "");
@@ -40,7 +42,17 @@ export const patientFormSchema = z.object({
 		.trim()
 		.max(32, "Máximo 32 caracteres.")
 		.transform((v) => emptyToNull(v)),
-	cpf: optionalDigits(11, "CPF"),
+	cpf: z
+		.string()
+		.trim()
+		.transform((v) => digitsOnly(v))
+		.refine((v) => v === "" || v.length === 11, {
+			message: "CPF deve ter 11 dígitos."
+		})
+		.refine((v) => isValidCpf(v), {
+			message: "CPF inválido."
+		})
+		.transform((v) => (v === "" ? null : v)),
 	birthDate: z
 		.string()
 		.trim()
