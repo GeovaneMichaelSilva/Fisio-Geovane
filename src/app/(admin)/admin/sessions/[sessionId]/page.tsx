@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, use, useEffect, useRef, useState } from "react";
+import { Suspense, use, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -190,6 +190,23 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 
 	const s = sessionQuery.data;
 	const formPatientId = patientId ?? s?.patientId ?? "";
+
+	const patientSelectOptions = useMemo(() => {
+		const list = patientsQuery.data ?? [];
+		const currentName = s?.patientName;
+		if (
+			formPatientId &&
+			currentName &&
+			!list.some((p) => p.id === formPatientId)
+		) {
+			return [{ id: formPatientId, fullName: currentName }, ...list];
+		}
+		if (list.length > 0) return list;
+		if (formPatientId && currentName) {
+			return [{ id: formPatientId, fullName: currentName }];
+		}
+		return [];
+	}, [patientsQuery.data, formPatientId, s?.patientName]);
 	const formDate = scheduledDate ?? s?.scheduledDate ?? "";
 	const formTime =
 		scheduledTime ??
@@ -568,26 +585,7 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 										placeholder={
 											patientsQuery.isFetching ? "Buscando…" : "Selecione…"
 										}
-										options={((): PatientOption[] => {
-											const list = patientsQuery.data ?? [];
-											const currentId = formPatientId;
-											const currentName = s?.patientName;
-											if (
-												currentId &&
-												currentName &&
-												!list.some((p) => p.id === currentId)
-											) {
-												return [
-													{ id: currentId, fullName: currentName },
-													...list
-												];
-											}
-											return list.length > 0
-												? list
-												: currentId && currentName
-													? [{ id: currentId, fullName: currentName }]
-													: [];
-										})().map((p) => ({
+										options={patientSelectOptions.map((p) => ({
 											value: p.id,
 											label: p.fullName
 										}))}

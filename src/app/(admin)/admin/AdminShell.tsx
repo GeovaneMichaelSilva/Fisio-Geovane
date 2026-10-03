@@ -46,9 +46,21 @@ export function AdminShell({ email, children }: AdminShellProps) {
 						</div>
 					</Link>
 					<div className="ml-auto flex shrink-0 items-center gap-2">
-						<span className="text-primary-foreground/80 hidden max-w-[180px] truncate text-sm lg:inline">
-							{email}
-						</span>
+						{email ? (
+							<Link
+								href="/admin/settings/account"
+								className="text-primary-foreground/80 hover:text-primary-foreground hidden max-w-[180px] truncate text-sm underline-offset-2 hover:underline lg:inline"
+								title="Conta e senha"
+							>
+								{email}
+							</Link>
+						) : null}
+						<Link
+							href="/admin/settings/account"
+							className="text-primary-foreground/90 hover:bg-primary-foreground/10 rounded-md px-2 py-1.5 text-sm lg:hidden"
+						>
+							Conta
+						</Link>
 						<SignOutButton />
 					</div>
 				</div>

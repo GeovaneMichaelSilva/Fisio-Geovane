@@ -99,7 +99,7 @@ export default function SettingsPage() {
 			<div className="space-y-3">
 				<PageHeader
 					title="Configurações"
-					description="Dados da clínica usados no sistema e em exportações."
+					description="Clínica, tipos, conta (senha) e integrações."
 				/>
 				<SettingsNav />
 			</div>
