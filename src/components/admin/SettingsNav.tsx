@@ -3,19 +3,34 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { useClinicRole } from "@/hooks/useClinicRole";
 import { cn } from "@/utils";
 
-const items = [
-	{ href: "/admin/settings", label: "Clínica", exact: true },
-	{ href: "/admin/settings/service-types", label: "Tipos de atendimento" },
-	{ href: "/admin/settings/integrations", label: "Integrações" }
-];
-
 /**
- * Subnav das configurações.
+ * Subnav das configurações (itens sensíveis só para owner).
  */
 export function SettingsNav() {
 	const pathname = usePathname();
+	const { isOwner, isLoading } = useClinicRole();
+
+	const items = [
+		{ href: "/admin/settings", label: "Clínica", exact: true, ownerOnly: false },
+		{
+			href: "/admin/settings/service-types",
+			label: "Tipos de atendimento",
+			ownerOnly: false
+		},
+		{
+			href: "/admin/settings/team",
+			label: "Equipe",
+			ownerOnly: true
+		},
+		{
+			href: "/admin/settings/integrations",
+			label: "Integrações",
+			ownerOnly: true
+		}
+	].filter((item) => !item.ownerOnly || isOwner || isLoading);
 
 	return (
 		<nav className="flex flex-wrap gap-2">

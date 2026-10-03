@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { auth } from "@/auth";
 import { getOrCreateClinicContext } from "@/lib/clinic/context";
+import { requireOwner } from "@/lib/clinic/rbac";
 import {
 	buildGoogleAuthUrl,
 	createOAuthState,
@@ -37,6 +38,7 @@ export async function GET() {
 		}
 
 		const ctx = await getOrCreateClinicContext();
+		requireOwner(ctx);
 		const state = createOAuthState(ctx.userId, ctx.clinic.id);
 		const url = buildGoogleAuthUrl(state);
 		return NextResponse.redirect(url);

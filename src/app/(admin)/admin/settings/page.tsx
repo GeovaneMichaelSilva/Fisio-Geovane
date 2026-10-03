@@ -18,6 +18,7 @@ import {
 	CardTitle
 } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { useClinicRole } from "@/hooks/useClinicRole";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import {
 	clinicUpdateSchema,
@@ -44,6 +45,8 @@ async function fetchClinic(): Promise<Clinic> {
 export default function SettingsPage() {
 	usePageTitle("Configurações");
 	const queryClient = useQueryClient();
+	const { isOwner, isLoading: roleLoading } = useClinicRole();
+	const canEdit = isOwner;
 
 	const clinicQuery = useQuery({
 		queryKey: ["clinic"],
@@ -106,6 +109,9 @@ export default function SettingsPage() {
 					<CardTitle>Clínica</CardTitle>
 					<CardDescription>
 						Nome profissional, registro e duração padrão das sessões.
+						{!roleLoading && !canEdit
+							? " Somente o responsável pode editar."
+							: ""}
 					</CardDescription>
 				</CardHeader>
 				<CardContent>
@@ -119,53 +125,58 @@ export default function SettingsPage() {
 					) : (
 						<form
 							className="grid max-w-xl gap-4"
-							onSubmit={form.handleSubmit((values) =>
-								saveMutation.mutate(values)
-							)}
+							onSubmit={form.handleSubmit((values) => {
+								if (!canEdit) return;
+								saveMutation.mutate(values);
+							})}
 						>
-							<Input
-								label={{ text: "Nome exibido", required: true }}
-								error={form.formState.errors.displayName?.message}
-								{...form.register("displayName")}
-							/>
-							<Input
-								label={{ text: "Profissão", required: true }}
-								helperText="Aparece no cabeçalho do PDF (ex.: Fisioterapeuta)."
-								error={form.formState.errors.professionLabel?.message}
-								{...form.register("professionLabel")}
-							/>
-							<Input
-								label={{ text: "Crefito / registro" }}
-								helperText="Ex.: 549225-F"
-								error={form.formState.errors.licenseNumber?.message}
-								{...form.register("licenseNumber")}
-							/>
-							<Input
-								label={{ text: "Fuso horário", required: true }}
-								error={form.formState.errors.timezone?.message}
-								{...form.register("timezone")}
-							/>
-							<Input
-								label={{
-									text: "Duração padrão da sessão (min)",
-									required: true
-								}}
-								type="number"
-								min={5}
-								max={480}
-								error={
-									form.formState.errors.defaultSessionDurationMinutes
-										?.message
-								}
-								{...form.register("defaultSessionDurationMinutes", {
-									valueAsNumber: true
-								})}
-							/>
-							<div>
-								<Button type="submit" disabled={saveMutation.isPending}>
-									{saveMutation.isPending ? "Salvando…" : "Salvar"}
-								</Button>
-							</div>
+							<fieldset disabled={!canEdit} className="grid gap-4 disabled:opacity-80">
+								<Input
+									label={{ text: "Nome exibido", required: true }}
+									error={form.formState.errors.displayName?.message}
+									{...form.register("displayName")}
+								/>
+								<Input
+									label={{ text: "Profissão", required: true }}
+									helperText="Aparece no cabeçalho do PDF (ex.: Fisioterapeuta)."
+									error={form.formState.errors.professionLabel?.message}
+									{...form.register("professionLabel")}
+								/>
+								<Input
+									label={{ text: "Crefito / registro" }}
+									helperText="Ex.: 549225-F"
+									error={form.formState.errors.licenseNumber?.message}
+									{...form.register("licenseNumber")}
+								/>
+								<Input
+									label={{ text: "Fuso horário", required: true }}
+									error={form.formState.errors.timezone?.message}
+									{...form.register("timezone")}
+								/>
+								<Input
+									label={{
+										text: "Duração padrão da sessão (min)",
+										required: true
+									}}
+									type="number"
+									min={5}
+									max={480}
+									error={
+										form.formState.errors.defaultSessionDurationMinutes
+											?.message
+									}
+									{...form.register("defaultSessionDurationMinutes", {
+										valueAsNumber: true
+									})}
+								/>
+							</fieldset>
+							{canEdit ? (
+								<div>
+									<Button type="submit" disabled={saveMutation.isPending}>
+										{saveMutation.isPending ? "Salvando…" : "Salvar"}
+									</Button>
+								</div>
+							) : null}
 						</form>
 					)}
 				</CardContent>

@@ -31,6 +31,7 @@ import {
 	DialogTitle
 } from "@/components/ui/Dialog";
 import { Input } from "@/components/ui/Input";
+import { useClinicRole } from "@/hooks/useClinicRole";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import {
 	serviceTypeFormSchema,
@@ -70,6 +71,7 @@ const emptyForm: ServiceTypeFormValues = {
 export default function ServiceTypesPage() {
 	usePageTitle("Tipos de atendimento");
 	const queryClient = useQueryClient();
+	const { isOwner } = useClinicRole();
 	const [open, setOpen] = useState(false);
 	const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -159,11 +161,17 @@ export default function ServiceTypesPage() {
 			<div className="space-y-3">
 				<PageHeader
 					title="Tipos de atendimento"
-					description="Nome, duração e valor padrão usados na agenda e nos pacientes."
+					description={
+						isOwner
+							? "Nome, duração e valor padrão usados na agenda e nos pacientes."
+							: "Consulta dos tipos. Somente o responsável pode criar ou editar."
+					}
 					actions={
-						<Button type="button" onClick={openCreate}>
-							Novo tipo
-						</Button>
+						isOwner ? (
+							<Button type="button" onClick={openCreate}>
+								Novo tipo
+							</Button>
+						) : undefined
 					}
 				/>
 				<SettingsNav />
@@ -187,11 +195,17 @@ export default function ServiceTypesPage() {
 					) : listQuery.data?.length === 0 ? (
 						<EmptyState
 							title="Nenhum tipo cadastrado"
-							description="Crie o primeiro tipo para usar na agenda."
+							description={
+								isOwner
+									? "Crie o primeiro tipo para usar na agenda."
+									: "Peça ao responsável para cadastrar os tipos."
+							}
 							action={
-								<Button type="button" size="sm" onClick={openCreate}>
-									Novo tipo
-								</Button>
+								isOwner ? (
+									<Button type="button" size="sm" onClick={openCreate}>
+										Novo tipo
+									</Button>
+								) : undefined
 							}
 						/>
 					) : (
@@ -213,25 +227,27 @@ export default function ServiceTypesPage() {
 											{formatBrl(row.defaultValueBrl)}
 										</p>
 									</div>
-									<div className="flex flex-wrap gap-2">
-										<Button
-											type="button"
-											variant="outline"
-											size="sm"
-											onClick={() => openEdit(row)}
-										>
-											Editar
-										</Button>
-										<Button
-											type="button"
-											variant="ghost"
-											size="sm"
-											disabled={toggleMutation.isPending}
-											onClick={() => toggleMutation.mutate(row)}
-										>
-											{row.isActive ? "Desativar" : "Ativar"}
-										</Button>
-									</div>
+									{isOwner ? (
+										<div className="flex flex-wrap gap-2">
+											<Button
+												type="button"
+												variant="outline"
+												size="sm"
+												onClick={() => openEdit(row)}
+											>
+												Editar
+											</Button>
+											<Button
+												type="button"
+												variant="ghost"
+												size="sm"
+												disabled={toggleMutation.isPending}
+												onClick={() => toggleMutation.mutate(row)}
+											>
+												{row.isActive ? "Desativar" : "Ativar"}
+											</Button>
+										</div>
+									) : null}
 								</li>
 							))}
 						</ul>

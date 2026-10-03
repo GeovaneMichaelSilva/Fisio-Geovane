@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 
 import { auth } from "@/auth";
 import { getDb } from "@/db";
-import { clinicMembers, clinics, serviceTypes } from "@/db/schema";
+import { clinicMembers, clinics, serviceTypes, users } from "@/db/schema";
 
 import { DEFAULT_CLINIC, DEFAULT_SERVICE_TYPES } from "./defaults";
 
@@ -30,8 +30,11 @@ export async function requireUserId(): Promise<string> {
 }
 
 /**
- * Resolve a clínica do usuário (membership). Se não existir e o user for
- * owner, cria clínica + membership + tipos padrão.
+ * Resolve a clínica do usuário via membership.
+ * - Com membership: usa a clínica.
+ * - Sem membership, mas é ownerUserId: backfill membership.
+ * - Sem membership e staff: 403 (precisa ser convidado).
+ * - Sem membership e owner sem clínica: cria clínica (bootstrap do primeiro acesso).
  */
 export async function getOrCreateClinicContext(
 	db: Db = getDb()
@@ -71,6 +74,25 @@ export async function getOrCreateClinicContext(
 		await ensureDefaultServiceTypes(db, owned.id);
 
 		return { userId, role: "owner", clinic: owned };
+	}
+
+	const [user] = await db
+		.select({ role: users.role })
+		.from(users)
+		.where(eq(users.id, userId))
+		.limit(1);
+
+	if (user?.role === "staff") {
+		throw new Response(
+			JSON.stringify({
+				error:
+					"Você ainda não faz parte de uma clínica. Peça ao responsável para adicioná-lo na equipe."
+			}),
+			{
+				status: 403,
+				headers: { "Content-Type": "application/json" }
+			}
+		);
 	}
 
 	const [clinic] = await db

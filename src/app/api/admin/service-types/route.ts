@@ -7,6 +7,7 @@ import {
 	ensureDefaultServiceTypes,
 	getOrCreateClinicContext
 } from "@/lib/clinic/context";
+import { requireOwner } from "@/lib/clinic/rbac";
 import { slugify } from "@/lib/clinic/slug";
 import { serviceTypeCreateSchema } from "@/lib/service-types/schema";
 
@@ -36,6 +37,7 @@ export async function GET() {
 export async function POST(request: Request) {
 	try {
 		const ctx = await getOrCreateClinicContext();
+		requireOwner(ctx);
 		const body = await request.json();
 		const parsed = serviceTypeCreateSchema.safeParse(body);
 

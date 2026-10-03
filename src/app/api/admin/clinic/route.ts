@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clinics } from "@/db/schema";
 import { getOrCreateClinicContext } from "@/lib/clinic/context";
+import { requireOwner } from "@/lib/clinic/rbac";
 import { clinicUpdateSchema } from "@/lib/clinic/schema";
 
 export async function GET() {
@@ -23,6 +24,7 @@ export async function GET() {
 export async function PUT(request: Request) {
 	try {
 		const ctx = await getOrCreateClinicContext();
+		requireOwner(ctx);
 		const body = await request.json();
 		const parsed = clinicUpdateSchema.safeParse(body);
 

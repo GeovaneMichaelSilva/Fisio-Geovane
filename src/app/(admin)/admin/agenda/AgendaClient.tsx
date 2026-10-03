@@ -2,13 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { OverlapConfirmDialog } from "@/components/admin/OverlapConfirmDialog";
+import {
+	OverlapConfirmDialog,
+	type OverlapConflict
+} from "@/components/admin/OverlapConfirmDialog";
 import { EmptyState, ErrorState, PageHeader } from "@/components/admin/PageStates";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -52,6 +55,7 @@ type AgendaSession = {
 	serviceTypeName: string;
 	status: string;
 	valueBrl: string;
+	googleEventId?: string | null;
 };
 
 type PatientOption = {
@@ -72,6 +76,16 @@ type Clinic = {
 	defaultSessionDurationMinutes: number;
 };
 
+type GoogleStatus = {
+	configured: boolean;
+	connected: boolean;
+};
+
+type GoogleSyncResult =
+	| { status: "skipped" }
+	| { status: "synced"; action: "create" | "update" | "delete" }
+	| { status: "error"; message: string };
+
 async function fetchWeek(from: string, to: string) {
 	const res = await fetch(`/api/admin/sessions?from=${from}&to=${to}`);
 	const json = await res.json();
@@ -79,8 +93,10 @@ async function fetchWeek(from: string, to: string) {
 	return json.data as AgendaSession[];
 }
 
-async function fetchPatients() {
-	const res = await fetch("/api/admin/patients?pageSize=100");
+async function fetchPatients(q: string) {
+	const params = new URLSearchParams({ pageSize: "50" });
+	if (q.trim()) params.set("q", q.trim());
+	const res = await fetch(`/api/admin/patients?${params}`);
 	const json = await res.json();
 	if (!res.ok) throw new Error(json.error || "Falha ao carregar pacientes.");
 	return json.data as PatientOption[];
@@ -98,6 +114,22 @@ async function fetchClinic() {
 	const json = await res.json();
 	if (!res.ok) throw new Error(json.error || "Falha ao carregar clínica.");
 	return json.data as Clinic;
+}
+
+async function fetchGoogleStatus() {
+	const res = await fetch("/api/admin/integrations/google-calendar");
+	const json = await res.json();
+	if (!res.ok) throw new Error(json.error || "Falha ao carregar Google.");
+	return json.data as GoogleStatus;
+}
+
+function notifyGoogleSync(googleSync?: GoogleSyncResult) {
+	if (!googleSync) return;
+	if (googleSync.status === "error") {
+		toast.warning(
+			`Agendamento salvo, mas o Google Agenda falhou: ${googleSync.message}`
+		);
+	}
 }
 
 function statusVariant(status: string) {
@@ -118,9 +150,16 @@ function SessionCard({ s }: { s: AgendaSession }) {
 				<p className="text-muted-foreground truncate text-xs">
 					{s.serviceTypeName}
 				</p>
-				<Badge variant={statusVariant(s.status)} className="mt-1">
-					{STATUS_LABEL[s.status] ?? s.status}
-				</Badge>
+				<div className="mt-1 flex flex-wrap gap-1">
+					<Badge variant={statusVariant(s.status)}>
+						{STATUS_LABEL[s.status] ?? s.status}
+					</Badge>
+					{s.googleEventId ? (
+						<Badge variant="outline" className="text-[10px]">
+							Google
+						</Badge>
+					) : null}
+				</div>
 			</Link>
 			{s.status === "scheduled" ? (
 				<Button asChild size="sm" className="mt-2 min-h-11 w-full sm:min-h-9">
@@ -133,7 +172,6 @@ function SessionCard({ s }: { s: AgendaSession }) {
 
 export default function AgendaClient() {
 	usePageTitle("Agenda");
-	const router = useRouter();
 	const searchParams = useSearchParams();
 	const queryClient = useQueryClient();
 
@@ -149,11 +187,14 @@ export default function AgendaClient() {
 	const [composerOpen, setComposerOpen] = useState(
 		Boolean(initialPatientId || initialDate)
 	);
-	const [selectedDay, setSelectedDay] = useState(
-		initialDate || todayStr
-	);
+	const [selectedDay, setSelectedDay] = useState(initialDate || todayStr);
 	const [overlapReason, setOverlapReason] = useState("");
 	const [pendingOverlap, setPendingOverlap] = useState(false);
+	const [overlapConflicts, setOverlapConflicts] = useState<OverlapConflict[]>(
+		[]
+	);
+	const [patientFilter, setPatientFilter] = useState("");
+	const [debouncedPatientQ, setDebouncedPatientQ] = useState("");
 
 	const form = useForm<SessionCreateInput, unknown, SessionCreateParsed>({
 		resolver: zodResolver(sessionCreateSchema),
@@ -178,14 +219,20 @@ export default function AgendaClient() {
 		[monday]
 	);
 
+	useEffect(() => {
+		const t = setTimeout(() => setDebouncedPatientQ(patientFilter), 250);
+		return () => clearTimeout(t);
+	}, [patientFilter]);
+
 	const weekQuery = useQuery({
 		queryKey: ["sessions-week", from, to],
 		queryFn: () => fetchWeek(from, to)
 	});
 
 	const patientsQuery = useQuery({
-		queryKey: ["patients-options"],
-		queryFn: fetchPatients
+		queryKey: ["patients-options", debouncedPatientQ],
+		queryFn: () => fetchPatients(debouncedPatientQ),
+		enabled: composerOpen
 	});
 
 	const typesQuery = useQuery({
@@ -196,6 +243,12 @@ export default function AgendaClient() {
 	const clinicQuery = useQuery({
 		queryKey: ["clinic"],
 		queryFn: fetchClinic
+	});
+
+	const googleQuery = useQuery({
+		queryKey: ["google-calendar-status"],
+		queryFn: fetchGoogleStatus,
+		staleTime: 60_000
 	});
 
 	const sessionsByDay = useMemo(() => {
@@ -229,6 +282,8 @@ export default function AgendaClient() {
 		setComposerOpen(true);
 		setPendingOverlap(false);
 		setOverlapReason("");
+		setOverlapConflicts([]);
+		setPatientFilter("");
 
 		const current = form.getValues();
 		let serviceTypeId = current.serviceTypeId;
@@ -266,6 +321,8 @@ export default function AgendaClient() {
 		setComposerOpen(false);
 		setPendingOverlap(false);
 		setOverlapReason("");
+		setOverlapConflicts([]);
+		setPatientFilter("");
 		form.clearErrors();
 	}
 
@@ -295,23 +352,38 @@ export default function AgendaClient() {
 			});
 			const json = await res.json();
 			if (res.status === 409 && json.error === "overlap") {
-				return { overlap: true as const, conflicts: json.conflicts };
+				return {
+					overlap: true as const,
+					conflicts: (json.conflicts ?? []) as OverlapConflict[]
+				};
 			}
 			if (!res.ok) {
 				throw new Error(json.error || json.message || "Falha ao agendar.");
 			}
-			return { overlap: false as const, data: json.data as { id: string } };
+			return {
+				overlap: false as const,
+				data: json.data as { id: string },
+				googleSync: json.googleSync as GoogleSyncResult | undefined
+			};
 		},
 		onSuccess: (result) => {
 			if (result.overlap) {
+				setOverlapConflicts(result.conflicts);
 				setPendingOverlap(true);
 				toast.message("Há sobreposição de horário. Confirme o override.");
 				return;
 			}
 			queryClient.invalidateQueries({ queryKey: ["sessions-week"] });
-			toast.success("Agendamento criado.");
+			notifyGoogleSync(result.googleSync);
+			toast.success("Agendamento criado.", {
+				action: {
+					label: "Abrir",
+					onClick: () => {
+						window.location.href = `/admin/sessions/${result.data.id}`;
+					}
+				}
+			});
 			closeComposer();
-			router.push(`/admin/sessions/${result.data.id}`);
 		},
 		onError: (err: Error) => toast.error(err.message)
 	});
@@ -331,6 +403,24 @@ export default function AgendaClient() {
 	}
 
 	const errors = form.formState.errors;
+	const selectedPatientId = form.watch("patientId");
+	const patientOptions = useMemo(() => {
+		const list = patientsQuery.data ?? [];
+		if (
+			selectedPatientId &&
+			!list.some((p) => p.id === selectedPatientId)
+		) {
+			return [
+				{
+					id: selectedPatientId,
+					fullName: "Paciente selecionado",
+					preferredServiceTypeId: ""
+				},
+				...list
+			];
+		}
+		return list;
+	}, [patientsQuery.data, selectedPatientId]);
 
 	return (
 		<div className="space-y-6">
@@ -339,6 +429,15 @@ export default function AgendaClient() {
 				description={`Semana ${formatWeekLabel(monday)}`}
 				actions={
 					<>
+						{googleQuery.data?.connected ? (
+							<Badge variant="outline" className="hidden sm:inline-flex">
+								Google Agenda conectada
+							</Badge>
+						) : googleQuery.data?.configured ? (
+							<Badge variant="secondary" className="hidden sm:inline-flex">
+								Google desconectado
+							</Badge>
+						) : null}
 						<div className="flex flex-wrap gap-2">
 							<Button
 								type="button"
@@ -395,10 +494,14 @@ export default function AgendaClient() {
 						<DialogTitle>Novo agendamento</DialogTitle>
 						<DialogDescription>
 							Duração padrão do tipo. Sobreposição exige override.
+							{googleQuery.data?.connected
+								? " Será sincronizado com o Google Agenda."
+								: ""}
 						</DialogDescription>
 					</DialogHeader>
 
 					{!patientsQuery.isLoading &&
+					!debouncedPatientQ &&
 					(patientsQuery.data?.length ?? 0) === 0 ? (
 						<EmptyState
 							title="Cadastre um paciente antes de agendar"
@@ -420,18 +523,29 @@ export default function AgendaClient() {
 								})
 							)}
 						>
-							<Select
-								className="sm:col-span-2"
-								label={{ text: "Paciente", required: true }}
-								value={form.watch("patientId")}
-								onChange={(e) => onPatientChange(e.target.value)}
-								placeholder="Selecione…"
-								error={errors.patientId?.message}
-								options={(patientsQuery.data ?? []).map((p) => ({
-									value: p.id,
-									label: p.fullName
-								}))}
-							/>
+							<div className="space-y-2 sm:col-span-2">
+								<Input
+									label={{ text: "Buscar paciente" }}
+									placeholder="Nome, telefone ou CPF…"
+									value={patientFilter}
+									onChange={(e) => setPatientFilter(e.target.value)}
+								/>
+								<Select
+									label={{ text: "Paciente", required: true }}
+									value={form.watch("patientId")}
+									onChange={(e) => onPatientChange(e.target.value)}
+									placeholder={
+										patientsQuery.isFetching
+											? "Buscando…"
+											: "Selecione…"
+									}
+									error={errors.patientId?.message}
+									options={patientOptions.map((p) => ({
+										value: p.id,
+										label: p.fullName
+									}))}
+								/>
+							</div>
 							<Select
 								className="sm:col-span-2"
 								label={{ text: "Tipo", required: true }}
@@ -499,6 +613,7 @@ export default function AgendaClient() {
 				open={pendingOverlap}
 				reason={overlapReason}
 				pending={createMutation.isPending}
+				conflicts={overlapConflicts}
 				onReasonChange={setOverlapReason}
 				onConfirm={() => {
 					if (!overlapReason.trim()) {
@@ -510,6 +625,7 @@ export default function AgendaClient() {
 				onCancel={() => {
 					setPendingOverlap(false);
 					setOverlapReason("");
+					setOverlapConflicts([]);
 				}}
 			/>
 

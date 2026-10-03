@@ -6,7 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { FormSkeleton } from "@/components/admin/LoadingStates";
-import { ErrorState } from "@/components/admin/PageStates";
+import { EmptyState, ErrorState } from "@/components/admin/PageStates";
 import { SettingsNav } from "@/components/admin/SettingsNav";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -17,6 +17,7 @@ import {
 	CardHeader,
 	CardTitle
 } from "@/components/ui/Card";
+import { useClinicRole } from "@/hooks/useClinicRole";
 import { usePageTitle } from "@/hooks/usePageTitle";
 
 type GoogleStatus = {
@@ -38,10 +39,12 @@ function IntegrationsInner() {
 	usePageTitle("Integrações");
 	const searchParams = useSearchParams();
 	const queryClient = useQueryClient();
+	const { isOwner, isLoading: roleLoading } = useClinicRole();
 
 	const statusQuery = useQuery({
 		queryKey: ["google-calendar-status"],
-		queryFn: fetchGoogleStatus
+		queryFn: fetchGoogleStatus,
+		enabled: isOwner
 	});
 
 	useEffect(() => {
@@ -74,6 +77,26 @@ function IntegrationsInner() {
 	});
 
 	const status = statusQuery.data;
+
+	if (!roleLoading && !isOwner) {
+		return (
+			<div className="space-y-6">
+				<div className="space-y-3">
+					<div>
+						<h1 className="text-2xl font-medium">Integrações</h1>
+						<p className="text-muted-foreground text-sm">
+							Conexões externas da clínica.
+						</p>
+					</div>
+					<SettingsNav />
+				</div>
+				<EmptyState
+					title="Acesso restrito"
+					description="Apenas o responsável pode conectar ou desconectar o Google Agenda."
+				/>
+			</div>
+		);
+	}
 
 	return (
 		<div className="space-y-6">

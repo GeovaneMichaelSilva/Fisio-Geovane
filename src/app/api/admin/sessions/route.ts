@@ -77,7 +77,8 @@ export async function GET(request: Request) {
 					valueBrl: sessions.valueBrl,
 					paid: sessions.paid,
 					invoiceIssued: sessions.invoiceIssued,
-					evolution: sessions.evolution
+					evolution: sessions.evolution,
+					googleEventId: sessions.googleEventId
 				})
 				.from(sessions)
 				.innerJoin(patients, eq(patients.id, sessions.patientId))
@@ -112,7 +113,8 @@ export async function GET(request: Request) {
 				valueBrl: sessions.valueBrl,
 				paid: sessions.paid,
 				invoiceIssued: sessions.invoiceIssued,
-				evolution: sessions.evolution
+				evolution: sessions.evolution,
+				googleEventId: sessions.googleEventId
 			})
 			.from(sessions)
 			.innerJoin(patients, eq(patients.id, sessions.patientId))
@@ -256,9 +258,13 @@ export async function POST(request: Request) {
 		const { syncSessionToGoogleCalendar } = await import(
 			"@/lib/google-calendar/sync"
 		);
-		await syncSessionToGoogleCalendar(created.id, ctx.clinic.id, db);
+		const googleSync = await syncSessionToGoogleCalendar(
+			created.id,
+			ctx.clinic.id,
+			db
+		);
 
-		return NextResponse.json({ data: created }, { status: 201 });
+		return NextResponse.json({ data: created, googleSync }, { status: 201 });
 	} catch (err) {
 		if (err instanceof Response) return err;
 		console.error(err);

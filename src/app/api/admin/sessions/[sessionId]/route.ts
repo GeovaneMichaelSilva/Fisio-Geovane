@@ -299,14 +299,24 @@ export async function PUT(request: Request, { params }: Params) {
 			nextPatientId !== current.patientId ||
 			nextServiceTypeId !== current.serviceTypeId;
 
+		let googleSync: Awaited<
+			ReturnType<
+				typeof import("@/lib/google-calendar/sync").syncSessionToGoogleCalendar
+			>
+		> = { status: "skipped" };
+
 		if (scheduleOrStatusChanged) {
 			const { syncSessionToGoogleCalendar } = await import(
 				"@/lib/google-calendar/sync"
 			);
-			await syncSessionToGoogleCalendar(sessionId, ctx.clinic.id, db);
+			googleSync = await syncSessionToGoogleCalendar(
+				sessionId,
+				ctx.clinic.id,
+				db
+			);
 		}
 
-		return NextResponse.json({ data: updated });
+		return NextResponse.json({ data: updated, googleSync });
 	} catch (err) {
 		if (err instanceof Response) return err;
 		console.error(err);

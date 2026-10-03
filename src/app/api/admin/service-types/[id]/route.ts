@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { serviceTypes } from "@/db/schema";
 import { getOrCreateClinicContext } from "@/lib/clinic/context";
+import { requireOwner } from "@/lib/clinic/rbac";
 import { slugify } from "@/lib/clinic/slug";
 import { serviceTypeUpdateSchema } from "@/lib/service-types/schema";
 
@@ -13,6 +14,7 @@ export async function PATCH(request: Request, { params }: Params) {
 	try {
 		const { id } = await params;
 		const ctx = await getOrCreateClinicContext();
+		requireOwner(ctx);
 		const body = await request.json();
 		const parsed = serviceTypeUpdateSchema.safeParse(body);
 

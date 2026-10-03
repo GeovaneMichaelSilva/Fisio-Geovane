@@ -51,8 +51,14 @@ function wrapText(doc: jsPDF, text: string, maxWidth: number): string[] {
 /**
  * Monta e baixa o PDF do paciente.
  */
+function truncateClinical(text: string, max = 2500) {
+	const t = text.trim();
+	if (t.length <= max) return t;
+	return `${t.slice(0, max)}…`;
+}
+
 export function downloadPatientHistoryPdf(input: PatientPdfInput) {
-	const doc = new jsPDF({ unit: "mm", format: "a4" });
+	const doc = new jsPDF({ unit: "mm", format: "a4", compress: true });
 	const pageW = doc.internal.pageSize.getWidth();
 	const pageH = doc.internal.pageSize.getHeight();
 	const margin = 14;
@@ -125,9 +131,9 @@ export function downloadPatientHistoryPdf(input: PatientPdfInput) {
 		y += 6;
 
 		const blocks: Array<[string, string]> = [
-			["Avaliacao", session.assessment ?? ""],
-			["Evolucao", session.evolution ?? ""],
-			["Atividades", session.activities ?? ""]
+			["Avaliacao", truncateClinical(session.assessment ?? "")],
+			["Evolucao", truncateClinical(session.evolution ?? "")],
+			["Atividades", truncateClinical(session.activities ?? "")]
 		];
 
 		for (const [label, value] of blocks) {

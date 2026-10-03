@@ -1,14 +1,8 @@
 import { NextResponse } from "next/server";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 
 import { getDb } from "@/db";
-import {
-	clinics,
-	patients,
-	serviceTypes,
-	sessionAudits,
-	sessions
-} from "@/db/schema";
+import { patients, serviceTypes, sessionAudits, sessions } from "@/db/schema";
 import { getOrCreateClinicContext } from "@/lib/clinic/context";
 
 type Params = { params: Promise<{ patientId: string }> };
@@ -40,12 +34,6 @@ export async function GET(_request: Request, { params }: Params) {
 			);
 		}
 
-		const [clinic] = await db
-			.select()
-			.from(clinics)
-			.where(eq(clinics.id, ctx.clinic.id))
-			.limit(1);
-
 		const completed = await db
 			.select({
 				id: sessions.id,
@@ -70,36 +58,52 @@ export async function GET(_request: Request, { params }: Params) {
 			)
 			.orderBy(desc(sessions.scheduledDate), desc(sessions.scheduledTime));
 
-		const withAudits = await Promise.all(
-			completed.map(async (session) => {
-				const [lastAudit] = await db
-					.select({
-						editedAt: sessionAudits.editedAt,
-						reason: sessionAudits.reason
-					})
-					.from(sessionAudits)
-					.where(eq(sessionAudits.sessionId, session.id))
-					.orderBy(desc(sessionAudits.editedAt))
-					.limit(1);
+		const sessionIds = completed.map((s) => s.id);
+		const lastAuditBySession = new Map<
+			string,
+			{ editedAt: Date; reason: string }
+		>();
 
-				return {
-					...session,
-					lastAudit: lastAudit
-						? {
-								editedAt: lastAudit.editedAt.toISOString(),
-								reason: lastAudit.reason
-							}
-						: null
-				};
-			})
-		);
+		if (sessionIds.length > 0) {
+			const audits = await db
+				.select({
+					sessionId: sessionAudits.sessionId,
+					editedAt: sessionAudits.editedAt,
+					reason: sessionAudits.reason
+				})
+				.from(sessionAudits)
+				.where(inArray(sessionAudits.sessionId, sessionIds))
+				.orderBy(desc(sessionAudits.editedAt));
+
+			for (const audit of audits) {
+				if (!lastAuditBySession.has(audit.sessionId)) {
+					lastAuditBySession.set(audit.sessionId, {
+						editedAt: audit.editedAt,
+						reason: audit.reason
+					});
+				}
+			}
+		}
+
+		const withAudits = completed.map((session) => {
+			const lastAudit = lastAuditBySession.get(session.id);
+			return {
+				...session,
+				lastAudit: lastAudit
+					? {
+							editedAt: lastAudit.editedAt.toISOString(),
+							reason: lastAudit.reason
+						}
+					: null
+			};
+		});
 
 		return NextResponse.json({
 			data: {
 				clinic: {
-					displayName: clinic.displayName,
-					professionLabel: clinic.professionLabel,
-					licenseNumber: clinic.licenseNumber
+					displayName: ctx.clinic.displayName,
+					professionLabel: ctx.clinic.professionLabel,
+					licenseNumber: ctx.clinic.licenseNumber
 				},
 				patient: {
 					fullName: patient.fullName,

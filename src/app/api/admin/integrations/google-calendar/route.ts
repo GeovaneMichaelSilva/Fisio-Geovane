@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { googleCalendarConnections } from "@/db/schema";
 import { getOrCreateClinicContext } from "@/lib/clinic/context";
+import { requireOwner } from "@/lib/clinic/rbac";
 import { isGoogleCalendarConfigured } from "@/lib/google-calendar/oauth";
 
 /**
@@ -62,6 +63,7 @@ export async function GET() {
 export async function DELETE() {
 	try {
 		const ctx = await getOrCreateClinicContext();
+		requireOwner(ctx);
 		const db = getDb();
 
 		const [conn] = await db

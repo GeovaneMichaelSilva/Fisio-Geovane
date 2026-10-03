@@ -6,7 +6,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { OverlapConfirmDialog } from "@/components/admin/OverlapConfirmDialog";
+import {
+	OverlapConfirmDialog,
+	type OverlapConflict
+} from "@/components/admin/OverlapConfirmDialog";
 import { ErrorState } from "@/components/admin/PageStates";
 import {
 	AlertDialog,
@@ -82,6 +85,7 @@ type SessionDetail = {
 	assessment: string | null;
 	evolution: string | null;
 	activities: string | null;
+	googleEventId?: string | null;
 	audits: Array<{ id: string; editedAt: string; reason: string }>;
 	previousClinical: PreviousClinical[];
 };
@@ -151,6 +155,9 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 	const [reason, setReason] = useState("");
 	const [overlapReason, setOverlapReason] = useState("");
 	const [pendingOverlap, setPendingOverlap] = useState(false);
+	const [overlapConflicts, setOverlapConflicts] = useState<OverlapConflict[]>(
+		[]
+	);
 	const [scheduleErrors, setScheduleErrors] = useState<
 		Record<string, string | undefined>
 	>({});
@@ -251,13 +258,24 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 			});
 			const json = await res.json();
 			if (res.status === 409 && json.error === "overlap") {
-				return { overlap: true as const };
+				return {
+					overlap: true as const,
+					conflicts: (json.conflicts ?? []) as OverlapConflict[]
+				};
 			}
 			if (!res.ok) throw new Error(json.error || "Falha ao salvar.");
-			return { overlap: false as const };
+			return {
+				overlap: false as const,
+				googleSync: json.googleSync as
+					| { status: "skipped" }
+					| { status: "synced"; action: string }
+					| { status: "error"; message: string }
+					| undefined
+			};
 		},
 		onSuccess: (result) => {
 			if (result.overlap) {
+				setOverlapConflicts(result.conflicts);
 				setPendingOverlap(true);
 				toast.message("Há sobreposição. Confirme o override.");
 				return;
@@ -265,10 +283,17 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 			queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
 			queryClient.invalidateQueries({ queryKey: ["sessions-week"] });
 			queryClient.invalidateQueries({ queryKey: ["records"] });
-			toast.success("Agendamento atualizado.");
+			if (result.googleSync?.status === "error") {
+				toast.warning(
+					`Salvo, mas Google Agenda falhou: ${result.googleSync.message}`
+				);
+			} else {
+				toast.success("Agendamento atualizado.");
+			}
 			setReason("");
 			setPendingOverlap(false);
 			setOverlapReason("");
+			setOverlapConflicts([]);
 			setScheduleErrors({});
 		},
 		onError: (err: Error) => toast.error(err.message)
@@ -302,9 +327,15 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 			});
 			const json = await res.json();
 			if (!res.ok) throw new Error(json.error || "Falha ao salvar clínico.");
-			return { complete };
+			return {
+				complete,
+				googleSync: json.googleSync as
+					| { status: "error"; message: string }
+					| { status: string }
+					| undefined
+			};
 		},
-		onSuccess: ({ complete }) => {
+		onSuccess: ({ complete, googleSync }) => {
 			queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
 			queryClient.invalidateQueries({ queryKey: ["sessions-week"] });
 			queryClient.invalidateQueries({ queryKey: ["records"] });
@@ -313,6 +344,11 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 			toast.success(
 				complete ? "Atendimento concluído." : "Registro clínico salvo."
 			);
+			if (googleSync && "status" in googleSync && googleSync.status === "error") {
+				toast.warning(
+					`Google Agenda: ${(googleSync as { message: string }).message}`
+				);
+			}
 		},
 		onError: (err: Error) => toast.error(err.message)
 	});
@@ -395,6 +431,9 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 							<Badge variant="outline">
 								{STATUS_LABEL[s.status] ?? s.status}
 							</Badge>
+						) : null}
+						{s?.googleEventId ? (
+							<Badge variant="secondary">No Google Agenda</Badge>
 						) : null}
 					</div>
 					<p className="text-muted-foreground text-sm">
@@ -889,11 +928,13 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 				open={pendingOverlap}
 				reason={overlapReason}
 				pending={saveScheduleMutation.isPending}
+				conflicts={overlapConflicts}
 				onReasonChange={setOverlapReason}
 				onConfirm={() => saveScheduleMutation.mutate(true)}
 				onCancel={() => {
 					setPendingOverlap(false);
 					setOverlapReason("");
+					setOverlapConflicts([]);
 				}}
 			/>
 		</div>

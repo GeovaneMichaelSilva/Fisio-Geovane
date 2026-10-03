@@ -139,17 +139,22 @@ function buildEventBody(
 	};
 }
 
+export type GoogleSyncResult =
+	| { status: "skipped" }
+	| { status: "synced"; action: "create" | "update" | "delete" }
+	| { status: "error"; message: string };
+
 /**
- * Espelha a sessão no Google Agenda. Best-effort: erros são logados, não propagados.
+ * Espelha a sessão no Google Agenda. Não lança — retorna status para a UI.
  */
 export async function syncSessionToGoogleCalendar(
 	sessionId: string,
 	clinicId: string,
 	db: Db = getDb()
-) {
+): Promise<GoogleSyncResult> {
 	try {
 		const auth = await getValidAccessToken(clinicId, db);
-		if (!auth) return;
+		if (!auth) return { status: "skipped" };
 
 		const [session] = await db
 			.select()
@@ -157,7 +162,7 @@ export async function syncSessionToGoogleCalendar(
 			.where(and(eq(sessions.id, sessionId), eq(sessions.clinicId, clinicId)))
 			.limit(1);
 
-		if (!session) return;
+		if (!session) return { status: "skipped" };
 
 		const appUrl =
 			process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
@@ -175,8 +180,9 @@ export async function syncSessionToGoogleCalendar(
 					.update(sessions)
 					.set({ googleEventId: null, updatedAt: new Date() })
 					.where(eq(sessions.id, session.id));
+				return { status: "synced", action: "delete" };
 			}
-			return;
+			return { status: "skipped" };
 		}
 
 		const ctx = await loadSyncContext(session, db);
@@ -188,7 +194,7 @@ export async function syncSessionToGoogleCalendar(
 				`/calendars/${calendarId}/events/${encodeURIComponent(session.googleEventId)}`,
 				{ method: "PUT", body: JSON.stringify(body) }
 			);
-			return;
+			return { status: "synced", action: "update" };
 		}
 
 		const created = await calendarFetch(
@@ -202,8 +208,16 @@ export async function syncSessionToGoogleCalendar(
 				.update(sessions)
 				.set({ googleEventId: created.id, updatedAt: new Date() })
 				.where(eq(sessions.id, session.id));
+			return { status: "synced", action: "create" };
 		}
+
+		return { status: "error", message: "Google não retornou ID do evento." };
 	} catch (err) {
 		console.error("[google-calendar] sync failed", sessionId, err);
+		return {
+			status: "error",
+			message:
+				err instanceof Error ? err.message : "Falha ao sincronizar com Google."
+		};
 	}
 }
