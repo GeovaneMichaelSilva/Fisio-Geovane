@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 
 type MeData = {
 	userId: string;
+	fullName: string | null;
+	email: string | null;
 	role: "owner" | "staff";
 	clinicId: string;
 	clinicName: string;

@@ -97,8 +97,10 @@ async function fetchSession(id: string) {
 	return json.data as SessionDetail;
 }
 
-async function fetchPatients() {
-	const res = await fetch("/api/admin/patients?pageSize=100");
+async function fetchPatients(q: string) {
+	const params = new URLSearchParams({ pageSize: "50" });
+	if (q.trim()) params.set("q", q.trim());
+	const res = await fetch(`/api/admin/patients?${params}`);
 	const json = await res.json();
 	if (!res.ok) throw new Error(json.error || "Falha ao carregar pacientes.");
 	return json.data as PatientOption[];
@@ -130,9 +132,17 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 		queryKey: ["session", sessionId],
 		queryFn: () => fetchSession(sessionId)
 	});
+	const [patientFilter, setPatientFilter] = useState("");
+	const [debouncedPatientQ, setDebouncedPatientQ] = useState("");
+
+	useEffect(() => {
+		const t = setTimeout(() => setDebouncedPatientQ(patientFilter), 250);
+		return () => clearTimeout(t);
+	}, [patientFilter]);
+
 	const patientsQuery = useQuery({
-		queryKey: ["patients-options"],
-		queryFn: fetchPatients
+		queryKey: ["patients-options", debouncedPatientQ],
+		queryFn: () => fetchPatients(debouncedPatientQ)
 	});
 	const typesQuery = useQuery({
 		queryKey: ["service-types"],
@@ -543,20 +553,46 @@ function SessionDetailInner({ sessionId }: { sessionId: string }) {
 							</div>
 						) : (
 							<div className="grid gap-4 sm:grid-cols-2">
-								<Select
-									label={{ text: "Paciente", required: true }}
-									value={formPatientId}
-									error={scheduleErrors.patientId}
-									onChange={(e) => setPatientId(e.target.value)}
-									options={(
-										patientsQuery.data ?? [
-											{ id: formPatientId, fullName: s!.patientName }
-										]
-									).map((p) => ({
-										value: p.id,
-										label: p.fullName
-									}))}
-								/>
+								<div className="space-y-2 sm:col-span-2">
+									<Input
+										label={{ text: "Buscar paciente" }}
+										placeholder="Nome, telefone ou CPF…"
+										value={patientFilter}
+										onChange={(e) => setPatientFilter(e.target.value)}
+									/>
+									<Select
+										label={{ text: "Paciente", required: true }}
+										value={formPatientId}
+										error={scheduleErrors.patientId}
+										onChange={(e) => setPatientId(e.target.value)}
+										placeholder={
+											patientsQuery.isFetching ? "Buscando…" : "Selecione…"
+										}
+										options={((): PatientOption[] => {
+											const list = patientsQuery.data ?? [];
+											const currentId = formPatientId;
+											const currentName = s?.patientName;
+											if (
+												currentId &&
+												currentName &&
+												!list.some((p) => p.id === currentId)
+											) {
+												return [
+													{ id: currentId, fullName: currentName },
+													...list
+												];
+											}
+											return list.length > 0
+												? list
+												: currentId && currentName
+													? [{ id: currentId, fullName: currentName }]
+													: [];
+										})().map((p) => ({
+											value: p.id,
+											label: p.fullName
+										}))}
+									/>
+								</div>
 								<Select
 									label={{ text: "Tipo", required: true }}
 									value={formServiceTypeId}

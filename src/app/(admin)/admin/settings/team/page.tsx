@@ -33,6 +33,14 @@ import {
 	CardHeader,
 	CardTitle
 } from "@/components/ui/Card";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle
+} from "@/components/ui/Dialog";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { useClinicRole } from "@/hooks/useClinicRole";
@@ -64,11 +72,19 @@ const ROLE_LABEL = {
 	staff: "Equipe"
 } as const;
 
+const emptyMember: TeamMemberCreateInput = {
+	fullName: "",
+	email: "",
+	password: "",
+	role: "staff"
+};
+
 export default function TeamSettingsPage() {
 	usePageTitle("Equipe");
 	const queryClient = useQueryClient();
 	const { isOwner, isLoading: roleLoading } = useClinicRole();
 	const [removingId, setRemovingId] = useState<string | null>(null);
+	const [createOpen, setCreateOpen] = useState(false);
 
 	const listQuery = useQuery({
 		queryKey: ["team"],
@@ -77,12 +93,7 @@ export default function TeamSettingsPage() {
 
 	const form = useForm<TeamMemberCreateInput, unknown, TeamMemberCreateParsed>({
 		resolver: zodResolver(teamMemberCreateSchema),
-		defaultValues: {
-			fullName: "",
-			email: "",
-			password: "",
-			role: "staff"
-		}
+		defaultValues: emptyMember
 	});
 
 	const createMutation = useMutation({
@@ -98,12 +109,8 @@ export default function TeamSettingsPage() {
 		},
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["team"] });
-			form.reset({
-				fullName: "",
-				email: "",
-				password: "",
-				role: "staff"
-			});
+			form.reset(emptyMember);
+			setCreateOpen(false);
 			toast.success("Membro adicionado. Informe o e-mail e a senha a ele.");
 		},
 		onError: (err: Error) => toast.error(err.message)
@@ -149,6 +156,18 @@ export default function TeamSettingsPage() {
 				<PageHeader
 					title="Equipe"
 					description="Adicione secretária ou colaboradores com acesso ao sistema."
+					actions={
+						<Button
+							type="button"
+							className="min-h-11 sm:min-h-10"
+							onClick={() => {
+								form.reset(emptyMember);
+								setCreateOpen(true);
+							}}
+						>
+							+ Adicionar membro
+						</Button>
+					}
 				/>
 				<SettingsNav />
 			</div>
@@ -179,7 +198,9 @@ export default function TeamSettingsPage() {
 									<div className="min-w-0 space-y-1">
 										<div className="flex flex-wrap items-center gap-2">
 											<p className="font-medium">{m.fullName}</p>
-											<Badge variant={m.role === "owner" ? "default" : "secondary"}>
+											<Badge
+												variant={m.role === "owner" ? "default" : "secondary"}
+											>
 												{ROLE_LABEL[m.role]}
 											</Badge>
 											{m.isSelf ? (
@@ -241,19 +262,27 @@ export default function TeamSettingsPage() {
 				</CardContent>
 			</Card>
 
-			<Card>
-				<CardHeader>
-					<CardTitle>Adicionar membro</CardTitle>
-					<CardDescription>
-						Crie o acesso com senha temporária e passe as credenciais à pessoa.
-					</CardDescription>
-				</CardHeader>
-				<CardContent>
+			<Dialog
+				open={createOpen}
+				onOpenChange={(open) => {
+					setCreateOpen(open);
+					if (!open) form.reset(emptyMember);
+				}}
+			>
+				<DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+					<DialogHeader>
+						<DialogTitle>Adicionar membro</DialogTitle>
+						<DialogDescription>
+							Crie o acesso com senha temporária. A pessoa pode trocar em
+							Configurações → Conta.
+						</DialogDescription>
+					</DialogHeader>
 					{roleLoading ? (
 						<FormSkeleton />
 					) : (
 						<form
-							className="grid max-w-xl gap-4"
+							id="team-create-form"
+							className="grid gap-4"
 							onSubmit={form.handleSubmit((values) =>
 								createMutation.mutate(values)
 							)}
@@ -275,7 +304,7 @@ export default function TeamSettingsPage() {
 								label={{ text: "Senha temporária", required: true }}
 								type="password"
 								autoComplete="new-password"
-								helperText="Mínimo 8 caracteres. A pessoa pode trocar depois em Esqueci a senha."
+								helperText="Mínimo 8 caracteres."
 								error={form.formState.errors.password?.message}
 								{...form.register("password")}
 							/>
@@ -288,19 +317,27 @@ export default function TeamSettingsPage() {
 								]}
 								{...form.register("role")}
 							/>
-							<div>
-								<Button
-									type="submit"
-									className="min-h-11 sm:min-h-10"
-									disabled={createMutation.isPending}
-								>
-									{createMutation.isPending ? "Adicionando…" : "Adicionar"}
-								</Button>
-							</div>
 						</form>
 					)}
-				</CardContent>
-			</Card>
+					<DialogFooter className="gap-2 sm:gap-0">
+						<Button
+							type="button"
+							variant="ghost"
+							onClick={() => setCreateOpen(false)}
+						>
+							Cancelar
+						</Button>
+						<Button
+							type="submit"
+							form="team-create-form"
+							className="min-h-11 sm:min-h-10"
+							disabled={createMutation.isPending}
+						>
+							{createMutation.isPending ? "Adicionando…" : "Adicionar"}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

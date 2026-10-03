@@ -37,6 +37,36 @@ export const resetPasswordApiSchema = z.object({
 	password: z.string().min(8, "A senha deve ter pelo menos 8 caracteres.").max(128)
 });
 
+/** Troca de senha autenticada (conta logada). */
+export const changePasswordSchema = z
+	.object({
+		currentPassword: z.string().min(1, "Informe a senha atual."),
+		password: z
+			.string()
+			.min(8, "A senha deve ter pelo menos 8 caracteres.")
+			.max(128, "Máximo 128 caracteres."),
+		confirmPassword: z.string().min(1, "Confirme a nova senha.")
+	})
+	.refine((data) => data.password === data.confirmPassword, {
+		message: "As senhas não coincidem.",
+		path: ["confirmPassword"]
+	})
+	.refine((data) => data.currentPassword !== data.password, {
+		message: "A nova senha deve ser diferente da atual.",
+		path: ["password"]
+	});
+
+/** Payload da API de troca de senha (sem confirm). */
+export const changePasswordApiSchema = z.object({
+	currentPassword: z.string().min(1, "Informe a senha atual."),
+	password: z
+		.string()
+		.min(8, "A senha deve ter pelo menos 8 caracteres.")
+		.max(128)
+});
+
 export type LoginValues = z.infer<typeof loginSchema>;
 export type ForgotPasswordValues = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordValues = z.input<typeof resetPasswordSchema>;
+export type ChangePasswordInput = z.input<typeof changePasswordSchema>;
+export type ChangePasswordParsed = z.output<typeof changePasswordSchema>;

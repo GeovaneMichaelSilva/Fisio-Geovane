@@ -21,6 +21,11 @@ export function SettingsNav() {
 			ownerOnly: false
 		},
 		{
+			href: "/admin/settings/account",
+			label: "Conta",
+			ownerOnly: false
+		},
+		{
 			href: "/admin/settings/team",
 			label: "Equipe",
 			ownerOnly: true
