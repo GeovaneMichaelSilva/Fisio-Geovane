@@ -1,4 +1,4 @@
- .# Documentação — Fisio Geovane
+# Documentação — Fisio Geovane
 
 Base de especificação para a aplicação em **Next.js + NextAuth + Neon (PostgreSQL) + Vercel**.
 
