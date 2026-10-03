@@ -10,6 +10,10 @@ import {
 	fetchGoogleAccountEmail,
 	parseOAuthState
 } from "@/lib/google-calendar/oauth";
+import {
+	clearClinicGoogleEventLinks,
+	clearServiceTypeCalendarMappings
+} from "@/lib/google-calendar/sync";
 
 function redirectIntegrations(query: string) {
 	const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
@@ -20,6 +24,7 @@ function redirectIntegrations(query: string) {
 
 /**
  * Callback OAuth Google Agenda — troca code por tokens e persiste na clínica.
+ * Limpa vínculos antigos e pede restore no front (pode ser outra conta).
  */
 export async function GET(request: Request) {
 	try {
@@ -73,6 +78,19 @@ export async function GET(request: Request) {
 		const email = await fetchGoogleAccountEmail(tokens.access_token);
 		const db = getDb();
 
+		const [existing] = await db
+			.select({
+				id: googleCalendarConnections.id,
+				googleAccountEmail: googleCalendarConnections.googleAccountEmail,
+				calendarId: googleCalendarConnections.calendarId
+			})
+			.from(googleCalendarConnections)
+			.where(eq(googleCalendarConnections.clinicId, parsed.clinicId))
+			.limit(1);
+
+		const accountChanged =
+			Boolean(existing) && existing!.googleAccountEmail !== email;
+
 		const values = {
 			clinicId: parsed.clinicId,
 			connectedByUserId: session.user.id,
@@ -80,16 +98,10 @@ export async function GET(request: Request) {
 			refreshTokenEncrypted: encryptSecret(tokens.refresh_token),
 			accessTokenEncrypted: encryptSecret(tokens.access_token),
 			accessTokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
-			calendarId: "primary",
+			calendarId: existing?.calendarId || "primary",
 			connectedAt: new Date(),
 			updatedAt: new Date()
 		};
-
-		const [existing] = await db
-			.select({ id: googleCalendarConnections.id })
-			.from(googleCalendarConnections)
-			.where(eq(googleCalendarConnections.clinicId, parsed.clinicId))
-			.limit(1);
 
 		if (existing) {
 			await db
@@ -100,7 +112,13 @@ export async function GET(request: Request) {
 			await db.insert(googleCalendarConnections).values(values);
 		}
 
-		return redirectIntegrations("google=connected");
+		// Eventos antigos podem ser de outra conta — limpa e restaura no front.
+		await clearClinicGoogleEventLinks(parsed.clinicId, db);
+		if (accountChanged) {
+			await clearServiceTypeCalendarMappings(parsed.clinicId, db);
+		}
+
+		return redirectIntegrations("google=connected&restore=1");
 	} catch (err) {
 		console.error(err);
 		const message =

@@ -104,6 +104,8 @@ export const serviceTypes = pgTable(
 			.default("0"),
 		isActive: boolean("is_active").notNull().default(true),
 		sortOrder: integer("sort_order").notNull().default(0),
+		/** Agenda Google deste tipo (null = agenda padrão da conexão). */
+		googleCalendarId: text("google_calendar_id"),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.notNull()
 			.defaultNow(),
@@ -199,6 +201,8 @@ export const sessions = pgTable(
 		evolution: text("evolution"),
 		activities: text("activities"),
 		googleEventId: text("google_event_id"),
+		/** Agenda Google onde o evento está (necessário p/ update/delete/mover). */
+		googleCalendarId: text("google_calendar_id"),
 		createdBy: uuid("created_by").references(() => users.id),
 		updatedBy: uuid("updated_by").references(() => users.id),
 		createdAt: timestamp("created_at", { withTimezone: true })

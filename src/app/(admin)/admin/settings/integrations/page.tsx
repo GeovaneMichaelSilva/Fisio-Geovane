@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -17,6 +17,7 @@ import {
 	CardHeader,
 	CardTitle
 } from "@/components/ui/Card";
+import { Select } from "@/components/ui/Select";
 import { useClinicRole } from "@/hooks/useClinicRole";
 import { usePageTitle } from "@/hooks/usePageTitle";
 
@@ -28,6 +29,19 @@ type GoogleStatus = {
 	calendarId: string | null;
 };
 
+type GoogleCalendar = {
+	id: string;
+	summary: string;
+	primary: boolean;
+};
+
+type ServiceType = {
+	id: string;
+	name: string;
+	isActive: boolean;
+	googleCalendarId: string | null;
+};
+
 async function fetchGoogleStatus(): Promise<GoogleStatus> {
 	const res = await fetch("/api/admin/integrations/google-calendar");
 	const json = await res.json();
@@ -35,16 +49,78 @@ async function fetchGoogleStatus(): Promise<GoogleStatus> {
 	return json.data;
 }
 
+async function fetchCalendars(): Promise<GoogleCalendar[]> {
+	const res = await fetch("/api/admin/integrations/google-calendar/calendars");
+	const json = await res.json();
+	if (!res.ok) throw new Error(json.error || "Falha ao listar agendas.");
+	return json.data;
+}
+
+async function fetchServiceTypes(): Promise<ServiceType[]> {
+	const res = await fetch("/api/admin/service-types");
+	const json = await res.json();
+	if (!res.ok) throw new Error(json.error || "Falha ao carregar tipos.");
+	return json.data;
+}
+
+async function runRestore() {
+	const res = await fetch("/api/admin/integrations/google-calendar/restore", {
+		method: "POST"
+	});
+	const json = await res.json();
+	if (!res.ok) throw new Error(json.error || "Falha ao restaurar.");
+	return json.data as {
+		total: number;
+		synced: number;
+		errors: number;
+		skipped: number;
+	};
+}
+
 function IntegrationsInner() {
 	usePageTitle("Integrações");
 	const searchParams = useSearchParams();
 	const queryClient = useQueryClient();
 	const { isOwner, isLoading: roleLoading } = useClinicRole();
+	const [typeMaps, setTypeMaps] = useState<Record<string, string>>({});
 
 	const statusQuery = useQuery({
 		queryKey: ["google-calendar-status"],
 		queryFn: fetchGoogleStatus,
 		enabled: isOwner
+	});
+
+	const calendarsQuery = useQuery({
+		queryKey: ["google-calendars"],
+		queryFn: fetchCalendars,
+		enabled: Boolean(isOwner && statusQuery.data?.connected)
+	});
+
+	const typesQuery = useQuery({
+		queryKey: ["service-types"],
+		queryFn: fetchServiceTypes,
+		enabled: Boolean(isOwner && statusQuery.data?.connected)
+	});
+
+	useEffect(() => {
+		if (!typesQuery.data) return;
+		const next: Record<string, string> = {};
+		for (const t of typesQuery.data) {
+			next[t.id] = t.googleCalendarId ?? "";
+		}
+		setTypeMaps(next);
+	}, [typesQuery.data]);
+
+	const restoreMutation = useMutation({
+		mutationFn: runRestore,
+		onSuccess: (data) => {
+			queryClient.invalidateQueries({ queryKey: ["sessions-week"] });
+			toast.success(
+				`Google: ${data.synced} de ${data.total} agendamentos sincronizados.` +
+					(data.errors > 0 ? ` (${data.errors} falha(s))` : "")
+			);
+		},
+		onError: (err: Error) => toast.error(err.message)
 	});
 
 	useEffect(() => {
@@ -53,12 +129,19 @@ function IntegrationsInner() {
 		if (google === "connected") {
 			toast.success("Google Agenda conectada.");
 			queryClient.invalidateQueries({ queryKey: ["google-calendar-status"] });
+			queryClient.invalidateQueries({ queryKey: ["google-calendars"] });
+			queryClient.invalidateQueries({ queryKey: ["service-types"] });
+			if (searchParams.get("restore") === "1") {
+				toast.message("Restaurando agendamentos no Google…");
+				restoreMutation.mutate();
+			}
 		} else if (google === "error") {
 			toast.error(
 				searchParams.get("message") || "Falha ao conectar Google Agenda."
 			);
 		}
 		window.history.replaceState({}, "", "/admin/settings/integrations");
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- só no retorno OAuth
 	}, [searchParams, queryClient]);
 
 	const disconnectMutation = useMutation({
@@ -71,12 +154,79 @@ function IntegrationsInner() {
 		},
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["google-calendar-status"] });
+			queryClient.invalidateQueries({ queryKey: ["google-calendars"] });
 			toast.success("Google Agenda desconectada.");
 		},
 		onError: (err: Error) => toast.error(err.message)
 	});
 
+	const defaultCalendarMutation = useMutation({
+		mutationFn: async (calendarId: string) => {
+			const res = await fetch("/api/admin/integrations/google-calendar", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ calendarId })
+			});
+			const json = await res.json();
+			if (!res.ok) throw new Error(json.error || "Falha ao salvar.");
+			return json.data as { calendarId: string };
+		},
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["google-calendar-status"] });
+			toast.success("Agenda padrão atualizada.");
+		},
+		onError: (err: Error) => toast.error(err.message)
+	});
+
+	const mappingsMutation = useMutation({
+		mutationFn: async () => {
+			const mappings = Object.entries(typeMaps).map(
+				([serviceTypeId, googleCalendarId]) => ({
+					serviceTypeId,
+					googleCalendarId: googleCalendarId || null
+				})
+			);
+			const res = await fetch(
+				"/api/admin/integrations/google-calendar/mappings",
+				{
+					method: "PUT",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ mappings })
+				}
+			);
+			const json = await res.json();
+			if (!res.ok) throw new Error(json.error || "Falha ao salvar mapeamento.");
+			return json.data;
+		},
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["service-types"] });
+			toast.success("Mapeamento Tipo → agenda salvo.");
+		},
+		onError: (err: Error) => toast.error(err.message)
+	});
+
 	const status = statusQuery.data;
+	const calendarOptions = useMemo(() => {
+		const list = calendarsQuery.data ?? [];
+		return [
+			{ value: "", label: "Agenda padrão da conexão" },
+			...list.map((c) => ({
+				value: c.id,
+				label: c.primary ? `${c.summary} (principal)` : c.summary
+			}))
+		];
+	}, [calendarsQuery.data]);
+
+	const defaultOptions = useMemo(() => {
+		const list = calendarsQuery.data ?? [];
+		if (list.length === 0) {
+			return [{ value: "primary", label: "Principal (primary)" }];
+		}
+		return list.map((c) => ({
+			value: c.id,
+			label: c.primary ? `${c.summary} (principal)` : c.summary
+		}));
+	}, [calendarsQuery.data]);
 
 	if (!roleLoading && !isOwner) {
 		return (
@@ -121,8 +271,9 @@ function IntegrationsInner() {
 						)}
 					</div>
 					<CardDescription>
-						Novos agendamentos e alterações de horário são espelhados na agenda
-						Google da conta conectada.
+						Novos agendamentos e alterações são espelhados nas agendas Google
+						conforme o Tipo de atendimento. Ao reconectar, o sistema restaura os
+						agendamentos ativos.
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="space-y-4">
@@ -138,11 +289,7 @@ function IntegrationsInner() {
 							Integração não configurada no servidor. Defina{" "}
 							<code className="text-foreground">GOOGLE_CLIENT_ID</code> e{" "}
 							<code className="text-foreground">GOOGLE_CLIENT_SECRET</code> no
-							ambiente (Google Cloud Console → OAuth 2.0) e o redirect{" "}
-							<code className="text-foreground break-all">
-								/api/admin/integrations/google-calendar/callback
-							</code>
-							.
+							ambiente.
 						</p>
 					) : status.connected ? (
 						<>
@@ -157,14 +304,40 @@ function IntegrationsInner() {
 										{new Date(status.connectedAt).toLocaleString("pt-BR")}
 									</p>
 								) : null}
-								<p>
-									<span className="text-muted-foreground">Calendário: </span>
-									{status.calendarId === "primary"
-										? "Principal"
-										: status.calendarId}
-								</p>
 							</div>
+
+							{calendarsQuery.isLoading ? (
+								<FormSkeleton />
+							) : calendarsQuery.isError ? (
+								<ErrorState
+									message={(calendarsQuery.error as Error).message}
+									onRetry={() => calendarsQuery.refetch()}
+								/>
+							) : (
+								<Select
+									label={{ text: "Agenda padrão" }}
+									helperText="Usada quando o Tipo não tem agenda específica."
+									value={status.calendarId || "primary"}
+									options={defaultOptions}
+									onChange={(e) =>
+										defaultCalendarMutation.mutate(e.target.value)
+									}
+									disabled={defaultCalendarMutation.isPending}
+								/>
+							)}
+
 							<div className="flex flex-wrap gap-2">
+								<Button
+									type="button"
+									variant="outline"
+									className="min-h-11 sm:min-h-10"
+									disabled={restoreMutation.isPending}
+									onClick={() => restoreMutation.mutate()}
+								>
+									{restoreMutation.isPending
+										? "Restaurando…"
+										: "Restaurar agendamentos no Google"}
+								</Button>
 								<Button
 									type="button"
 									variant="outline"
@@ -192,14 +365,10 @@ function IntegrationsInner() {
 						<>
 							<p className="text-muted-foreground text-sm">
 								Ao conectar, o sistema cria e atualiza eventos quando você
-								agenda, remarca ou cancela atendimentos. O login do sistema
-								continua sendo e-mail e senha.
+								agenda, remarca ou cancela. Se reconectar depois, os
+								agendamentos ativos são recriados no Google.
 							</p>
-							<Button
-								type="button"
-								className="min-h-11 sm:min-h-10"
-								asChild
-							>
+							<Button type="button" className="min-h-11 sm:min-h-10" asChild>
 								<a href="/api/admin/integrations/google-calendar/connect">
 									Conectar Google Agenda
 								</a>
@@ -208,6 +377,65 @@ function IntegrationsInner() {
 					)}
 				</CardContent>
 			</Card>
+
+			{status?.connected ? (
+				<Card>
+					<CardHeader>
+						<CardTitle>Tipo → agenda Google</CardTitle>
+						<CardDescription>
+							Cada tipo (Domiciliar, Ortopédico…) pode ir para uma agenda
+							diferente. Deixe em branco para usar a agenda padrão.
+						</CardDescription>
+					</CardHeader>
+					<CardContent className="space-y-4">
+						{typesQuery.isLoading || calendarsQuery.isLoading ? (
+							<FormSkeleton />
+						) : typesQuery.isError ? (
+							<ErrorState
+								message={(typesQuery.error as Error).message}
+								onRetry={() => typesQuery.refetch()}
+							/>
+						) : (
+							<ul className="space-y-3">
+								{(typesQuery.data ?? []).map((t) => (
+									<li
+										key={t.id}
+										className="grid gap-2 sm:grid-cols-[1fr_1.2fr] sm:items-end"
+									>
+										<div>
+											<p className="text-sm font-medium">{t.name}</p>
+											<p className="text-muted-foreground text-xs">
+												{t.isActive ? "Ativo" : "Inativo"}
+											</p>
+										</div>
+										<Select
+											label={{ text: "Agenda Google" }}
+											value={typeMaps[t.id] ?? ""}
+											options={calendarOptions}
+											onChange={(e) =>
+												setTypeMaps((prev) => ({
+													...prev,
+													[t.id]: e.target.value
+												}))
+											}
+										/>
+									</li>
+								))}
+							</ul>
+						)}
+						<Button
+							type="button"
+							className="min-h-11 sm:min-h-10"
+							disabled={mappingsMutation.isPending}
+							onClick={() => mappingsMutation.mutate()}
+						>
+							{mappingsMutation.isPending
+								? "Salvando…"
+								: "Salvar mapeamento"}
+						</Button>
+					</CardContent>
+				</Card>
+			) : null}
 
 			<Card>
 				<CardHeader>

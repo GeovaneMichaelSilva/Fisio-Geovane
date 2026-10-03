@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
+import { z } from "zod";
 
 import { getDb } from "@/db";
 import { googleCalendarConnections } from "@/db/schema";
 import { getOrCreateClinicContext } from "@/lib/clinic/context";
 import { requireOwner } from "@/lib/clinic/rbac";
 import { isGoogleCalendarConfigured } from "@/lib/google-calendar/oauth";
+import { clearClinicGoogleEventLinks } from "@/lib/google-calendar/sync";
+
+const patchSchema = z.object({
+	calendarId: z.string().trim().min(1).max(256)
+});
 
 /**
  * Status da conexão Google Agenda da clínica.
@@ -58,7 +64,51 @@ export async function GET() {
 }
 
 /**
- * Desconecta Google Agenda e revoga token (best-effort).
+ * Atualiza agenda padrão da conexão.
+ */
+export async function PATCH(request: Request) {
+	try {
+		const ctx = await getOrCreateClinicContext();
+		requireOwner(ctx);
+		const body = await request.json();
+		const parsed = patchSchema.safeParse(body);
+		if (!parsed.success) {
+			return NextResponse.json({ error: "calendarId inválido." }, { status: 400 });
+		}
+
+		const db = getDb();
+		const [updated] = await db
+			.update(googleCalendarConnections)
+			.set({
+				calendarId: parsed.data.calendarId,
+				updatedAt: new Date()
+			})
+			.where(eq(googleCalendarConnections.clinicId, ctx.clinic.id))
+			.returning({
+				calendarId: googleCalendarConnections.calendarId,
+				googleAccountEmail: googleCalendarConnections.googleAccountEmail
+			});
+
+		if (!updated) {
+			return NextResponse.json(
+				{ error: "Google Agenda não conectada." },
+				{ status: 400 }
+			);
+		}
+
+		return NextResponse.json({ data: updated });
+	} catch (err) {
+		if (err instanceof Response) return err;
+		console.error(err);
+		return NextResponse.json(
+			{ error: "Falha ao atualizar agenda padrão." },
+			{ status: 500 }
+		);
+	}
+}
+
+/**
+ * Desconecta Google Agenda, revoga token e limpa vínculos dos agendamentos.
  */
 export async function DELETE() {
 	try {
@@ -85,6 +135,8 @@ export async function DELETE() {
 		} catch {
 			// ignore revoke errors
 		}
+
+		await clearClinicGoogleEventLinks(ctx.clinic.id, db);
 
 		await db
 			.delete(googleCalendarConnections)
