@@ -52,4 +52,4 @@ pnpm dev
 
 ## Documentação
 
-Ver [`docs/README.md`](./docs/README.md).
+Fatos do produto, marca/cores e backlog: [`docs/README.md`](./docs/README.md).

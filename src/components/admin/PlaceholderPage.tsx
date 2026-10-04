@@ -24,7 +24,7 @@ const PlaceholderPage: FC<PlaceholderPageProps> = (props) => {
 	const cardTitle = soon ? "Em breve" : "Em construção";
 	const cardDescription = soon
 		? "Esta área está no roadmap e ainda não foi implementada."
-		: "Estrutura pronta — funcionalidade será implementada na sequência do MVP.";
+		: "Estrutura pronta — funcionalidade ainda não disponível.";
 
 	return (
 		<div className="space-y-4" {...restProps}>
@@ -39,8 +39,7 @@ const PlaceholderPage: FC<PlaceholderPageProps> = (props) => {
 				</CardHeader>
 				<CardContent>
 					<p className="text-muted-foreground text-sm">
-						Ver documentação em{" "}
-						<code className="text-foreground">docs/mvp.md</code>.
+						Roadmap em <code className="text-foreground">docs/README.md</code>.
 					</p>
 				</CardContent>
 			</Card>

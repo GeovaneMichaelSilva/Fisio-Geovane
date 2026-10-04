@@ -1,41 +1,33 @@
 # Documentação — Fisio Geovane
 
-Base de especificação para a aplicação em **Next.js + NextAuth + Neon (PostgreSQL) + Vercel**.
+Setup e scripts: ver o [`README.md`](../README.md) na raiz.
 
-## Como usar estes docs
+## Fatos do produto
 
-1. Leia [`requirements.md`](./requirements.md) para entender o produto.
-2. Leia [`decisions.md`](./decisions.md) — o que já foi fechado.
-3. Leia [`mvp.md`](./mvp.md) para saber o que construir primeiro.
-4. Leia [`open-questions.md`](./open-questions.md) — o que ainda falta.
-5. Leia [`data-model.md`](./data-model.md) + [`database.md`](./database.md) antes de criar migrations.
-6. Leia [`architecture.md`](./architecture.md) + [`routes.md`](./routes.md) antes de criar pastas/rotas.
-7. Consulte [`design/`](./design/) apenas para **logo + cores**.
-8. Consulte [`references/`](./references/) só como referência (protótipo JS / backup JSON).
-
-## O que reaproveitar do protótipo
-
-| Reaproveitar | Não reaproveitar |
+| Item | Valor |
 |---|---|
-| Requisitos e funcionalidades | CSS / layout / componentes |
-| Entidades e campos | Tipografia “de preferência” do protótipo (exceto Montserrat se confirmada na marca) |
-| Fluxos de trabalho | Estrutura HTML/JS monolítica |
-| Logo + cores de identidade | Bordas, sombras, cards, animações |
-| Regras de negócio evidentes | Persistência em `localStorage` |
+| Marca | Geovane Michael da Silva |
+| Crefito | 549225-F |
+| Domínio | `www.fisiogeovane.com.br` |
+| Owner (seed) | `fisiogeoms@gmail.com` |
+| Auth | NextAuth (e-mail/senha) + recuperação via Resend |
+| From e-mail | `nao-responda@fisiogeovane.com.br` |
+| Idioma | pt-BR |
+| Stack | Next.js · Neon/Drizzle · TanStack Query · Zod |
 
-## Escopo do produto (visão)
+## Identidade visual
 
-- **Agora:** sistema interno do fisioterapeuta (`/admin`).
-- **Futuro:** páginas públicas (landing/SEO) e área do paciente (`/client`).
-- **Não implementar agora:** área do paciente.
+- [`design/brand.md`](./design/brand.md) — logos e dados profissionais
+- [`design/colors.md`](./design/colors.md) — paleta (green / gold / sand / paper)
 
-## Legenda de origem
+Tokens CSS vivem em `src/styles/variables.css`. Fonte da verdade do schema: `src/db/schema.ts`.
 
-Toda documentação relevante marca a origem:
+## Backlog (não bloqueante)
 
-```text
-[PROTÓTIPO]      evidência direta
-[INFERÊNCIA]     dedução a partir do protótipo
-[PROPOSTA]       melhoria / complemento
-[DECISÃO ARQUITETURAL]  escolha técnica
-```
+- Landing no lugar do “Em breve”
+- Despesas (CRUD; hoje placeholder em financeiro)
+- WhatsApp / lembretes
+- Área do paciente (`/client`)
+- Ficha vestibular estruturada
+- NFS-e automática
+- 2FA / staging
