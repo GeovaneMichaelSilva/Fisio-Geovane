@@ -29,6 +29,23 @@ type GoogleStatus = {
 	calendarId: string | null;
 };
 
+type DriveStatus = {
+	configured: boolean;
+	connected: boolean;
+	googleAccountEmail: string | null;
+	connectedAt: string | null;
+	retentionDays: number;
+	lastRun: {
+		status: "success" | "error";
+		trigger: string;
+		fileName: string | null;
+		bytes: number | null;
+		errorMessage: string | null;
+		deletedOldFiles: number;
+		createdAt: string;
+	} | null;
+};
+
 type GoogleCalendar = {
 	id: string;
 	summary: string;
@@ -46,6 +63,13 @@ async function fetchGoogleStatus(): Promise<GoogleStatus> {
 	const res = await fetch("/api/admin/integrations/google-calendar");
 	const json = await res.json();
 	if (!res.ok) throw new Error(json.error || "Falha ao carregar status.");
+	return json.data;
+}
+
+async function fetchDriveStatus(): Promise<DriveStatus> {
+	const res = await fetch("/api/admin/integrations/google-drive");
+	const json = await res.json();
+	if (!res.ok) throw new Error(json.error || "Falha ao carregar status Drive.");
 	return json.data;
 }
 
@@ -90,6 +114,12 @@ function IntegrationsInner() {
 		enabled: isOwner
 	});
 
+	const driveStatusQuery = useQuery({
+		queryKey: ["google-drive-status"],
+		queryFn: fetchDriveStatus,
+		enabled: isOwner
+	});
+
 	const calendarsQuery = useQuery({
 		queryKey: ["google-calendars"],
 		queryFn: fetchCalendars,
@@ -125,7 +155,9 @@ function IntegrationsInner() {
 
 	useEffect(() => {
 		const google = searchParams.get("google");
-		if (!google) return;
+		const drive = searchParams.get("drive");
+		if (!google && !drive) return;
+
 		if (google === "connected") {
 			toast.success("Google Agenda conectada.");
 			queryClient.invalidateQueries({ queryKey: ["google-calendar-status"] });
@@ -140,6 +172,16 @@ function IntegrationsInner() {
 				searchParams.get("message") || "Falha ao conectar Google Agenda."
 			);
 		}
+
+		if (drive === "connected") {
+			toast.success("Google Drive conectado para backups.");
+			queryClient.invalidateQueries({ queryKey: ["google-drive-status"] });
+		} else if (drive === "error") {
+			toast.error(
+				searchParams.get("message") || "Falha ao conectar Google Drive."
+			);
+		}
+
 		window.history.replaceState({}, "", "/admin/settings/integrations");
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- só no retorno OAuth
 	}, [searchParams, queryClient]);
@@ -156,6 +198,46 @@ function IntegrationsInner() {
 			queryClient.invalidateQueries({ queryKey: ["google-calendar-status"] });
 			queryClient.invalidateQueries({ queryKey: ["google-calendars"] });
 			toast.success("Google Agenda desconectada.");
+		},
+		onError: (err: Error) => toast.error(err.message)
+	});
+
+	const disconnectDriveMutation = useMutation({
+		mutationFn: async () => {
+			const res = await fetch("/api/admin/integrations/google-drive", {
+				method: "DELETE"
+			});
+			const json = await res.json();
+			if (!res.ok) throw new Error(json.error || "Falha ao desconectar Drive.");
+		},
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["google-drive-status"] });
+			toast.success("Google Drive desconectado.");
+		},
+		onError: (err: Error) => toast.error(err.message)
+	});
+
+	const runBackupMutation = useMutation({
+		mutationFn: async () => {
+			const res = await fetch("/api/admin/integrations/google-drive/run", {
+				method: "POST"
+			});
+			const json = await res.json();
+			if (!res.ok) throw new Error(json.error || "Falha no backup.");
+			return json.data as {
+				fileName?: string;
+				bytes?: number;
+				deletedOldFiles: number;
+			};
+		},
+		onSuccess: (data) => {
+			queryClient.invalidateQueries({ queryKey: ["google-drive-status"] });
+			toast.success(
+				`Backup enviado${data.fileName ? `: ${data.fileName}` : "."}` +
+					(data.deletedOldFiles > 0
+						? ` (${data.deletedOldFiles} antigo(s) removido(s))`
+						: "")
+			);
 		},
 		onError: (err: Error) => toast.error(err.message)
 	});
@@ -206,6 +288,7 @@ function IntegrationsInner() {
 	});
 
 	const status = statusQuery.data;
+	const driveStatus = driveStatusQuery.data;
 	const calendarOptions = useMemo(() => {
 		const list = calendarsQuery.data ?? [];
 		return [
@@ -242,7 +325,7 @@ function IntegrationsInner() {
 				</div>
 				<EmptyState
 					title="Acesso restrito"
-					description="Apenas o responsável pode conectar ou desconectar o Google Agenda."
+					description="Apenas o responsável pode gerenciar integrações (Agenda e Drive)."
 				/>
 			</div>
 		);
@@ -436,6 +519,129 @@ function IntegrationsInner() {
 					</CardContent>
 				</Card>
 			) : null}
+
+			<Card>
+				<CardHeader>
+					<div className="flex flex-wrap items-center gap-2">
+						<CardTitle>Backup Google Drive</CardTitle>
+						{driveStatus?.connected ? (
+							<Badge>Conectado</Badge>
+						) : (
+							<Badge variant="secondary">Não conectado</Badge>
+						)}
+					</div>
+					<CardDescription>
+						Cópia diária dos dados da clínica em JSON na pasta “FisioGeovane
+						Backups”. Mantém só os últimos{" "}
+						{driveStatus?.retentionDays ?? 30} dias (os mais antigos são
+						apagados automaticamente).
+					</CardDescription>
+				</CardHeader>
+				<CardContent className="space-y-4">
+					{driveStatusQuery.isLoading ? (
+						<FormSkeleton />
+					) : driveStatusQuery.isError ? (
+						<ErrorState
+							message={(driveStatusQuery.error as Error).message}
+							onRetry={() => driveStatusQuery.refetch()}
+						/>
+					) : !driveStatus?.configured ? (
+						<p className="text-muted-foreground text-sm">
+							Integração não configurada no servidor. Defina{" "}
+							<code className="text-foreground">GOOGLE_CLIENT_ID</code>,{" "}
+							<code className="text-foreground">GOOGLE_CLIENT_SECRET</code> e
+							ative a Google Drive API. Para o cron, defina também{" "}
+							<code className="text-foreground">CRON_SECRET</code>.
+						</p>
+					) : driveStatus.connected ? (
+						<>
+							<div className="space-y-1 text-sm">
+								<p>
+									<span className="text-muted-foreground">Conta: </span>
+									{driveStatus.googleAccountEmail}
+								</p>
+								{driveStatus.connectedAt ? (
+									<p>
+										<span className="text-muted-foreground">Desde: </span>
+										{new Date(driveStatus.connectedAt).toLocaleString("pt-BR")}
+									</p>
+								) : null}
+								{driveStatus.lastRun ? (
+									<p>
+										<span className="text-muted-foreground">
+											Último backup:{" "}
+										</span>
+										{new Date(driveStatus.lastRun.createdAt).toLocaleString(
+											"pt-BR"
+										)}{" "}
+										·{" "}
+										{driveStatus.lastRun.status === "success"
+											? "ok"
+											: "erro"}
+										{driveStatus.lastRun.fileName
+											? ` · ${driveStatus.lastRun.fileName}`
+											: ""}
+										{driveStatus.lastRun.errorMessage
+											? ` — ${driveStatus.lastRun.errorMessage}`
+											: ""}
+									</p>
+								) : (
+									<p className="text-muted-foreground">
+										Nenhum backup executado ainda.
+									</p>
+								)}
+							</div>
+							<div className="flex flex-wrap gap-2">
+								<Button
+									type="button"
+									className="min-h-11 sm:min-h-10"
+									disabled={runBackupMutation.isPending}
+									onClick={() => runBackupMutation.mutate()}
+								>
+									{runBackupMutation.isPending
+										? "Gerando backup…"
+										: "Fazer backup agora"}
+								</Button>
+								<Button
+									type="button"
+									variant="outline"
+									className="min-h-11 sm:min-h-10"
+									asChild
+								>
+									<a href="/api/admin/integrations/google-drive/connect">
+										Reconectar
+									</a>
+								</Button>
+								<Button
+									type="button"
+									variant="ghost"
+									className="min-h-11 sm:min-h-10"
+									disabled={disconnectDriveMutation.isPending}
+									onClick={() => disconnectDriveMutation.mutate()}
+								>
+									{disconnectDriveMutation.isPending
+										? "Desconectando…"
+										: "Desconectar"}
+								</Button>
+							</div>
+						</>
+					) : (
+						<>
+							<p className="text-muted-foreground text-sm">
+								Ao conectar, o app cria a pasta de backups no Drive da conta
+								autorizada. O cron diário (Vercel) e o botão “Fazer backup
+								agora” usam a mesma lógica. Dados clínicos ficam nessa conta
+								Google.
+							</p>
+							<Button type="button" className="min-h-11 sm:min-h-10" asChild>
+								<a href="/api/admin/integrations/google-drive/connect">
+									Conectar Google Drive
+								</a>
+							</Button>
+						</>
+					)}
+				</CardContent>
+			</Card>
 
 			<Card>
 				<CardHeader>

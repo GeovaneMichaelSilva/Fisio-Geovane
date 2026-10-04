@@ -296,5 +296,62 @@ export const googleCalendarConnections = pgTable(
 	}
 );
 
+export const backupRunStatusEnum = pgEnum("backup_run_status", [
+	"success",
+	"error"
+]);
+
+/**
+ * Conexão OAuth da clínica com Google Drive (backup automático).
+ */
+export const googleDriveConnections = pgTable("google_drive_connections", {
+	id: uuid("id").primaryKey().defaultRandom(),
+	clinicId: uuid("clinic_id")
+		.notNull()
+		.references(() => clinics.id, { onDelete: "cascade" })
+		.unique(),
+	connectedByUserId: uuid("connected_by_user_id")
+		.notNull()
+		.references(() => users.id),
+	googleAccountEmail: text("google_account_email").notNull(),
+	refreshTokenEncrypted: text("refresh_token_encrypted").notNull(),
+	accessTokenEncrypted: text("access_token_encrypted"),
+	accessTokenExpiresAt: timestamp("access_token_expires_at", {
+		withTimezone: true
+	}),
+	/** Pasta no Drive onde os backups são gravados. */
+	folderId: text("folder_id"),
+	connectedAt: timestamp("connected_at", { withTimezone: true })
+		.notNull()
+		.defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true })
+		.notNull()
+		.defaultNow()
+});
+
+/**
+ * Histórico de execuções de backup (manual ou cron).
+ */
+export const backupRuns = pgTable(
+	"backup_runs",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		clinicId: uuid("clinic_id")
+			.notNull()
+			.references(() => clinics.id, { onDelete: "cascade" }),
+		status: backupRunStatusEnum("status").notNull(),
+		trigger: text("trigger").notNull().default("manual"),
+		driveFileId: text("drive_file_id"),
+		fileName: text("file_name"),
+		bytes: integer("bytes"),
+		errorMessage: text("error_message"),
+		deletedOldFiles: integer("deleted_old_files").notNull().default(0),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.notNull()
+			.defaultNow()
+	},
+	(t) => [index("backup_runs_clinic_created_idx").on(t.clinicId, t.createdAt)]
+);
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
