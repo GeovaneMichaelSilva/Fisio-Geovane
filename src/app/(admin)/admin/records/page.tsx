@@ -26,7 +26,7 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { normalizeTime } from "@/lib/sessions/agenda";
 import { useRecordsQuery } from "@/queries/recordsQuery";
 
-import type { FC, ReactNode } from "react";
+import type { FC } from "react";
 
 const formatBrl = (value: string) =>
 	Number(value).toLocaleString("pt-BR", {
@@ -54,89 +54,8 @@ const RecordsPage: FC = () => {
 
 	const rows = listQuery.data?.data ?? [];
 	const meta = listQuery.data?.meta;
-
-	let listBody: ReactNode;
-	if (listQuery.isLoading) {
-		listBody = <ListSkeleton />;
-	} else if (listQuery.isError) {
-		listBody = (
-			<ErrorState
-				message={(listQuery.error as Error).message}
-				onRetry={() => listQuery.refetch()}
-			/>
-		);
-	} else if (rows.length === 0) {
-		listBody = (
-			<EmptyState
-				title={
-					search
-						? "Nenhum atendimento encontrado"
-						: "Nenhum atendimento realizado"
-				}
-				description={
-					search
-						? "Tente outro nome."
-						: "Conclua uma sessão na agenda para aparecer aqui."
-				}
-				action={
-					!search ? (
-						<Button asChild size="sm">
-							<Link href="/admin/agenda">Abrir agenda</Link>
-						</Button>
-					) : null
-				}
-			/>
-		);
-	} else {
-		listBody = (
-			<div className="space-y-4">
-				<AdminList>
-					{rows.map((row) => (
-						<AdminListItem key={row.id}>
-							<div className="min-w-0 space-y-1">
-								<p className="font-medium">{row.patientName}</p>
-								<p className="text-muted-foreground text-sm">
-									{formatDatePt(row.scheduledDate)} ·{" "}
-									{normalizeTime(String(row.scheduledTime)).slice(0, 5)} ·{" "}
-									{row.serviceTypeName} · {formatBrl(row.valueBrl)}
-								</p>
-								<div className="flex flex-wrap gap-2">
-									{row.paid ? (
-										<Badge>Pago</Badge>
-									) : (
-										<Badge variant="secondary">Em aberto</Badge>
-									)}
-									{row.invoiceIssued ? (
-										<Badge variant="outline">NFS-e</Badge>
-									) : null}
-								</div>
-							</div>
-							<Button
-								asChild
-								variant="outline"
-								size="sm"
-								className="min-h-11 sm:min-h-9"
-							>
-								<Link href={`/admin/sessions/${row.id}?mode=clinical`}>
-									Abrir
-								</Link>
-							</Button>
-						</AdminListItem>
-					))}
-				</AdminList>
-				{meta ? (
-					<PaginationControls
-						page={meta.page}
-						totalPages={meta.totalPages}
-						total={meta.total}
-						pageSize={meta.pageSize}
-						pending={listQuery.isFetching}
-						onPageChange={setPage}
-					/>
-				) : null}
-			</div>
-		);
-	}
+	const listReady = !listQuery.isLoading && !listQuery.isError;
+	const listEmpty = listReady && rows.length === 0;
 
 	return (
 		<div className="space-y-6">
@@ -169,7 +88,81 @@ const RecordsPage: FC = () => {
 						onChange={(e) => setQ(e.target.value)}
 						autoComplete="off"
 					/>
-					{listBody}
+					{listQuery.isLoading && <ListSkeleton />}
+					{listQuery.isError && (
+						<ErrorState
+							message={(listQuery.error as Error).message}
+							onRetry={() => listQuery.refetch()}
+						/>
+					)}
+					{listEmpty && (
+						<EmptyState
+							title={
+								search
+									? "Nenhum atendimento encontrado"
+									: "Nenhum atendimento realizado"
+							}
+							description={
+								search
+									? "Tente outro nome."
+									: "Conclua uma sessão na agenda para aparecer aqui."
+							}
+							action={
+								!search ? (
+									<Button asChild size="sm">
+										<Link href="/admin/agenda">Abrir agenda</Link>
+									</Button>
+								) : null
+							}
+						/>
+					)}
+					{listReady && rows.length > 0 && (
+						<div className="space-y-4">
+							<AdminList>
+								{rows.map((row) => (
+									<AdminListItem key={row.id}>
+										<div className="min-w-0 space-y-1">
+											<p className="font-medium">{row.patientName}</p>
+											<p className="text-muted-foreground text-sm">
+												{formatDatePt(row.scheduledDate)} ·{" "}
+												{normalizeTime(String(row.scheduledTime)).slice(0, 5)} ·{" "}
+												{row.serviceTypeName} · {formatBrl(row.valueBrl)}
+											</p>
+											<div className="flex flex-wrap gap-2">
+												{row.paid && <Badge>Pago</Badge>}
+												{!row.paid && (
+													<Badge variant="secondary">Em aberto</Badge>
+												)}
+												{row.invoiceIssued && (
+													<Badge variant="outline">NFS-e</Badge>
+												)}
+											</div>
+										</div>
+										<Button
+											asChild
+											variant="outline"
+											size="sm"
+											className="min-h-11 sm:min-h-9"
+										>
+											<Link href={`/admin/sessions/${row.id}?mode=clinical`}>
+												Abrir
+											</Link>
+										</Button>
+									</AdminListItem>
+								))}
+							</AdminList>
+							{meta && (
+								<PaginationControls
+									page={meta.page}
+									totalPages={meta.totalPages}
+									total={meta.total}
+									pageSize={meta.pageSize}
+									pending={listQuery.isFetching}
+									onPageChange={setPage}
+								/>
+							)}
+						</div>
+					)}
 				</CardContent>
 			</Card>
 		</div>

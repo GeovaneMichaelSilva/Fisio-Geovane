@@ -21,7 +21,7 @@ import type {
 	SessionCreateInput,
 	SessionCreateParsed
 } from "@/lib/sessions/schema";
-import type { FC, ReactNode } from "react";
+import type { FC } from "react";
 
 type AgendaComposerDialogProps = {
 	open: boolean;
@@ -70,94 +70,6 @@ const AgendaComposerDialog: FC<AgendaComposerDialogProps> = (props) => {
 	const noPatients =
 		!patientsLoading && !debouncedPatientQ && patientOptions.length === 0;
 
-	let body: ReactNode = (
-		<form
-			id="agenda-create-form"
-			className="grid gap-4 sm:grid-cols-2"
-			onSubmit={form.handleSubmit((values) =>
-				onSubmit({ ...values, allowOverlap: false })
-			)}
-		>
-			<div className="space-y-2 sm:col-span-2">
-				<Input
-					label={{ text: "Buscar paciente" }}
-					placeholder="Nome, telefone ou CPF…"
-					value={patientFilter}
-					onChange={(e) => onPatientFilterChange(e.target.value)}
-				/>
-				<Select
-					label={{ text: "Paciente", required: true }}
-					value={form.watch("patientId")}
-					onChange={(e) => onPatientChange(e.target.value)}
-					placeholder={patientsFetching ? "Buscando…" : "Selecione…"}
-					error={errors.patientId?.message}
-					options={patientOptions.map((p) => ({
-						value: p.id,
-						label: p.fullName
-					}))}
-				/>
-			</div>
-			<Select
-				className="sm:col-span-2"
-				label={{ text: "Tipo", required: true }}
-				value={form.watch("serviceTypeId")}
-				onChange={(e) => onServiceTypeChange(e.target.value)}
-				placeholder="Selecione…"
-				error={errors.serviceTypeId?.message}
-				options={serviceTypes
-					.filter((t) => t.isActive)
-					.map((t) => ({
-						value: t.id,
-						label: t.name
-					}))}
-			/>
-			<Input
-				label={{ text: "Data", required: true }}
-				type="date"
-				error={errors.scheduledDate?.message}
-				{...form.register("scheduledDate")}
-			/>
-			<Input
-				label={{ text: "Horário", required: true }}
-				type="time"
-				error={errors.scheduledTime?.message}
-				{...form.register("scheduledTime")}
-			/>
-			<Input
-				label={{ text: "Duração (min)", required: true }}
-				type="number"
-				inputMode="numeric"
-				min={5}
-				max={480}
-				error={errors.durationMinutes?.message}
-				{...form.register("durationMinutes", { valueAsNumber: true })}
-			/>
-			<Input
-				label={{ text: "Valor (R$)", required: true }}
-				type="number"
-				inputMode="decimal"
-				min={0}
-				step="0.01"
-				error={errors.valueBrl?.message}
-				{...form.register("valueBrl", { valueAsNumber: true })}
-			/>
-		</form>
-	);
-
-	if (noPatients) {
-		body = (
-			<EmptyState
-				title="Cadastre um paciente antes de agendar"
-				description="A agenda precisa de ao menos um paciente ativo."
-				action={
-					<Button asChild size="sm">
-						<Link href="/admin/patients/new">Novo paciente</Link>
-					</Button>
-				}
-			/>
-		);
-	}
-
 	const saveLabel = pending ? "Salvando…" : "Salvar agendamento";
 
 	return (
@@ -170,7 +82,90 @@ const AgendaComposerDialog: FC<AgendaComposerDialogProps> = (props) => {
 						{syncHint}
 					</DialogDescription>
 				</DialogHeader>
-				{body}
+				{noPatients && (
+					<EmptyState
+						title="Cadastre um paciente antes de agendar"
+						description="A agenda precisa de ao menos um paciente ativo."
+						action={
+							<Button asChild size="sm">
+								<Link href="/admin/patients/new">Novo paciente</Link>
+							</Button>
+						}
+					/>
+				)}
+				{!noPatients && (
+					<form
+						id="agenda-create-form"
+						className="grid gap-4 sm:grid-cols-2"
+						onSubmit={form.handleSubmit((values) =>
+							onSubmit({ ...values, allowOverlap: false })
+						)}
+					>
+						<div className="space-y-2 sm:col-span-2">
+							<Input
+								label={{ text: "Buscar paciente" }}
+								placeholder="Nome, telefone ou CPF…"
+								value={patientFilter}
+								onChange={(e) => onPatientFilterChange(e.target.value)}
+							/>
+							<Select
+								label={{ text: "Paciente", required: true }}
+								value={form.watch("patientId")}
+								onChange={(e) => onPatientChange(e.target.value)}
+								placeholder={patientsFetching ? "Buscando…" : "Selecione…"}
+								error={errors.patientId?.message}
+								options={patientOptions.map((p) => ({
+									value: p.id,
+									label: p.fullName
+								}))}
+							/>
+						</div>
+						<Select
+							className="sm:col-span-2"
+							label={{ text: "Tipo", required: true }}
+							value={form.watch("serviceTypeId")}
+							onChange={(e) => onServiceTypeChange(e.target.value)}
+							placeholder="Selecione…"
+							error={errors.serviceTypeId?.message}
+							options={serviceTypes
+								.filter((t) => t.isActive)
+								.map((t) => ({
+									value: t.id,
+									label: t.name
+								}))}
+						/>
+						<Input
+							label={{ text: "Data", required: true }}
+							type="date"
+							error={errors.scheduledDate?.message}
+							{...form.register("scheduledDate")}
+						/>
+						<Input
+							label={{ text: "Horário", required: true }}
+							type="time"
+							error={errors.scheduledTime?.message}
+							{...form.register("scheduledTime")}
+						/>
+						<Input
+							label={{ text: "Duração (min)", required: true }}
+							type="number"
+							inputMode="numeric"
+							min={5}
+							max={480}
+							error={errors.durationMinutes?.message}
+							{...form.register("durationMinutes", { valueAsNumber: true })}
+						/>
+						<Input
+							label={{ text: "Valor (R$)", required: true }}
+							type="number"
+							inputMode="decimal"
+							min={0}
+							step="0.01"
+							error={errors.valueBrl?.message}
+							{...form.register("valueBrl", { valueAsNumber: true })}
+						/>
+					</form>
+				)}
 				<DialogFooter className="gap-2">
 					<Button type="button" variant="ghost" onClick={onClose}>
 						Cancelar

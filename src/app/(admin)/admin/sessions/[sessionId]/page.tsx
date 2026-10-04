@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 
 import SessionDetailClient from "./SessionDetailClient";
 
-import type { FC, ReactNode } from "react";
+import type { FC } from "react";
 
 type SessionDetailPageProps = {
 	params: Promise<{ sessionId: string }>;
@@ -23,9 +23,11 @@ const SessionDetailPage: FC<SessionDetailPageProps> = (props) => {
 	const { params } = props;
 	const { sessionId } = use(params);
 
-	let body: ReactNode = <SessionDetailClient sessionId={sessionId} />;
-
-	return <Suspense fallback={<SessionDetailFallback />}>{body}</Suspense>;
+	return (
+		<Suspense fallback={<SessionDetailFallback />}>
+			<SessionDetailClient sessionId={sessionId} />
+		</Suspense>
+	);
 };
 
 export default SessionDetailPage;

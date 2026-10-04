@@ -131,44 +131,6 @@ const RescheduleMoveDialog: FC<RescheduleMoveDialogProps> = (props) => {
 			}
 		: { date: false, time: false, duration: false };
 
-	let body: ReactNode = null;
-	if (pending) {
-		body = (
-			<div className="space-y-3">
-				<AlertDialogDescription>
-					Confirme a remarcação de{" "}
-					<span className="text-foreground font-medium">
-						{pending.session.patientName}
-					</span>
-					. {summarizeChanges(flags)}
-				</AlertDialogDescription>
-				<div className="border-border bg-muted/40 space-y-3 rounded-md border p-3">
-					<div>
-						<p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-							Atual
-						</p>
-						<SlotLine
-							dateStr={pending.session.scheduledDate}
-							time={fromTime}
-							durationMinutes={fromDuration}
-						/>
-					</div>
-					<div>
-						<p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-							Novo
-						</p>
-						<SlotLine
-							dateStr={pending.toDate}
-							time={toTime}
-							durationMinutes={toDuration}
-							highlight={flags}
-						/>
-					</div>
-				</div>
-			</div>
-		);
-	}
-
 	return (
 		<AlertDialog
 			open={open}
@@ -180,7 +142,40 @@ const RescheduleMoveDialog: FC<RescheduleMoveDialogProps> = (props) => {
 			<AlertDialogContent>
 				<AlertDialogHeader>
 					<AlertDialogTitle>Remarcar atendimento?</AlertDialogTitle>
-					{body}
+					{pending && (
+						<div className="space-y-3">
+							<AlertDialogDescription>
+								Confirme a remarcação de{" "}
+								<span className="text-foreground font-medium">
+									{pending.session.patientName}
+								</span>
+								. {summarizeChanges(flags)}
+							</AlertDialogDescription>
+							<div className="border-border bg-muted/40 space-y-3 rounded-md border p-3">
+								<div>
+									<p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+										Atual
+									</p>
+									<SlotLine
+										dateStr={pending.session.scheduledDate}
+										time={fromTime}
+										durationMinutes={fromDuration}
+									/>
+								</div>
+								<div>
+									<p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+										Novo
+									</p>
+									<SlotLine
+										dateStr={pending.toDate}
+										time={toTime}
+										durationMinutes={toDuration}
+										highlight={flags}
+									/>
+								</div>
+							</div>
+						</div>
+					)}
 				</AlertDialogHeader>
 				<AlertDialogFooter>
 					<AlertDialogCancel disabled={saving} onClick={onCancel}>

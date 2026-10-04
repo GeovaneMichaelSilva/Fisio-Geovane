@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 
 import type { GoogleStatus } from "./types";
-import type { FC, HTMLAttributes, ReactNode } from "react";
+import type { FC, HTMLAttributes } from "react";
 
 type AgendaHeaderActionsProps = HTMLAttributes<HTMLDivElement> & {
 	googleStatus?: GoogleStatus;
@@ -18,17 +18,8 @@ type AgendaHeaderActionsProps = HTMLAttributes<HTMLDivElement> & {
 const AgendaHeaderActions: FC<AgendaHeaderActionsProps> = (props) => {
 	const { googleStatus, onSchedule, className, ...restProps } = props;
 
-	let googleStatusNode: ReactNode = null;
-	if (googleStatus?.configured && !googleStatus.connected) {
-		googleStatusNode = (
-			<Link
-				href="/admin/settings/integrations"
-				className="text-destructive order-last w-full text-right text-xs underline-offset-2 hover:underline sm:order-first sm:w-auto"
-			>
-				Google Agenda desconectada
-			</Link>
-		);
-	}
+	const showDisconnectedHint =
+		Boolean(googleStatus?.configured) && !googleStatus?.connected;
 
 	return (
 		<div
@@ -36,7 +27,14 @@ const AgendaHeaderActions: FC<AgendaHeaderActionsProps> = (props) => {
 			{...restProps}
 		>
 			<div className="flex flex-wrap items-center justify-end gap-2">
-				{googleStatusNode}
+				{showDisconnectedHint && (
+					<Link
+						href="/admin/settings/integrations"
+						className="text-destructive order-last w-full text-right text-xs underline-offset-2 hover:underline sm:order-first sm:w-auto"
+					>
+						Google Agenda desconectada
+					</Link>
+				)}
 				<Button
 					type="button"
 					className="min-h-11 w-full sm:min-h-10 sm:w-auto"

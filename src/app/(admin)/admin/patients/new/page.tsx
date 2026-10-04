@@ -17,7 +17,7 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { useCreatePatientMutation } from "@/queries/patientQuery";
 import { useServiceTypesQuery } from "@/queries/serviceTypeQuery";
 
-import type { FC, ReactNode } from "react";
+import type { FC } from "react";
 
 const NewPatientPage: FC = () => {
 	usePageTitle("Novo paciente");
@@ -34,55 +34,7 @@ const NewPatientPage: FC = () => {
 	});
 
 	const firstActive = typesQuery.data?.find((t) => t.isActive)?.id ?? "";
-
-	let formBody: ReactNode;
-	if (typesQuery.isLoading) {
-		formBody = (
-			<div className="space-y-3">
-				<Skeleton className="h-10 w-full" />
-				<Skeleton className="h-10 w-full" />
-				<Skeleton className="h-10 w-2/3" />
-			</div>
-		);
-	} else if (typesQuery.isError) {
-		formBody = (
-			<p className="text-destructive text-sm" role="alert">
-				{(typesQuery.error as Error).message}
-			</p>
-		);
-	} else if (!firstActive) {
-		formBody = (
-			<p className="text-muted-foreground text-sm">
-				Cadastre ao menos um tipo de atendimento ativo em Configurações antes
-				de criar pacientes.
-			</p>
-		);
-	} else {
-		formBody = (
-			<PatientForm
-				defaultValues={{
-					fullName: "",
-					phone: "",
-					cpf: "",
-					birthDate: "",
-					weightKg: null,
-					heightCm: null,
-					preferredServiceTypeId: firstActive,
-					addressStreet: "",
-					addressNumber: "",
-					addressNeighborhood: "",
-					addressCity: "",
-					addressZip: "",
-					notes: ""
-				}}
-				serviceTypes={typesQuery.data ?? []}
-				submitLabel="Cadastrar"
-				pending={createMutation.isPending}
-				onSubmit={(values) => createMutation.mutate(values)}
-				onCancel={() => router.push("/admin/patients")}
-			/>
-		);
-	}
+	const typesReady = !typesQuery.isLoading && !typesQuery.isError;
 
 	return (
 		<div className="space-y-6">
@@ -98,7 +50,50 @@ const NewPatientPage: FC = () => {
 						Após salvar, você será direcionado ao detalhe do paciente.
 					</CardDescription>
 				</CardHeader>
-				<CardContent>{formBody}</CardContent>
+				<CardContent>
+					{typesQuery.isLoading && (
+						<div className="space-y-3">
+							<Skeleton className="h-10 w-full" />
+							<Skeleton className="h-10 w-full" />
+							<Skeleton className="h-10 w-2/3" />
+						</div>
+					)}
+					{typesQuery.isError && (
+						<p className="text-destructive text-sm" role="alert">
+							{(typesQuery.error as Error).message}
+						</p>
+					)}
+					{typesReady && !firstActive && (
+						<p className="text-muted-foreground text-sm">
+							Cadastre ao menos um tipo de atendimento ativo em Configurações
+							antes de criar pacientes.
+						</p>
+					)}
+					{typesReady && firstActive && (
+						<PatientForm
+							defaultValues={{
+								fullName: "",
+								phone: "",
+								cpf: "",
+								birthDate: "",
+								weightKg: null,
+								heightCm: null,
+								preferredServiceTypeId: firstActive,
+								addressStreet: "",
+								addressNumber: "",
+								addressNeighborhood: "",
+								addressCity: "",
+								addressZip: "",
+								notes: ""
+							}}
+							serviceTypes={typesQuery.data ?? []}
+							submitLabel="Cadastrar"
+							pending={createMutation.isPending}
+							onSubmit={(values) => createMutation.mutate(values)}
+							onCancel={() => router.push("/admin/patients")}
+						/>
+					)}
+				</CardContent>
 			</Card>
 		</div>
 	);

@@ -42,7 +42,7 @@ import {
 } from "@/queries/patientQuery";
 import { useServiceTypesQuery } from "@/queries/serviceTypeQuery";
 
-import type { FC, ReactNode } from "react";
+import type { FC } from "react";
 
 type PatientDetailClientProps = {
 	patientId: string;
@@ -135,118 +135,43 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 		);
 	}
 
-	let cadastroBody: ReactNode;
-	if (patientQuery.isLoading) {
-		cadastroBody = (
-			<div className="space-y-3">
-				<Skeleton className="h-10 w-full" />
-				<Skeleton className="h-10 w-full" />
-				<Skeleton className="h-10 w-2/3" />
-			</div>
-		);
-	} else if (isEditing && patientQuery.data) {
-		if (archived) {
-			cadastroBody = (
-				<p className="text-muted-foreground text-sm">
-					Paciente arquivado — restaure para editar o cadastro.
-				</p>
-			);
-		} else if (typesQuery.isLoading) {
-			cadastroBody = (
-				<div className="space-y-3">
-					<Skeleton className="h-10 w-full" />
-					<Skeleton className="h-10 w-full" />
-					<Skeleton className="h-10 w-2/3" />
-				</div>
-			);
-		} else if (typesQuery.data) {
-			cadastroBody = (
-				<PatientForm
-					key={`${patientQuery.data.id}-edit`}
-					defaultValues={patientToFormValues(patientQuery.data)}
-					serviceTypes={typesQuery.data}
-					submitLabel="Salvar alterações"
-					pending={saveMutation.isPending}
-					onSubmit={(values) => saveMutation.mutate(values)}
-					onCancel={() => setMode("view")}
-				/>
-			);
-		} else {
-			cadastroBody = (
-				<p className="text-destructive text-sm" role="alert">
-					Não foi possível carregar os tipos de atendimento.
-				</p>
-			);
-		}
-	} else if (patientQuery.data) {
-		cadastroBody = <PatientSummary patient={patientQuery.data} />;
-	} else {
-		cadastroBody = null;
-	}
-
-	let sessionsSection: ReactNode;
-	if (patientQuery.isLoading) {
-		sessionsSection = <Skeleton className="h-16 w-full" />;
-	} else if (!patientQuery.data?.sessions.length) {
-		sessionsSection = (
-			<p className="text-muted-foreground text-sm">
-				Nenhuma sessão registrada ainda.
-			</p>
-		);
-	} else {
-		sessionsSection = (
-			<AdminList>
-				{patientQuery.data.sessions.map((s) => (
-					<AdminListItem key={s.id}>
-						<div>
-							<p className="font-medium">
-								{s.scheduledDate} · {s.scheduledTime.slice(0, 5)}
-							</p>
-							<p className="text-muted-foreground text-sm">
-								{s.serviceTypeName} · {STATUS_LABEL[s.status] ?? s.status} ·{" "}
-								{formatBrl(s.valueBrl)}
-								{s.paid ? " · pago" : ""}
-							</p>
-						</div>
-						<Button asChild variant="outline" size="sm">
-							<Link href={`/admin/sessions/${s.id}`}>Abrir</Link>
-						</Button>
-					</AdminListItem>
-				))}
-			</AdminList>
-		);
-	}
+	const patientLoaded = !patientQuery.isLoading && patientQuery.data;
+	const editFormReady =
+		isEditing &&
+		patientLoaded &&
+		!archived &&
+		!typesQuery.isLoading &&
+		typesQuery.data;
 
 	const headerActions = (
 		<div className="flex flex-wrap gap-2">
-			{isEditing ? (
-				<>
-					<Button
-						type="button"
-						variant="outline"
-						onClick={() => setMode("view")}
-						disabled={saveMutation.isPending}
-					>
-						Cancelar
-					</Button>
-				</>
-			) : (
+			{isEditing && (
+				<Button
+					type="button"
+					variant="outline"
+					onClick={() => setMode("view")}
+					disabled={saveMutation.isPending}
+				>
+					Cancelar
+				</Button>
+			)}
+			{!isEditing && (
 				<>
 					<Button asChild variant="outline">
 						<Link href="/admin/patients">Voltar</Link>
 					</Button>
-					{!archived ? (
+					{!archived && (
 						<Button type="button" onClick={() => setMode("edit")}>
 							Editar
 						</Button>
-					) : null}
-					{!archived ? (
+					)}
+					{!archived && (
 						<Button asChild variant="secondary">
 							<Link href={`/admin/agenda?patientId=${patientId}`}>
 								Agendar
 							</Link>
 						</Button>
-					) : null}
+					)}
 					<Button
 						type="button"
 						variant="secondary"
@@ -298,8 +223,8 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 						<h1 className="text-2xl font-medium">
 							{patientQuery.data?.fullName ?? "Paciente"}
 						</h1>
-						{archived ? <Badge variant="secondary">Arquivado</Badge> : null}
-						{isEditing ? <Badge variant="outline">Editando</Badge> : null}
+						{archived && <Badge variant="secondary">Arquivado</Badge>}
+						{isEditing && <Badge variant="outline">Editando</Badge>}
 					</div>
 					<p className="text-muted-foreground text-sm">
 						{isEditing
@@ -310,7 +235,7 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 				{headerActions}
 			</div>
 
-			{!isEditing ? (
+			{!isEditing && (
 				<div className="grid gap-4 sm:grid-cols-2">
 					<Card>
 						<CardHeader>
@@ -337,7 +262,7 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 						</CardContent>
 					</Card>
 				</div>
-			) : null}
+			)}
 
 			<Card>
 				<CardHeader>
@@ -350,17 +275,92 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 							: "Informações do cadastro (somente leitura)."}
 					</CardDescription>
 				</CardHeader>
-				<CardContent>{cadastroBody}</CardContent>
+				<CardContent>
+					{patientQuery.isLoading && (
+						<div className="space-y-3">
+							<Skeleton className="h-10 w-full" />
+							<Skeleton className="h-10 w-full" />
+							<Skeleton className="h-10 w-2/3" />
+						</div>
+					)}
+					{patientLoaded && !isEditing && (
+						<PatientSummary patient={patientQuery.data} />
+					)}
+					{patientLoaded && isEditing && archived && (
+						<p className="text-muted-foreground text-sm">
+							Paciente arquivado — restaure para editar o cadastro.
+						</p>
+					)}
+					{patientLoaded &&
+						isEditing &&
+						!archived &&
+						typesQuery.isLoading && (
+							<div className="space-y-3">
+								<Skeleton className="h-10 w-full" />
+								<Skeleton className="h-10 w-full" />
+								<Skeleton className="h-10 w-2/3" />
+							</div>
+						)}
+					{patientLoaded &&
+						isEditing &&
+						!archived &&
+						!typesQuery.isLoading &&
+						!typesQuery.data && (
+							<p className="text-destructive text-sm" role="alert">
+								Não foi possível carregar os tipos de atendimento.
+							</p>
+						)}
+					{editFormReady && (
+						<PatientForm
+							key={`${patientQuery.data!.id}-edit`}
+							defaultValues={patientToFormValues(patientQuery.data!)}
+							serviceTypes={typesQuery.data!}
+							submitLabel="Salvar alterações"
+							pending={saveMutation.isPending}
+							onSubmit={(values) => saveMutation.mutate(values)}
+							onCancel={() => setMode("view")}
+						/>
+					)}
+				</CardContent>
 			</Card>
 
-			{!isEditing ? (
+			{!isEditing && (
 				<Card>
 					<CardHeader>
 						<CardTitle>Histórico de sessões</CardTitle>
 						<CardDescription>Últimas sessões deste paciente.</CardDescription>
 					</CardHeader>
 					<CardContent>
-						{sessionsSection}
+						{patientQuery.isLoading && (
+							<Skeleton className="h-16 w-full" />
+						)}
+						{patientLoaded && !patientQuery.data.sessions.length && (
+							<p className="text-muted-foreground text-sm">
+								Nenhuma sessão registrada ainda.
+							</p>
+						)}
+						{patientLoaded && patientQuery.data.sessions.length > 0 && (
+							<AdminList>
+								{patientQuery.data.sessions.map((s) => (
+									<AdminListItem key={s.id}>
+										<div>
+											<p className="font-medium">
+												{s.scheduledDate} · {s.scheduledTime.slice(0, 5)}
+											</p>
+											<p className="text-muted-foreground text-sm">
+												{s.serviceTypeName} ·{" "}
+												{STATUS_LABEL[s.status] ?? s.status} ·{" "}
+												{formatBrl(s.valueBrl)}
+												{s.paid ? " · pago" : ""}
+											</p>
+										</div>
+										<Button asChild variant="outline" size="sm">
+											<Link href={`/admin/sessions/${s.id}`}>Abrir</Link>
+										</Button>
+									</AdminListItem>
+								))}
+							</AdminList>
+						)}
 						<div className="mt-4">
 							<Button
 								type="button"
@@ -373,7 +373,7 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 						</div>
 					</CardContent>
 				</Card>
-			) : null}
+			)}
 		</div>
 	);
 };

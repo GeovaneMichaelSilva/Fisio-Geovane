@@ -13,7 +13,7 @@ import {
 import { Select } from "@/components/ui/Select";
 
 import type { IntegrationServiceType } from "./integrationsApi";
-import type { FC, ReactNode } from "react";
+import type { FC } from "react";
 
 type TypeMappingSectionProps = {
 	types: IntegrationServiceType[] | undefined;
@@ -42,38 +42,8 @@ const TypeMappingSection: FC<TypeMappingSectionProps> = (props) => {
 		onSave
 	} = props;
 
-	let mappingBody: ReactNode;
-	if (typesLoading || calendarsLoading) {
-		mappingBody = <FormSkeleton />;
-	} else if (typesError) {
-		mappingBody = (
-			<ErrorState message={typesError.message} onRetry={onTypesRetry} />
-		);
-	} else {
-		mappingBody = (
-			<ul className="space-y-3">
-				{(types ?? []).map((t) => (
-					<li
-						key={t.id}
-						className="grid gap-2 sm:grid-cols-[1fr_1.2fr] sm:items-end"
-					>
-						<div>
-							<p className="text-sm font-medium">{t.name}</p>
-							<p className="text-muted-foreground text-xs">
-								{t.isActive ? "Ativo" : "Inativo"}
-							</p>
-						</div>
-						<Select
-							label={{ text: "Agenda Google" }}
-							value={typeMaps[t.id] ?? ""}
-							options={calendarOptions}
-							onChange={(e) => onTypeMapChange(t.id, e.target.value)}
-						/>
-					</li>
-				))}
-			</ul>
-		);
-	}
+	const loading = typesLoading || calendarsLoading;
+	const ready = !loading && !typesError;
 
 	return (
 		<Card>
@@ -85,7 +55,33 @@ const TypeMappingSection: FC<TypeMappingSectionProps> = (props) => {
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-4">
-				{mappingBody}
+				{loading && <FormSkeleton />}
+				{!loading && typesError && (
+					<ErrorState message={typesError.message} onRetry={onTypesRetry} />
+				)}
+				{ready && (
+					<ul className="space-y-3">
+						{(types ?? []).map((t) => (
+							<li
+								key={t.id}
+								className="grid gap-2 sm:grid-cols-[1fr_1.2fr] sm:items-end"
+							>
+								<div>
+									<p className="text-sm font-medium">{t.name}</p>
+									<p className="text-muted-foreground text-xs">
+										{t.isActive ? "Ativo" : "Inativo"}
+									</p>
+								</div>
+								<Select
+									label={{ text: "Agenda Google" }}
+									value={typeMaps[t.id] ?? ""}
+									options={calendarOptions}
+									onChange={(e) => onTypeMapChange(t.id, e.target.value)}
+								/>
+							</li>
+						))}
+					</ul>
+				)}
 				<Button
 					type="button"
 					className="min-h-11 sm:min-h-10"

@@ -45,7 +45,7 @@ import {
 	type ServiceType
 } from "@/queries/serviceTypeQuery";
 
-import type { FC, ReactNode } from "react";
+import type { FC } from "react";
 
 const formatBrl = (value: string | number) => {
 	const n = typeof value === "string" ? Number(value) : value;
@@ -111,76 +111,8 @@ const ServiceTypesPage: FC = () => {
 		? "Nome, duração e valor padrão usados na agenda e nos pacientes."
 		: "Consulta dos tipos. Somente o responsável pode criar ou editar.";
 
-	let listBody: ReactNode;
-	if (listQuery.isLoading) {
-		listBody = <ListSkeleton />;
-	} else if (listQuery.isError) {
-		listBody = (
-			<ErrorState
-				message={(listQuery.error as Error).message}
-				onRetry={() => listQuery.refetch()}
-			/>
-		);
-	} else if (listQuery.data?.length === 0) {
-		listBody = (
-			<EmptyState
-				title="Nenhum tipo cadastrado"
-				description={
-					isOwner
-						? "Crie o primeiro tipo para usar na agenda."
-						: "Peça ao responsável para cadastrar os tipos."
-				}
-				action={
-					isOwner ? (
-						<Button type="button" size="sm" onClick={openCreate}>
-							Novo tipo
-						</Button>
-					) : undefined
-				}
-			/>
-		);
-	} else {
-		listBody = (
-			<AdminList>
-				{listQuery.data?.map((row) => (
-					<AdminListItem key={row.id}>
-						<div className="min-w-0 space-y-1">
-							<div className="flex flex-wrap items-center gap-2">
-								<p className="font-medium">{row.name}</p>
-								<Badge variant={row.isActive ? "default" : "secondary"}>
-									{row.isActive ? "Ativo" : "Inativo"}
-								</Badge>
-							</div>
-							<p className="text-muted-foreground text-sm">
-								{row.defaultDurationMinutes} min · {formatBrl(row.defaultValueBrl)}
-							</p>
-						</div>
-						{isOwner ? (
-							<div className="flex flex-wrap gap-2">
-								<Button
-									type="button"
-									variant="outline"
-									size="sm"
-									onClick={() => openEdit(row)}
-								>
-									Editar
-								</Button>
-								<Button
-									type="button"
-									variant="ghost"
-									size="sm"
-									disabled={toggleMutation.isPending}
-									onClick={() => toggleMutation.mutate(row)}
-								>
-									{row.isActive ? "Desativar" : "Ativar"}
-								</Button>
-							</div>
-						) : null}
-					</AdminListItem>
-				))}
-			</AdminList>
-		);
-	}
+	const listReady = !listQuery.isLoading && !listQuery.isError;
+	const listEmpty = listReady && listQuery.data?.length === 0;
 
 	const dialogTitle = editingId ? "Editar tipo" : "Novo tipo";
 	const dialogDescription = editingId
@@ -215,7 +147,73 @@ const ServiceTypesPage: FC = () => {
 						Tipos inativos não aparecem em novos agendamentos.
 					</CardDescription>
 				</CardHeader>
-				<CardContent>{listBody}</CardContent>
+				<CardContent>
+					{listQuery.isLoading && <ListSkeleton />}
+					{listQuery.isError && (
+						<ErrorState
+							message={(listQuery.error as Error).message}
+							onRetry={() => listQuery.refetch()}
+						/>
+					)}
+					{listEmpty && (
+						<EmptyState
+							title="Nenhum tipo cadastrado"
+							description={
+								isOwner
+									? "Crie o primeiro tipo para usar na agenda."
+									: "Peça ao responsável para cadastrar os tipos."
+							}
+							action={
+								isOwner ? (
+									<Button type="button" size="sm" onClick={openCreate}>
+										Novo tipo
+									</Button>
+								) : undefined
+							}
+						/>
+					)}
+					{listReady && (listQuery.data?.length ?? 0) > 0 && (
+						<AdminList>
+							{listQuery.data?.map((row) => (
+								<AdminListItem key={row.id}>
+									<div className="min-w-0 space-y-1">
+										<div className="flex flex-wrap items-center gap-2">
+											<p className="font-medium">{row.name}</p>
+											<Badge variant={row.isActive ? "default" : "secondary"}>
+												{row.isActive ? "Ativo" : "Inativo"}
+											</Badge>
+										</div>
+										<p className="text-muted-foreground text-sm">
+											{row.defaultDurationMinutes} min ·{" "}
+											{formatBrl(row.defaultValueBrl)}
+										</p>
+									</div>
+									{isOwner && (
+										<div className="flex flex-wrap gap-2">
+											<Button
+												type="button"
+												variant="outline"
+												size="sm"
+												onClick={() => openEdit(row)}
+											>
+												Editar
+											</Button>
+											<Button
+												type="button"
+												variant="ghost"
+												size="sm"
+												disabled={toggleMutation.isPending}
+												onClick={() => toggleMutation.mutate(row)}
+											>
+												{row.isActive ? "Desativar" : "Ativar"}
+											</Button>
+										</div>
+									)}
+								</AdminListItem>
+							))}
+						</AdminList>
+					)}
+				</CardContent>
 			</Card>
 
 			<Dialog

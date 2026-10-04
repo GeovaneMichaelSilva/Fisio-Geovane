@@ -49,7 +49,7 @@ import { useServiceTypesQuery } from "@/queries/serviceTypeQuery";
 
 import { notifyGoogleSync } from "./components/agendaApi";
 import { sessionsToEvents } from "./components/agendaEvents";
-import type { FC, ReactNode } from "react";
+import type { FC } from "react";
 
 const AgendaClient: FC = () => {
 	usePageTitle("Agenda");
@@ -323,43 +323,7 @@ const AgendaClient: FC = () => {
 		});
 	}
 
-	let boardContent: ReactNode = <Skeleton className="h-[min(72vh,820px)] w-full rounded-xl" />;
-
-	if (rangeQuery.isError) {
-		boardContent = (
-			<ErrorState
-				message={(rangeQuery.error as Error).message}
-				onRetry={() => rangeQuery.refetch()}
-			/>
-		);
-	} else if (!rangeQuery.isLoading) {
-		boardContent = (
-			<AgendaCalendar
-				date={date}
-				view={view}
-				events={events}
-				onNavigate={(next) => {
-					setDate(next);
-					setSelectedDay(toDateString(next));
-				}}
-				onView={setView}
-				onSelectSlot={({ date: slotDate, time, durationMinutes }) => {
-					const allDayLike = durationMinutes >= 12 * 60;
-					openComposer(
-						slotDate,
-						allDayLike ? "09:00" : time,
-						allDayLike ? undefined : durationMinutes
-					);
-				}}
-				onRequestReschedule={(target) => {
-					setPendingMove(target);
-					setMoveOverlapOpen(false);
-					setMoveOverlapReason("");
-					setMoveOverlapConflicts([]);
-				}}
-			/>
-		);
-	}
+	const boardReady = !rangeQuery.isLoading && !rangeQuery.isError;
 
 	return (
 		<div className="space-y-6">
@@ -458,7 +422,41 @@ const AgendaClient: FC = () => {
 				}}
 			/>
 
-			{boardContent}
+			{rangeQuery.isError && (
+				<ErrorState
+					message={(rangeQuery.error as Error).message}
+					onRetry={() => rangeQuery.refetch()}
+				/>
+			)}
+			{rangeQuery.isLoading && (
+				<Skeleton className="h-[min(72vh,820px)] w-full rounded-xl" />
+			)}
+			{boardReady && (
+				<AgendaCalendar
+					date={date}
+					view={view}
+					events={events}
+					onNavigate={(next) => {
+						setDate(next);
+						setSelectedDay(toDateString(next));
+					}}
+					onView={setView}
+					onSelectSlot={({ date: slotDate, time, durationMinutes }) => {
+						const allDayLike = durationMinutes >= 12 * 60;
+						openComposer(
+							slotDate,
+							allDayLike ? "09:00" : time,
+							allDayLike ? undefined : durationMinutes
+						);
+					}}
+					onRequestReschedule={(target) => {
+						setPendingMove(target);
+						setMoveOverlapOpen(false);
+						setMoveOverlapReason("");
+						setMoveOverlapConflicts([]);
+					}}
+				/>
+			)}
 		</div>
 	);
 };

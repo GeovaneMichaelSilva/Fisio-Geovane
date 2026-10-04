@@ -26,7 +26,7 @@ import {
 } from "@/lib/clinic/schema";
 import { useClinicQuery, useUpdateClinicMutation } from "@/queries/clinicQuery";
 
-import type { FC, ReactNode } from "react";
+import type { FC } from "react";
 
 const SettingsPage: FC = () => {
 	usePageTitle("Configurações");
@@ -69,74 +69,7 @@ const SettingsPage: FC = () => {
 	const readOnlyHint =
 		!roleLoading && !canEdit ? " Somente o responsável pode editar." : "";
 
-	let clinicFormBody: ReactNode;
-	if (clinicQuery.isLoading) {
-		clinicFormBody = <FormSkeleton />;
-	} else if (clinicQuery.isError) {
-		clinicFormBody = (
-			<ErrorState
-				message={(clinicQuery.error as Error).message}
-				onRetry={() => clinicQuery.refetch()}
-			/>
-		);
-	} else {
-		clinicFormBody = (
-			<form
-				className="grid max-w-xl gap-4"
-				onSubmit={form.handleSubmit((values) => {
-					if (!canEdit) return;
-					saveMutation.mutate(values);
-				})}
-			>
-				<fieldset disabled={!canEdit} className="grid gap-4 disabled:opacity-80">
-					<Input
-						label={{ text: "Nome exibido", required: true }}
-						error={form.formState.errors.displayName?.message}
-						{...form.register("displayName")}
-					/>
-					<Input
-						label={{ text: "Profissão", required: true }}
-						helperText="Aparece no cabeçalho do PDF (ex.: Fisioterapeuta)."
-						error={form.formState.errors.professionLabel?.message}
-						{...form.register("professionLabel")}
-					/>
-					<Input
-						label={{ text: "Crefito / registro" }}
-						helperText="Ex.: 549225-F"
-						error={form.formState.errors.licenseNumber?.message}
-						{...form.register("licenseNumber")}
-					/>
-					<Input
-						label={{ text: "Fuso horário", required: true }}
-						error={form.formState.errors.timezone?.message}
-						{...form.register("timezone")}
-					/>
-					<Input
-						label={{
-							text: "Duração padrão da sessão (min)",
-							required: true
-						}}
-						type="number"
-						min={5}
-						max={480}
-						error={
-							form.formState.errors.defaultSessionDurationMinutes?.message
-						}
-						{...form.register("defaultSessionDurationMinutes", {
-							valueAsNumber: true
-						})}
-					/>
-				</fieldset>
-				{canEdit ? (
-					<div>
-						<Button type="submit" disabled={saveMutation.isPending}>
-							{saveMutation.isPending ? "Salvando…" : "Salvar"}
-						</Button>
-					</div>
-				) : null}
-			</form>
-		);
-	}
+	const clinicReady = !clinicQuery.isLoading && !clinicQuery.isError;
 
 	return (
 		<div className="space-y-6">
@@ -156,7 +89,75 @@ const SettingsPage: FC = () => {
 						{readOnlyHint}
 					</CardDescription>
 				</CardHeader>
-				<CardContent>{clinicFormBody}</CardContent>
+				<CardContent>
+					{clinicQuery.isLoading && <FormSkeleton />}
+					{clinicQuery.isError && (
+						<ErrorState
+							message={(clinicQuery.error as Error).message}
+							onRetry={() => clinicQuery.refetch()}
+						/>
+					)}
+					{clinicReady && (
+						<form
+							className="grid max-w-xl gap-4"
+							onSubmit={form.handleSubmit((values) => {
+								if (!canEdit) return;
+								saveMutation.mutate(values);
+							})}
+						>
+							<fieldset
+								disabled={!canEdit}
+								className="grid gap-4 disabled:opacity-80"
+							>
+								<Input
+									label={{ text: "Nome exibido", required: true }}
+									error={form.formState.errors.displayName?.message}
+									{...form.register("displayName")}
+								/>
+								<Input
+									label={{ text: "Profissão", required: true }}
+									helperText="Aparece no cabeçalho do PDF (ex.: Fisioterapeuta)."
+									error={form.formState.errors.professionLabel?.message}
+									{...form.register("professionLabel")}
+								/>
+								<Input
+									label={{ text: "Crefito / registro" }}
+									helperText="Ex.: 549225-F"
+									error={form.formState.errors.licenseNumber?.message}
+									{...form.register("licenseNumber")}
+								/>
+								<Input
+									label={{ text: "Fuso horário", required: true }}
+									error={form.formState.errors.timezone?.message}
+									{...form.register("timezone")}
+								/>
+								<Input
+									label={{
+										text: "Duração padrão da sessão (min)",
+										required: true
+									}}
+									type="number"
+									min={5}
+									max={480}
+									error={
+										form.formState.errors.defaultSessionDurationMinutes
+											?.message
+									}
+									{...form.register("defaultSessionDurationMinutes", {
+										valueAsNumber: true
+									})}
+								/>
+							</fieldset>
+							{canEdit && (
+								<div>
+									<Button type="submit" disabled={saveMutation.isPending}>
+										{saveMutation.isPending ? "Salvando…" : "Salvar"}
+									</Button>
+								</div>
+							)}
+						</form>
+					)}
+				</CardContent>
 			</Card>
 		</div>
 	);

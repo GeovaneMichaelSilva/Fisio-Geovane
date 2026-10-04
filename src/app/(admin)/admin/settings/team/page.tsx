@@ -57,7 +57,7 @@ import {
 	useTeamQuery
 } from "@/queries/teamQuery";
 
-import type { FC, ReactNode } from "react";
+import type { FC } from "react";
 
 const ROLE_LABEL = {
 	owner: "Responsável",
@@ -120,125 +120,7 @@ const TeamSettingsPage: FC = () => {
 		);
 	}
 
-	let membersList: ReactNode;
-	if (listQuery.isLoading) {
-		membersList = <ListSkeleton />;
-	} else if (listQuery.isError) {
-		membersList = (
-			<ErrorState
-				message={(listQuery.error as Error).message}
-				onRetry={() => listQuery.refetch()}
-			/>
-		);
-	} else {
-		membersList = (
-			<AdminList>
-				{(listQuery.data ?? []).map((m) => (
-					<AdminListItem key={m.userId}>
-						<div className="min-w-0 space-y-1">
-							<div className="flex flex-wrap items-center gap-2">
-								<p className="font-medium">{m.fullName}</p>
-								<Badge
-									variant={m.role === "owner" ? "default" : "secondary"}
-								>
-									{ROLE_LABEL[m.role]}
-								</Badge>
-								{m.isSelf ? <Badge variant="outline">Você</Badge> : null}
-							</div>
-							<p className="text-muted-foreground text-sm">{m.email}</p>
-						</div>
-						{!m.isSelf ? (
-							<AlertDialog
-								open={removingId === m.userId}
-								onOpenChange={(open) =>
-									setRemovingId(open ? m.userId : null)
-								}
-							>
-								<AlertDialogTrigger asChild>
-									<Button
-										type="button"
-										variant="ghost"
-										size="sm"
-										className="min-h-11 sm:min-h-9"
-									>
-										Remover
-									</Button>
-								</AlertDialogTrigger>
-								<AlertDialogContent>
-									<AlertDialogHeader>
-										<AlertDialogTitle>Remover da equipe?</AlertDialogTitle>
-										<AlertDialogDescription>
-											{m.fullName} ({m.email}) perderá o acesso a esta clínica.
-										</AlertDialogDescription>
-									</AlertDialogHeader>
-									<AlertDialogFooter>
-										<AlertDialogCancel disabled={removeMutation.isPending}>
-											Cancelar
-										</AlertDialogCancel>
-										<AlertDialogAction
-											disabled={removeMutation.isPending}
-											onClick={(e) => {
-												e.preventDefault();
-												removeMutation.mutate(m.userId);
-											}}
-										>
-											{removeMutation.isPending ? "Removendo…" : "Remover"}
-										</AlertDialogAction>
-									</AlertDialogFooter>
-								</AlertDialogContent>
-							</AlertDialog>
-						) : null}
-					</AdminListItem>
-				))}
-			</AdminList>
-		);
-	}
-
-	let createFormBody: ReactNode;
-	if (roleLoading) {
-		createFormBody = <FormSkeleton />;
-	} else {
-		createFormBody = (
-			<form
-				id="team-create-form"
-				className="grid gap-4"
-				onSubmit={form.handleSubmit((values) => createMutation.mutate(values))}
-				noValidate
-			>
-				<Input
-					label={{ text: "Nome", required: true }}
-					error={form.formState.errors.fullName?.message}
-					{...form.register("fullName")}
-				/>
-				<Input
-					label={{ text: "E-mail", required: true }}
-					type="email"
-					autoComplete="off"
-					error={form.formState.errors.email?.message}
-					{...form.register("email")}
-				/>
-				<div className="space-y-2">
-					<Input
-						label={{ text: "Senha temporária", required: true }}
-						type="password"
-						autoComplete="new-password"
-						error={form.formState.errors.password?.message}
-						{...form.register("password")}
-					/>
-					<PasswordRequirements password={form.watch("password") ?? ""} />
-				</div>
-				<Select
-					label={{ text: "Papel", required: true }}
-					error={form.formState.errors.role?.message}
-					options={[
-						{ value: "staff", label: "Equipe" },
-						{ value: "owner", label: "Responsável" }
-					]}
-					{...form.register("role")}
-				/>
-			</form>
-		);
-	}
+	const membersReady = !listQuery.isLoading && !listQuery.isError;
 
 	const saveDialogLabel = createMutation.isPending ? "Adicionando…" : "Adicionar";
 
@@ -272,7 +154,83 @@ const TeamSettingsPage: FC = () => {
 						não altera configurações nem Google Agenda.
 					</CardDescription>
 				</CardHeader>
-				<CardContent className="space-y-4">{membersList}</CardContent>
+				<CardContent className="space-y-4">
+					{listQuery.isLoading && <ListSkeleton />}
+					{listQuery.isError && (
+						<ErrorState
+							message={(listQuery.error as Error).message}
+							onRetry={() => listQuery.refetch()}
+						/>
+					)}
+					{membersReady && (
+						<AdminList>
+							{(listQuery.data ?? []).map((m) => (
+								<AdminListItem key={m.userId}>
+									<div className="min-w-0 space-y-1">
+										<div className="flex flex-wrap items-center gap-2">
+											<p className="font-medium">{m.fullName}</p>
+											<Badge
+												variant={m.role === "owner" ? "default" : "secondary"}
+											>
+												{ROLE_LABEL[m.role]}
+											</Badge>
+											{m.isSelf && <Badge variant="outline">Você</Badge>}
+										</div>
+										<p className="text-muted-foreground text-sm">{m.email}</p>
+									</div>
+									{!m.isSelf && (
+										<AlertDialog
+											open={removingId === m.userId}
+											onOpenChange={(open) =>
+												setRemovingId(open ? m.userId : null)
+											}
+										>
+											<AlertDialogTrigger asChild>
+												<Button
+													type="button"
+													variant="ghost"
+													size="sm"
+													className="min-h-11 sm:min-h-9"
+												>
+													Remover
+												</Button>
+											</AlertDialogTrigger>
+											<AlertDialogContent>
+												<AlertDialogHeader>
+													<AlertDialogTitle>
+														Remover da equipe?
+													</AlertDialogTitle>
+													<AlertDialogDescription>
+														{m.fullName} ({m.email}) perderá o acesso a esta
+														clínica.
+													</AlertDialogDescription>
+												</AlertDialogHeader>
+												<AlertDialogFooter>
+													<AlertDialogCancel
+														disabled={removeMutation.isPending}
+													>
+														Cancelar
+													</AlertDialogCancel>
+													<AlertDialogAction
+														disabled={removeMutation.isPending}
+														onClick={(e) => {
+															e.preventDefault();
+															removeMutation.mutate(m.userId);
+														}}
+													>
+														{removeMutation.isPending
+															? "Removendo…"
+															: "Remover"}
+													</AlertDialogAction>
+												</AlertDialogFooter>
+											</AlertDialogContent>
+										</AlertDialog>
+									)}
+								</AdminListItem>
+							))}
+						</AdminList>
+					)}
+				</CardContent>
 			</Card>
 
 			<Dialog
@@ -290,7 +248,51 @@ const TeamSettingsPage: FC = () => {
 							Conta (menu no topo).
 						</DialogDescription>
 					</DialogHeader>
-					{createFormBody}
+					{roleLoading && <FormSkeleton />}
+					{!roleLoading && (
+						<form
+							id="team-create-form"
+							className="grid gap-4"
+							onSubmit={form.handleSubmit((values) =>
+								createMutation.mutate(values)
+							)}
+							noValidate
+						>
+							<Input
+								label={{ text: "Nome", required: true }}
+								error={form.formState.errors.fullName?.message}
+								{...form.register("fullName")}
+							/>
+							<Input
+								label={{ text: "E-mail", required: true }}
+								type="email"
+								autoComplete="off"
+								error={form.formState.errors.email?.message}
+								{...form.register("email")}
+							/>
+							<div className="space-y-2">
+								<Input
+									label={{ text: "Senha temporária", required: true }}
+									type="password"
+									autoComplete="new-password"
+									error={form.formState.errors.password?.message}
+									{...form.register("password")}
+								/>
+								<PasswordRequirements
+									password={form.watch("password") ?? ""}
+								/>
+							</div>
+							<Select
+								label={{ text: "Papel", required: true }}
+								error={form.formState.errors.role?.message}
+								options={[
+									{ value: "staff", label: "Equipe" },
+									{ value: "owner", label: "Responsável" }
+								]}
+								{...form.register("role")}
+							/>
+						</form>
+					)}
 					<DialogFooter className="gap-2">
 						<Button
 							type="button"

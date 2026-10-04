@@ -12,7 +12,7 @@ import {
 	CardTitle
 } from "@/components/ui/Card";
 
-import type { FC, ReactNode } from "react";
+import type { FC } from "react";
 import type { DriveStatus } from "./integrationsApi";
 
 type GoogleDriveSectionProps = {
@@ -38,102 +38,8 @@ const GoogleDriveSection: FC<GoogleDriveSectionProps> = (props) => {
 		onDisconnect
 	} = props;
 
-	let cardBody: ReactNode;
-	if (loading) {
-		cardBody = <FormSkeleton />;
-	} else if (error) {
-		cardBody = <ErrorState message={error.message} onRetry={onRetry} />;
-	} else if (!driveStatus?.configured) {
-		cardBody = (
-			<p className="text-muted-foreground text-sm">
-				Integração não configurada no servidor. Defina{" "}
-				<code className="text-foreground">GOOGLE_CLIENT_ID</code>,{" "}
-				<code className="text-foreground">GOOGLE_CLIENT_SECRET</code> e ative a
-				Google Drive API. Para o cron, defina também{" "}
-				<code className="text-foreground">CRON_SECRET</code>.
-			</p>
-		);
-	} else if (driveStatus.connected) {
-		let lastRunLine: ReactNode;
-		if (driveStatus.lastRun) {
-			const run = driveStatus.lastRun;
-			lastRunLine = (
-				<p>
-					<span className="text-muted-foreground">Último backup: </span>
-					{new Date(run.createdAt).toLocaleString("pt-BR")} ·{" "}
-					{run.status === "success" ? "ok" : "erro"}
-					{run.fileName ? ` · ${run.fileName}` : ""}
-					{run.errorMessage ? ` — ${run.errorMessage}` : ""}
-				</p>
-			);
-		} else {
-			lastRunLine = (
-				<p className="text-muted-foreground">Nenhum backup executado ainda.</p>
-			);
-		}
-
-		cardBody = (
-			<div className="space-y-4">
-				<div className="space-y-1 text-sm">
-					<p>
-						<span className="text-muted-foreground">Conta: </span>
-						{driveStatus.googleAccountEmail}
-					</p>
-					{driveStatus.connectedAt ? (
-						<p>
-							<span className="text-muted-foreground">Desde: </span>
-							{new Date(driveStatus.connectedAt).toLocaleString("pt-BR")}
-						</p>
-					) : null}
-					{lastRunLine}
-				</div>
-				<div className="flex flex-wrap gap-2">
-					<Button
-						type="button"
-						className="min-h-11 sm:min-h-10"
-						disabled={backupPending}
-						onClick={onBackup}
-					>
-						{backupPending ? "Gerando backup…" : "Fazer backup agora"}
-					</Button>
-					<Button
-						type="button"
-						variant="outline"
-						className="min-h-11 sm:min-h-10"
-						asChild
-					>
-						<a href="/api/admin/integrations/google-drive/connect">
-							Reconectar
-						</a>
-					</Button>
-					<Button
-						type="button"
-						variant="ghost"
-						className="min-h-11 sm:min-h-10"
-						disabled={disconnectPending}
-						onClick={onDisconnect}
-					>
-						{disconnectPending ? "Desconectando…" : "Desconectar"}
-					</Button>
-				</div>
-			</div>
-		);
-	} else {
-		cardBody = (
-			<div className="space-y-4">
-				<p className="text-muted-foreground text-sm">
-					Ao conectar, o app cria a pasta de backups no Drive da conta
-					autorizada. O cron diário (Vercel) e o botão “Fazer backup agora” usam
-					a mesma lógica. Dados clínicos ficam nessa conta Google.
-				</p>
-				<Button type="button" className="min-h-11 sm:min-h-10" asChild>
-					<a href="/api/admin/integrations/google-drive/connect">
-						Conectar Google Drive
-					</a>
-				</Button>
-			</div>
-		);
-	}
+	const driveReady = !loading && !error;
+	const lastRun = driveStatus?.lastRun;
 
 	return (
 		<Card>
@@ -152,7 +58,92 @@ const GoogleDriveSection: FC<GoogleDriveSectionProps> = (props) => {
 					automaticamente).
 				</CardDescription>
 			</CardHeader>
-			<CardContent className="space-y-4">{cardBody}</CardContent>
+			<CardContent className="space-y-4">
+				{loading && <FormSkeleton />}
+				{error && <ErrorState message={error.message} onRetry={onRetry} />}
+				{driveReady && !driveStatus?.configured && (
+					<p className="text-muted-foreground text-sm">
+						Integração não configurada no servidor. Defina{" "}
+						<code className="text-foreground">GOOGLE_CLIENT_ID</code>,{" "}
+						<code className="text-foreground">GOOGLE_CLIENT_SECRET</code> e ative a
+						Google Drive API. Para o cron, defina também{" "}
+						<code className="text-foreground">CRON_SECRET</code>.
+					</p>
+				)}
+				{driveReady && driveStatus?.configured && driveStatus.connected && (
+					<div className="space-y-4">
+						<div className="space-y-1 text-sm">
+							<p>
+								<span className="text-muted-foreground">Conta: </span>
+								{driveStatus.googleAccountEmail}
+							</p>
+							{driveStatus.connectedAt && (
+								<p>
+									<span className="text-muted-foreground">Desde: </span>
+									{new Date(driveStatus.connectedAt).toLocaleString("pt-BR")}
+								</p>
+							)}
+							{!lastRun && (
+								<p className="text-muted-foreground">
+									Nenhum backup executado ainda.
+								</p>
+							)}
+							{lastRun && (
+								<p>
+									<span className="text-muted-foreground">Último backup: </span>
+									{new Date(lastRun.createdAt).toLocaleString("pt-BR")} ·{" "}
+									{lastRun.status === "success" ? "ok" : "erro"}
+									{lastRun.fileName ? ` · ${lastRun.fileName}` : ""}
+									{lastRun.errorMessage ? ` — ${lastRun.errorMessage}` : ""}
+								</p>
+							)}
+						</div>
+						<div className="flex flex-wrap gap-2">
+							<Button
+								type="button"
+								className="min-h-11 sm:min-h-10"
+								disabled={backupPending}
+								onClick={onBackup}
+							>
+								{backupPending ? "Gerando backup…" : "Fazer backup agora"}
+							</Button>
+							<Button
+								type="button"
+								variant="outline"
+								className="min-h-11 sm:min-h-10"
+								asChild
+							>
+								<a href="/api/admin/integrations/google-drive/connect">
+									Reconectar
+								</a>
+							</Button>
+							<Button
+								type="button"
+								variant="ghost"
+								className="min-h-11 sm:min-h-10"
+								disabled={disconnectPending}
+								onClick={onDisconnect}
+							>
+								{disconnectPending ? "Desconectando…" : "Desconectar"}
+							</Button>
+						</div>
+					</div>
+				)}
+				{driveReady && driveStatus?.configured && !driveStatus.connected && (
+					<div className="space-y-4">
+						<p className="text-muted-foreground text-sm">
+							Ao conectar, o app cria a pasta de backups no Drive da conta
+							autorizada. O cron diário (Vercel) e o botão “Fazer backup agora”
+							usam a mesma lógica. Dados clínicos ficam nessa conta Google.
+						</p>
+						<Button type="button" className="min-h-11 sm:min-h-10" asChild>
+							<a href="/api/admin/integrations/google-drive/connect">
+								Conectar Google Drive
+							</a>
+						</Button>
+					</div>
+				)}
+			</CardContent>
 		</Card>
 	);
 };

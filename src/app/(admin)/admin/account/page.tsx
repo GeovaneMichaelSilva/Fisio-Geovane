@@ -24,7 +24,7 @@ import {
 } from "@/lib/auth/schema";
 import { useChangePasswordMutation } from "@/queries/meQuery";
 
-import type { FC, ReactNode } from "react";
+import type { FC } from "react";
 
 /**
  * Conta do usuário logado (fora de Configurações da clínica).
@@ -57,26 +57,6 @@ const AccountPage: FC = () => {
 
 	const saveLabel = mutation.isPending ? "Salvando…" : "Alterar senha";
 
-	let nameRow: ReactNode = null;
-	if (me?.fullName) {
-		nameRow = (
-			<p>
-				<span className="text-muted-foreground">Nome: </span>
-				{me.fullName}
-			</p>
-		);
-	}
-
-	let emailRow: ReactNode = null;
-	if (me?.email) {
-		emailRow = (
-			<p>
-				<span className="text-muted-foreground">E-mail: </span>
-				{me.email}
-			</p>
-		);
-	}
-
 	return (
 		<div className="space-y-6">
 			<PageHeader
@@ -90,8 +70,18 @@ const AccountPage: FC = () => {
 					<CardDescription>{roleDescription}</CardDescription>
 				</CardHeader>
 				<CardContent className="space-y-1 text-sm">
-					{nameRow}
-					{emailRow}
+					{me?.fullName && (
+						<p>
+							<span className="text-muted-foreground">Nome: </span>
+							{me.fullName}
+						</p>
+					)}
+					{me?.email && (
+						<p>
+							<span className="text-muted-foreground">E-mail: </span>
+							{me.email}
+						</p>
+					)}
 				</CardContent>
 			</Card>
 

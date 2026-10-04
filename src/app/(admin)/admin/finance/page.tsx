@@ -26,7 +26,7 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { normalizeTime } from "@/lib/sessions/agenda";
 import { useFinanceQuery } from "@/queries/financeQuery";
 
-import type { FC, ReactNode } from "react";
+import type { FC } from "react";
 
 type PeriodPreset = "this_month" | "last_month" | "this_year" | "all" | "custom";
 
@@ -122,174 +122,8 @@ const FinancePage: FC = () => {
 			? `${formatDatePt(period.from)} – ${formatDatePt(period.to)}`
 			: "Todo o período";
 
-	let kpiSection: ReactNode;
-	if (query.isLoading) {
-		kpiSection = (
-			<div className="grid gap-4 sm:grid-cols-3">
-				<Skeleton className="h-28 w-full" />
-				<Skeleton className="h-28 w-full" />
-				<Skeleton className="h-28 w-full" />
-			</div>
-		);
-	} else if (query.isError) {
-		kpiSection = (
-			<ErrorState
-				message={(query.error as Error).message}
-				onRetry={() => query.refetch()}
-			/>
-		);
-	} else {
-		kpiSection = (
-			<div className="grid gap-4 sm:grid-cols-3">
-				<Card>
-					<CardHeader>
-						<CardTitle>Recebido</CardTitle>
-						<CardDescription>Sessões pagas no período</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<p className="text-2xl font-medium">
-							{formatBrl(kpis?.receivedTotal ?? 0)}
-						</p>
-					</CardContent>
-				</Card>
-				<Card>
-					<CardHeader>
-						<CardTitle>A receber</CardTitle>
-						<CardDescription>
-							{kpis?.pendingCount ?? 0} pendente(s)
-						</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<p className="text-2xl font-medium">
-							{formatBrl(kpis?.pendingTotal ?? 0)}
-						</p>
-					</CardContent>
-				</Card>
-				<Card>
-					<CardHeader>
-						<CardTitle>Realizados</CardTitle>
-						<CardDescription>Sessões no período</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<p className="text-2xl font-medium">{kpis?.completedCount ?? 0}</p>
-					</CardContent>
-				</Card>
-			</div>
-		);
-	}
-
-	let sessionsBody: ReactNode;
-	if (customInvalid) {
-		sessionsBody = (
-			<EmptyState
-				title="Período inválido"
-				description="Ajuste as datas personalizadas para carregar."
-			/>
-		);
-	} else if (query.isLoading) {
-		sessionsBody = <ListSkeleton rows={2} rowClassName="h-12 w-full" />;
-	} else if (query.isError) {
-		sessionsBody = null;
-	} else if (sessions.length === 0) {
-		sessionsBody = (
-			<EmptyState
-				title="Nenhuma sessão no período"
-				description="Conclua atendimentos na agenda ou amplie o filtro."
-				action={
-					<div className="flex flex-wrap gap-2">
-						<Button asChild size="sm">
-							<Link href="/admin/agenda">Abrir agenda</Link>
-						</Button>
-						<Button
-							type="button"
-							size="sm"
-							variant="outline"
-							onClick={() => setPreset("all")}
-						>
-							Ver tudo
-						</Button>
-					</div>
-				}
-			/>
-		);
-	} else {
-		sessionsBody = (
-			<div className="space-y-4">
-				<AdminList>
-					{sessions.map((row) => (
-						<AdminListItem key={row.id}>
-							<div className="min-w-0 space-y-1">
-								<p className="font-medium">{row.patientName}</p>
-								<p className="text-muted-foreground text-sm">
-									{formatDatePt(row.scheduledDate)} ·{" "}
-									{normalizeTime(String(row.scheduledTime)).slice(0, 5)} ·{" "}
-									{row.serviceTypeName} · {formatBrl(row.valueBrl)}
-								</p>
-								<div className="flex flex-wrap gap-2">
-									{row.paid ? (
-										<Badge>
-											Pago
-											{row.paidAt ? ` · ${formatDatePt(row.paidAt)}` : ""}
-										</Badge>
-									) : (
-										<Badge variant="secondary">Em aberto</Badge>
-									)}
-									{row.invoiceIssued ? (
-										<Badge variant="outline">NFS-e</Badge>
-									) : null}
-								</div>
-							</div>
-							<Button
-								asChild
-								variant="outline"
-								size="sm"
-								className="min-h-11 sm:min-h-9"
-							>
-								<Link href={`/admin/sessions/${row.id}?mode=finance`}>
-									Abrir
-								</Link>
-							</Button>
-						</AdminListItem>
-					))}
-				</AdminList>
-				{meta ? (
-					<PaginationControls
-						page={meta.page}
-						totalPages={meta.totalPages}
-						total={meta.total}
-						pageSize={meta.pageSize}
-						pending={query.isFetching}
-						onPageChange={setPage}
-					/>
-				) : null}
-			</div>
-		);
-	}
-
-	const customPeriodFields =
-		preset === "custom" ? (
-			<div className="grid gap-4 sm:grid-cols-2">
-				<Input
-					label={{ text: "De", required: true }}
-					type="date"
-					value={customFrom}
-					max={customTo || undefined}
-					onChange={(e) => setCustomFrom(e.target.value)}
-					error={
-						customInvalid && customFrom > customTo
-							? "Data inicial depois da final."
-							: undefined
-					}
-				/>
-				<Input
-					label={{ text: "Até", required: true }}
-					type="date"
-					value={customTo}
-					min={customFrom || undefined}
-					onChange={(e) => setCustomTo(e.target.value)}
-				/>
-			</div>
-		) : null;
+	const queryReady = !query.isLoading && !query.isError;
+	const sessionsEmpty = queryReady && sessions.length === 0;
 
 	return (
 		<div className="space-y-6">
@@ -323,11 +157,84 @@ const FinancePage: FC = () => {
 							</Button>
 						))}
 					</div>
-					{customPeriodFields}
+					{preset === "custom" && (
+						<div className="grid gap-4 sm:grid-cols-2">
+							<Input
+								label={{ text: "De", required: true }}
+								type="date"
+								value={customFrom}
+								max={customTo || undefined}
+								onChange={(e) => setCustomFrom(e.target.value)}
+								error={
+									customInvalid && customFrom > customTo
+										? "Data inicial depois da final."
+										: undefined
+								}
+							/>
+							<Input
+								label={{ text: "Até", required: true }}
+								type="date"
+								value={customTo}
+								min={customFrom || undefined}
+								onChange={(e) => setCustomTo(e.target.value)}
+							/>
+						</div>
+					)}
 				</CardContent>
 			</Card>
 
-			{kpiSection}
+			{query.isLoading && (
+				<div className="grid gap-4 sm:grid-cols-3">
+					<Skeleton className="h-28 w-full" />
+					<Skeleton className="h-28 w-full" />
+					<Skeleton className="h-28 w-full" />
+				</div>
+			)}
+			{query.isError && (
+				<ErrorState
+					message={(query.error as Error).message}
+					onRetry={() => query.refetch()}
+				/>
+			)}
+			{queryReady && (
+				<div className="grid gap-4 sm:grid-cols-3">
+					<Card>
+						<CardHeader>
+							<CardTitle>Recebido</CardTitle>
+							<CardDescription>Sessões pagas no período</CardDescription>
+						</CardHeader>
+						<CardContent>
+							<p className="text-2xl font-medium">
+								{formatBrl(kpis?.receivedTotal ?? 0)}
+							</p>
+						</CardContent>
+					</Card>
+					<Card>
+						<CardHeader>
+							<CardTitle>A receber</CardTitle>
+							<CardDescription>
+								{kpis?.pendingCount ?? 0} pendente(s)
+							</CardDescription>
+						</CardHeader>
+						<CardContent>
+							<p className="text-2xl font-medium">
+								{formatBrl(kpis?.pendingTotal ?? 0)}
+							</p>
+						</CardContent>
+					</Card>
+					<Card>
+						<CardHeader>
+							<CardTitle>Realizados</CardTitle>
+							<CardDescription>Sessões no período</CardDescription>
+						</CardHeader>
+						<CardContent>
+							<p className="text-2xl font-medium">
+								{kpis?.completedCount ?? 0}
+							</p>
+						</CardContent>
+					</Card>
+				</div>
+			)}
 
 			<Card>
 				<CardHeader>
@@ -336,7 +243,92 @@ const FinancePage: FC = () => {
 						Abra para marcar pago, data de pagamento e NFS-e.
 					</CardDescription>
 				</CardHeader>
-				<CardContent>{sessionsBody}</CardContent>
+				<CardContent>
+					{customInvalid && (
+						<EmptyState
+							title="Período inválido"
+							description="Ajuste as datas personalizadas para carregar."
+						/>
+					)}
+					{!customInvalid && query.isLoading && (
+						<ListSkeleton rows={2} rowClassName="h-12 w-full" />
+					)}
+					{!customInvalid && sessionsEmpty && (
+						<EmptyState
+							title="Nenhuma sessão no período"
+							description="Conclua atendimentos na agenda ou amplie o filtro."
+							action={
+								<div className="flex flex-wrap gap-2">
+									<Button asChild size="sm">
+										<Link href="/admin/agenda">Abrir agenda</Link>
+									</Button>
+									<Button
+										type="button"
+										size="sm"
+										variant="outline"
+										onClick={() => setPreset("all")}
+									>
+										Ver tudo
+									</Button>
+								</div>
+							}
+						/>
+					)}
+					{!customInvalid && queryReady && sessions.length > 0 && (
+						<div className="space-y-4">
+							<AdminList>
+								{sessions.map((row) => (
+									<AdminListItem key={row.id}>
+										<div className="min-w-0 space-y-1">
+											<p className="font-medium">{row.patientName}</p>
+											<p className="text-muted-foreground text-sm">
+												{formatDatePt(row.scheduledDate)} ·{" "}
+												{normalizeTime(String(row.scheduledTime)).slice(0, 5)}{" "}
+												· {row.serviceTypeName} · {formatBrl(row.valueBrl)}
+											</p>
+											<div className="flex flex-wrap gap-2">
+												{row.paid && (
+													<Badge>
+														Pago
+														{row.paidAt
+															? ` · ${formatDatePt(row.paidAt)}`
+															: ""}
+													</Badge>
+												)}
+												{!row.paid && (
+													<Badge variant="secondary">Em aberto</Badge>
+												)}
+												{row.invoiceIssued && (
+													<Badge variant="outline">NFS-e</Badge>
+												)}
+											</div>
+										</div>
+										<Button
+											asChild
+											variant="outline"
+											size="sm"
+											className="min-h-11 sm:min-h-9"
+										>
+											<Link href={`/admin/sessions/${row.id}?mode=finance`}>
+												Abrir
+											</Link>
+										</Button>
+									</AdminListItem>
+								))}
+							</AdminList>
+							{meta && (
+								<PaginationControls
+									page={meta.page}
+									totalPages={meta.totalPages}
+									total={meta.total}
+									pageSize={meta.pageSize}
+									pending={query.isFetching}
+									onPageChange={setPage}
+								/>
+							)}
+						</div>
+					)}
+				</CardContent>
 			</Card>
 		</div>
 	);

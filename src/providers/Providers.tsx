@@ -30,7 +30,7 @@ const Providers: FC<ProvidersProps> = (props) => {
 		<SessionProvider {...restProps}>
 			<QueryClientProvider client={queryClient}>
 				{children}
-				<Toaster richColors position="top-center" closeButton />
+				<Toaster richColors position="bottom-right" closeButton />
 			</QueryClientProvider>
 		</SessionProvider>
 	);

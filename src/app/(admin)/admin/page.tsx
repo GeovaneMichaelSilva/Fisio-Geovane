@@ -28,7 +28,7 @@ import {
 import { useFinanceHomeQuery } from "@/queries/financeQuery";
 import { useSessionsTodayQuery } from "@/queries/sessionQuery";
 
-import type { FC, ReactNode } from "react";
+import type { FC } from "react";
 
 const formatBrl = (value: string) =>
 	Number(value).toLocaleString("pt-BR", {
@@ -69,113 +69,10 @@ const AdminHomePage: FC = () => {
 	const upcoming =
 		todayQuery.data?.filter((s) => s.status === "scheduled").slice(0, 5) ?? [];
 
-	let todayCardBody: ReactNode;
-	if (todayQuery.isLoading) {
-		todayCardBody = (
-			<div className="space-y-2">
-				<Skeleton className="h-12 w-full" />
-				<Skeleton className="h-12 w-full" />
-			</div>
-		);
-	} else if (todayQuery.isError) {
-		todayCardBody = (
-			<ErrorState
-				message={(todayQuery.error as Error).message}
-				onRetry={() => todayQuery.refetch()}
-			/>
-		);
-	} else if (upcoming.length === 0) {
-		todayCardBody = (
-			<EmptyState
-				title="Nenhum horário agendado para hoje"
-				description="Crie um agendamento ou avance para a semana."
-				action={
-					<div className="flex flex-wrap gap-2">
-						<Button asChild size="sm">
-							<Link href={`/admin/agenda?date=${today}`}>Agendar hoje</Link>
-						</Button>
-						<Button asChild size="sm" variant="outline">
-							<Link href={`/admin/agenda?date=${toDateString(monday)}`}>
-								Ver semana
-							</Link>
-						</Button>
-					</div>
-				}
-			/>
-		);
-	} else {
-		todayCardBody = (
-			<AdminList>
-				{upcoming.map((s) => (
-					<AdminListItem key={s.id}>
-						<div>
-							<p className="font-medium">
-								{normalizeTime(String(s.scheduledTime)).slice(0, 5)} ·{" "}
-								{s.patientName}
-							</p>
-							<p className="text-muted-foreground text-sm">
-								{s.serviceTypeName}
-							</p>
-						</div>
-						<div className="flex flex-wrap items-center gap-2">
-							<Badge variant="outline">
-								{STATUS_LABEL[s.status] ?? s.status}
-							</Badge>
-							<Button asChild size="sm" variant="outline">
-								<Link href={`/admin/sessions/${s.id}`}>Abrir</Link>
-							</Button>
-							{s.status === "scheduled" ? (
-								<Button asChild size="sm">
-									<Link href={`/admin/sessions/${s.id}?mode=clinical`}>
-										INICIAR
-									</Link>
-								</Button>
-							) : null}
-						</div>
-					</AdminListItem>
-				))}
-			</AdminList>
-		);
-	}
-
-	let financeCardBody: ReactNode;
-	if (financeQuery.isLoading) {
-		financeCardBody = <Skeleton className="h-16 w-full" />;
-	} else if (financeQuery.isError) {
-		financeCardBody = (
-			<ErrorState
-				message={(financeQuery.error as Error).message}
-				onRetry={() => financeQuery.refetch()}
-			/>
-		);
-	} else if (financeQuery.data) {
-		financeCardBody = (
-			<div className="space-y-4">
-				<div>
-					<p className="text-muted-foreground text-xs tracking-wide uppercase">
-						A receber
-					</p>
-					<p className="text-2xl font-medium">
-						{formatBrl(financeQuery.data.pendingTotal)}
-					</p>
-					<p className="text-muted-foreground text-sm">
-						{financeQuery.data.pendingCount} sessão(ões) ·{" "}
-						{financeQuery.data.completedCount} realizadas
-					</p>
-				</div>
-				<Button asChild variant="secondary" className="w-full">
-					<Link href="/admin/finance">Ver financeiro</Link>
-				</Button>
-			</div>
-		);
-	} else {
-		financeCardBody = (
-			<EmptyState
-				title="Sem dados financeiros"
-				description="Conclua atendimentos para ver pendências."
-			/>
-		);
-	}
+	const todayReady = !todayQuery.isLoading && !todayQuery.isError;
+	const todayEmpty = todayReady && upcoming.length === 0;
+	const financeReady =
+		!financeQuery.isLoading && !financeQuery.isError && financeQuery.data;
 
 	const headerActions = (
 		<div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
@@ -212,7 +109,72 @@ const AdminHomePage: FC = () => {
 							})}
 						</CardDescription>
 					</CardHeader>
-					<CardContent>{todayCardBody}</CardContent>
+					<CardContent>
+						{todayQuery.isLoading && (
+							<div className="space-y-2">
+								<Skeleton className="h-12 w-full" />
+								<Skeleton className="h-12 w-full" />
+							</div>
+						)}
+						{todayQuery.isError && (
+							<ErrorState
+								message={(todayQuery.error as Error).message}
+								onRetry={() => todayQuery.refetch()}
+							/>
+						)}
+						{todayEmpty && (
+							<EmptyState
+								title="Nenhum horário agendado para hoje"
+								description="Crie um agendamento ou avance para a semana."
+								action={
+									<div className="flex flex-wrap gap-2">
+										<Button asChild size="sm">
+											<Link href={`/admin/agenda?date=${today}`}>
+												Agendar hoje
+											</Link>
+										</Button>
+										<Button asChild size="sm" variant="outline">
+											<Link href={`/admin/agenda?date=${toDateString(monday)}`}>
+												Ver semana
+											</Link>
+										</Button>
+									</div>
+								}
+							/>
+						)}
+						{todayReady && upcoming.length > 0 && (
+							<AdminList>
+								{upcoming.map((s) => (
+									<AdminListItem key={s.id}>
+										<div>
+											<p className="font-medium">
+												{normalizeTime(String(s.scheduledTime)).slice(0, 5)} ·{" "}
+												{s.patientName}
+											</p>
+											<p className="text-muted-foreground text-sm">
+												{s.serviceTypeName}
+											</p>
+										</div>
+										<div className="flex flex-wrap items-center gap-2">
+											<Badge variant="outline">
+												{STATUS_LABEL[s.status] ?? s.status}
+											</Badge>
+											<Button asChild size="sm" variant="outline">
+												<Link href={`/admin/sessions/${s.id}`}>Abrir</Link>
+											</Button>
+											{s.status === "scheduled" && (
+												<Button asChild size="sm">
+													<Link href={`/admin/sessions/${s.id}?mode=clinical`}>
+														INICIAR
+													</Link>
+												</Button>
+											)}
+										</div>
+									</AdminListItem>
+								))}
+							</AdminList>
+						)}
+					</CardContent>
 				</Card>
 
 				<Card>
@@ -220,7 +182,42 @@ const AdminHomePage: FC = () => {
 						<CardTitle>Pendências</CardTitle>
 						<CardDescription>Financeiro em aberto</CardDescription>
 					</CardHeader>
-					<CardContent>{financeCardBody}</CardContent>
+					<CardContent>
+						{financeQuery.isLoading && <Skeleton className="h-16 w-full" />}
+						{financeQuery.isError && (
+							<ErrorState
+								message={(financeQuery.error as Error).message}
+								onRetry={() => financeQuery.refetch()}
+							/>
+						)}
+						{!financeQuery.isLoading &&
+							!financeQuery.isError &&
+							!financeQuery.data && (
+								<EmptyState
+									title="Sem dados financeiros"
+									description="Conclua atendimentos para ver pendências."
+								/>
+							)}
+						{financeReady && (
+							<div className="space-y-4">
+								<div>
+									<p className="text-muted-foreground text-xs tracking-wide uppercase">
+										A receber
+									</p>
+									<p className="text-2xl font-medium">
+										{formatBrl(financeQuery.data.pendingTotal)}
+									</p>
+									<p className="text-muted-foreground text-sm">
+										{financeQuery.data.pendingCount} sessão(ões) ·{" "}
+										{financeQuery.data.completedCount} realizadas
+									</p>
+								</div>
+								<Button asChild variant="secondary" className="w-full">
+									<Link href="/admin/finance">Ver financeiro</Link>
+								</Button>
+							</div>
+						)}
+					</CardContent>
 				</Card>
 			</div>
 

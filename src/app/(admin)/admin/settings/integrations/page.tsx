@@ -8,7 +8,7 @@ import SettingsNav from "@/components/admin/SettingsNav";
 
 import IntegrationsInner from "./components/IntegrationsInner";
 
-import type { FC, ReactNode } from "react";
+import type { FC } from "react";
 
 const IntegrationsFallback: FC = () => (
 	<div className="space-y-6">
@@ -20,9 +20,10 @@ const IntegrationsFallback: FC = () => (
 	</div>
 );
 
-const IntegrationsPage: FC = () => {
-	let body: ReactNode = <IntegrationsInner />;
-	return <Suspense fallback={<IntegrationsFallback />}>{body}</Suspense>;
-};
+const IntegrationsPage: FC = () => (
+	<Suspense fallback={<IntegrationsFallback />}>
+		<IntegrationsInner />
+	</Suspense>
+);
 
 export default IntegrationsPage;

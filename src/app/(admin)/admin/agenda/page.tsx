@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 
 import AgendaClient from "./AgendaClient";
 
-import type { FC, ReactNode } from "react";
+import type { FC } from "react";
 
 const AgendaPageFallback: FC = () => (
 	<div className="space-y-4">
@@ -17,11 +17,10 @@ const AgendaPageFallback: FC = () => (
 	</div>
 );
 
-const AgendaPage: FC = () => {
-	let body: ReactNode = <AgendaClient />;
-	return (
-		<Suspense fallback={<AgendaPageFallback />}>{body}</Suspense>
-	);
-};
+const AgendaPage: FC = () => (
+	<Suspense fallback={<AgendaPageFallback />}>
+		<AgendaClient />
+	</Suspense>
+);
 
 export default AgendaPage;

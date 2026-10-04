@@ -9,7 +9,7 @@ import {
 	CardTitle
 } from "@/components/ui/Card";
 
-import type { FC, ReactNode } from "react";
+import type { FC } from "react";
 import type { SessionDetail } from "../types";
 
 type SessionAuditCardProps = {
@@ -18,28 +18,8 @@ type SessionAuditCardProps = {
 
 const SessionAuditCard: FC<SessionAuditCardProps> = (props) => {
 	const { session } = props;
-
-	let body: ReactNode;
-	if (!session?.audits.length) {
-		body = (
-			<p className="text-muted-foreground text-sm">
-				Nenhuma edição registrada ainda.
-			</p>
-		);
-	} else {
-		body = (
-			<AdminList>
-				{session.audits.map((a) => (
-					<AdminListItem key={a.id} className="sm:flex-col sm:items-start">
-						<p className="text-sm font-medium">{a.reason}</p>
-						<p className="text-muted-foreground text-xs">
-							{new Date(a.editedAt).toLocaleString("pt-BR")}
-						</p>
-					</AdminListItem>
-				))}
-			</AdminList>
-		);
-	}
+	const audits = session?.audits ?? [];
+	const hasAudits = audits.length > 0;
 
 	return (
 		<Card>
@@ -47,7 +27,28 @@ const SessionAuditCard: FC<SessionAuditCardProps> = (props) => {
 				<CardTitle>Auditoria recente</CardTitle>
 				<CardDescription>Append-only — sem exclusão.</CardDescription>
 			</CardHeader>
-			<CardContent>{body}</CardContent>
+			<CardContent>
+				{!hasAudits && (
+					<p className="text-muted-foreground text-sm">
+						Nenhuma edição registrada ainda.
+					</p>
+				)}
+				{hasAudits && (
+					<AdminList>
+						{audits.map((a) => (
+							<AdminListItem
+								key={a.id}
+								className="sm:flex-col sm:items-start"
+							>
+								<p className="text-sm font-medium">{a.reason}</p>
+								<p className="text-muted-foreground text-xs">
+									{new Date(a.editedAt).toLocaleString("pt-BR")}
+								</p>
+							</AdminListItem>
+						))}
+					</AdminList>
+				)}
+			</CardContent>
 		</Card>
 	);
 };
