@@ -30,11 +30,11 @@ export function AdminShell({ email, children }: AdminShellProps) {
 				<div className="mx-auto flex max-w-6xl items-center gap-3 px-3 py-3 sm:gap-4 sm:px-4 sm:py-4">
 					<Link href="/admin" className="flex min-w-0 shrink items-center gap-2.5 sm:gap-3">
 						<Image
-							src="/brand/logo.png"
+							src="/brand/logo-mark.png"
 							alt="Geovane Michael da Silva"
 							width={48}
 							height={48}
-							className="size-10 shrink-0 rounded-md bg-white sm:size-14"
+							className="size-10 shrink-0 rounded-md bg-white object-contain p-0.5 sm:size-14"
 						/>
 						<div className="min-w-0">
 							<p className="truncate text-[10px] tracking-[0.16em] uppercase opacity-80 sm:text-xs sm:tracking-[0.2em]">

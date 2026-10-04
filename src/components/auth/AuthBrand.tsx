@@ -1,22 +1,19 @@
 import Image from "next/image";
 
 /**
- * Logo + nome da marca nas telas de autenticação.
+ * Logo completa (símbolo + nome) nas telas de autenticação.
  */
 export function AuthBrand() {
 	return (
-		<div className="flex flex-col items-center gap-3 pb-2">
+		<div className="flex flex-col items-center pb-2">
 			<Image
-				src="/brand/logo.png"
-				alt="Geovane Michael da Silva — Fisioterapeuta"
-				width={140}
-				height={140}
+				src="/brand/logo-full.png"
+				alt="Geovane M. da Silva — Fisioterapeuta"
+				width={220}
+				height={280}
 				priority
-				className="rounded-md"
+				className="h-auto w-[160px] sm:w-[180px]"
 			/>
-			<p className="text-brand text-xs font-medium tracking-[0.2em] uppercase">
-				Geovane Michael da Silva
-			</p>
 		</div>
 	);
 }

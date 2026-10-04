@@ -9,25 +9,19 @@ Header: “Geovane M. da Silva” + “Gestão de atendimentos”.
 PDF: “GEOVANE M. DA SILVA” + “Crefito: 549225-F”.
 ```
 
-## Arquivo canônico
+## Arquivos canônicos
 
-| Item | Caminho |
-|---|---|
-| Logo PNG (extraída do protótipo) | [`../../assets/brand/logo.png`](../../assets/brand/logo.png) |
-| ViewBox usado no protótipo | `635 580 833 815` (recorte do canvas 2048×2048) |
-
-```text
-[INFERÊNCIA]
-O PNG completo inclui símbolo metálico dourado + tipografia
-“GEOVANE / M. DA SILVA / FISIOTERAPEUTA” sobre fundo branco.
-```
+| Item | Caminho | Uso |
+|---|---|---|
+| Marca (só símbolo) | [`../../assets/brand/logo-mark.png`](../../assets/brand/logo-mark.png) | Header admin |
+| Logo completa | [`../../assets/brand/logo-full.png`](../../assets/brand/logo-full.png) | Login, landing |
+| Servidas em runtime | `public/brand/logo-mark.png`, `public/brand/logo-full.png` | Next.js `<Image>` |
 
 ```text
-[PROPOSTA]
-Na app Next.js, preferir:
-- `logo.png` (ou versão otimizada WebP/AVIF) para header admin
-- eventualmente `logo-mark.png` (só o símbolo) se for gerado depois
-Não inventar logotipo novo nesta etapa.
+[DECISÃO]
+- `logo-mark`: símbolo dourado do cérebro, sem texto
+- `logo-full`: símbolo + tipografia “GEOVANE / M. DA SILVA / FISIOTERAPEUTA”
+Não inventar logotipo novo; manter as artes oficiais do cliente.
 ```
 
 ## Tipografia da marca

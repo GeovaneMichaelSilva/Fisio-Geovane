@@ -643,17 +643,6 @@ function IntegrationsInner() {
 				</CardContent>
 			</Card>
 
-			<Card>
-				<CardHeader>
-					<CardTitle>WhatsApp / lembretes</CardTitle>
-					<CardDescription>Em breve</CardDescription>
-				</CardHeader>
-				<CardContent>
-					<p className="text-muted-foreground text-sm">
-						Lembretes automáticos ficam para uma etapa futura.
-					</p>
-				</CardContent>
-			</Card>
 		</div>
 	);
 }

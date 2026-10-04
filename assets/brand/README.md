@@ -1,9 +1,10 @@
 # Brand assets
 
-## logo.png
+| Arquivo | Conteúdo | Uso típico |
+|---|---|---|
+| `logo-mark.png` | Só o símbolo (cérebro / marca) | Header do admin, favicon, espaços pequenos |
+| `logo-full.png` | Símbolo + “GEOVANE M. DA SILVA” + Fisioterapeuta | Login, landing, materiais onde a marca completa aparece |
 
-- **Origem:** extraída do `fisio-prototipo-v09.html` (data-URI PNG 2048×2048).
-- **Uso:** marca oficial do fisioterapeuta Geovane M. da Silva.
-- **Documentação:** [`docs/design/brand.md`](../docs/design/brand.md)
+Cópias servidas pelo Next: `public/brand/`.
 
-Não versionar variantes temporárias ou exports não oficiais sem atualizar a documentação.
+Documentação: [`docs/design/brand.md`](../../docs/design/brand.md)
