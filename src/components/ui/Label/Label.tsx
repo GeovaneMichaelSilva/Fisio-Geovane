@@ -12,7 +12,7 @@ export type LabelAttributes =
 	| {
 			text?: string;
 			description?: string;
-			required?: boolean | "optional";
+			required?: boolean;
 	  };
 
 type LabelProps = {
@@ -53,14 +53,14 @@ const Label = forwardRef<HTMLLabelElement, LabelProps>((props, ref) => {
 								{...restProps}
 							>
 								{text}
-								{required === true && (
-									<span className="text-destructive ml-1">*</span>
-								)}
-								{required === "optional" && (
-									<span className="text-muted-foreground ml-1 text-xs font-normal">
-										(opcional)
+								{required ? (
+									<span
+										className="text-destructive ml-0.5 font-semibold"
+										aria-hidden
+									>
+										*
 									</span>
-								)}
+								) : null}
 							</LabelPrimitive.Root>
 						)}
 						{description && (

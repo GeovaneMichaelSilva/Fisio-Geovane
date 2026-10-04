@@ -28,7 +28,8 @@ const ForgotPasswordPage: FC = () => {
 
 	const form = useForm<ForgotPasswordValues>({
 		resolver: zodResolver(forgotPasswordSchema),
-		defaultValues: { email: "" }
+		defaultValues: { email: "" },
+		mode: "all"
 	});
 
 	const onSubmit = async (values: ForgotPasswordValues) => {

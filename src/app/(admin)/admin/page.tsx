@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 
+import { AdminList, AdminListItem } from "@/components/admin/AdminList";
 import {
 	EmptyState,
 	ErrorState,
@@ -141,12 +142,9 @@ const AdminHomePage: FC = () => {
 		);
 	} else {
 		todayCardBody = (
-			<ul className="divide-border divide-y">
+			<AdminList>
 				{upcoming.map((s) => (
-					<li
-						key={s.id}
-						className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"
-					>
+					<AdminListItem key={s.id}>
 						<div>
 							<p className="font-medium">
 								{normalizeTime(String(s.scheduledTime)).slice(0, 5)} ·{" "}
@@ -171,9 +169,9 @@ const AdminHomePage: FC = () => {
 								</Button>
 							) : null}
 						</div>
-					</li>
+					</AdminListItem>
 				))}
-			</ul>
+			</AdminList>
 		);
 	}
 

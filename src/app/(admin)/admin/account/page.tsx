@@ -1,11 +1,12 @@
 "use client";
 
-import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/admin/PageStates";
+import PasswordRequirements from "@/components/auth/PasswordRequirements";
 import { Button } from "@/components/ui/Button";
 import {
 	Card,
@@ -17,7 +18,6 @@ import {
 import { Input } from "@/components/ui/Input";
 import { useClinicRole } from "@/hooks/useClinicRole";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import PasswordRequirements from "@/components/auth/PasswordRequirements";
 import {
 	changePasswordSchema,
 	type ChangePasswordInput,
@@ -39,7 +39,8 @@ const AccountPage: FC = () => {
 			currentPassword: "",
 			password: "",
 			confirmPassword: ""
-		}
+		},
+		mode: "all"
 	});
 
 	const mutation = useMutation({

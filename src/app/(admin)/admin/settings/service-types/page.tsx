@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { AdminList, AdminListItem } from "@/components/admin/AdminList";
 import { ListSkeleton } from "@/components/admin/LoadingStates";
 import {
 	EmptyState,
@@ -84,7 +85,8 @@ const ServiceTypesPage: FC = () => {
 
 	const form = useForm<ServiceTypeFormValues, unknown, ServiceTypeFormParsed>({
 		resolver: zodResolver(serviceTypeFormSchema),
-		defaultValues: emptyForm
+		defaultValues: emptyForm,
+		mode: "all"
 	});
 
 	const openCreate = () => {
@@ -188,12 +190,9 @@ const ServiceTypesPage: FC = () => {
 		);
 	} else {
 		listBody = (
-			<ul className="divide-border divide-y">
+			<AdminList>
 				{listQuery.data?.map((row) => (
-					<li
-						key={row.id}
-						className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between"
-					>
+					<AdminListItem key={row.id}>
 						<div className="min-w-0 space-y-1">
 							<div className="flex flex-wrap items-center gap-2">
 								<p className="font-medium">{row.name}</p>
@@ -226,9 +225,9 @@ const ServiceTypesPage: FC = () => {
 								</Button>
 							</div>
 						) : null}
-					</li>
+					</AdminListItem>
 				))}
-			</ul>
+			</AdminList>
 		);
 	}
 

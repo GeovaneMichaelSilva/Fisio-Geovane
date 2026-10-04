@@ -2,7 +2,7 @@ import { forwardRef, useId } from "react";
 
 import { cn } from "@/utils";
 
-import { Label } from "../Label";
+import { Label, resolveLabelAttributes } from "../Label";
 
 import type { ComponentPropsWithoutRef } from "react";
 import type { LabelAttributes } from "../Label";
@@ -25,6 +25,7 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
 			className,
 			textareaClassName,
 			disabled,
+			required,
 			...restProps
 		} = props;
 		const fallbackId = useId();
@@ -33,7 +34,7 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
 		return (
 			<Label
 				htmlFor={id}
-				label={label}
+				label={resolveLabelAttributes(label, required)}
 				error={error}
 				helperText={helperText}
 				disabled={disabled}
@@ -43,6 +44,8 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
 					ref={ref}
 					id={id}
 					disabled={disabled}
+					required={required}
+					aria-required={required || undefined}
 					aria-invalid={!!error || undefined}
 					className={cn(
 						"border-input bg-background placeholder:text-muted-foreground",

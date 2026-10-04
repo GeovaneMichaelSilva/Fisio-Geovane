@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminList, AdminListItem } from "@/components/admin/AdminList";
 import {
 	Card,
 	CardContent,
@@ -27,16 +28,16 @@ const SessionAuditCard: FC<SessionAuditCardProps> = (props) => {
 		);
 	} else {
 		body = (
-			<ul className="divide-border divide-y">
+			<AdminList>
 				{session.audits.map((a) => (
-					<li key={a.id} className="py-2 text-sm">
-						<p className="font-medium">{a.reason}</p>
+					<AdminListItem key={a.id} className="sm:flex-col sm:items-start">
+						<p className="text-sm font-medium">{a.reason}</p>
 						<p className="text-muted-foreground text-xs">
 							{new Date(a.editedAt).toLocaleString("pt-BR")}
 						</p>
-					</li>
+					</AdminListItem>
 				))}
-			</ul>
+			</AdminList>
 		);
 	}
 

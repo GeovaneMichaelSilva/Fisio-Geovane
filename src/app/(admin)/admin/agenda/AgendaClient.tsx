@@ -94,7 +94,7 @@ const AgendaClient: FC = () => {
 			allowOverlap: false,
 			overlapReason: undefined
 		},
-		mode: "onSubmit"
+		mode: "all"
 	});
 
 	const range = useMemo(() => {

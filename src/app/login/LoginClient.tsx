@@ -29,7 +29,8 @@ const LoginClient: FC = () => {
 
 	const form = useForm<LoginValues>({
 		resolver: zodResolver(loginSchema),
-		defaultValues: { email: "", password: "" }
+		defaultValues: { email: "", password: "" },
+		mode: "all"
 	});
 
 	const onSubmit = async (values: LoginValues) => {

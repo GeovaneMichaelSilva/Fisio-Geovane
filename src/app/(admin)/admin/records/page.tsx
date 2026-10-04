@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 
+import { AdminList, AdminListItem } from "@/components/admin/AdminList";
 import { ListSkeleton } from "@/components/admin/LoadingStates";
 import PaginationControls from "@/components/admin/PaginationControls";
 import {
@@ -123,12 +124,9 @@ const RecordsPage: FC = () => {
 	} else {
 		listBody = (
 			<div className="space-y-4">
-				<ul className="divide-border divide-y">
+				<AdminList>
 					{rows.map((row) => (
-						<li
-							key={row.id}
-							className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"
-						>
+						<AdminListItem key={row.id}>
 							<div className="min-w-0 space-y-1">
 								<p className="font-medium">{row.patientName}</p>
 								<p className="text-muted-foreground text-sm">
@@ -157,9 +155,9 @@ const RecordsPage: FC = () => {
 									Abrir
 								</Link>
 							</Button>
-						</li>
+						</AdminListItem>
 					))}
-				</ul>
+				</AdminList>
 				{meta ? (
 					<PaginationControls
 						page={meta.page}

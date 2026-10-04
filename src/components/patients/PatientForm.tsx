@@ -47,7 +47,8 @@ const PatientForm: FC<PatientFormProps> = (props) => {
 
 	const form = useForm<PatientFormValues, unknown, PatientFormParsed>({
 		resolver: zodResolver(patientFormSchema),
-		defaultValues
+		defaultValues,
+		mode: "all"
 	});
 
 	const activeOptions = serviceTypes.filter(
@@ -67,6 +68,7 @@ const PatientForm: FC<PatientFormProps> = (props) => {
 					<Input
 						className="sm:col-span-2"
 						label={{ text: "Nome completo", required: true }}
+						required
 						disabled={disabled}
 						error={form.formState.errors.fullName?.message}
 						{...form.register("fullName")}
@@ -80,7 +82,7 @@ const PatientForm: FC<PatientFormProps> = (props) => {
 					/>
 					<Input
 						label={{ text: "CPF" }}
-						helperText="Opcional · 11 dígitos, com ou sem pontuação"
+						helperText="11 dígitos, com ou sem pontuação"
 						inputMode="numeric"
 						autoComplete="off"
 						disabled={disabled}
@@ -96,6 +98,7 @@ const PatientForm: FC<PatientFormProps> = (props) => {
 					/>
 					<Select
 						label={{ text: "Tipo preferencial", required: true }}
+						required
 						disabled={disabled}
 						error={form.formState.errors.preferredServiceTypeId?.message}
 						placeholder="Selecione…"
@@ -133,7 +136,6 @@ const PatientForm: FC<PatientFormProps> = (props) => {
 			<section className="space-y-4">
 				<div>
 					<h3 className="text-sm font-medium">Endereço</h3>
-					<p className="text-muted-foreground text-xs">Opcional.</p>
 				</div>
 				<div className="grid gap-4 sm:grid-cols-2">
 					<Input

@@ -2,7 +2,7 @@
 
 import { forwardRef, useId } from "react";
 
-import { Label } from "@/components/ui/Label";
+import { Label, resolveLabelAttributes } from "@/components/ui/Label";
 import { cn } from "@/utils";
 
 import type { ComponentPropsWithoutRef } from "react";
@@ -36,6 +36,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>((props, ref) => {
 		disabled,
 		options,
 		placeholder,
+		required,
 		...rest
 	} = props;
 	const fallbackId = useId();
@@ -44,7 +45,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>((props, ref) => {
 	return (
 		<Label
 			htmlFor={id}
-			label={label}
+			label={resolveLabelAttributes(label, required)}
 			error={error}
 			helperText={helperText}
 			disabled={disabled}
@@ -54,6 +55,8 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>((props, ref) => {
 				ref={ref}
 				id={id}
 				disabled={disabled}
+				required={required}
+				aria-required={required || undefined}
 				aria-invalid={!!error || undefined}
 				className={cn(
 					"border-input bg-background text-foreground",
@@ -65,7 +68,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>((props, ref) => {
 				{...rest}
 			>
 				{placeholder ? (
-					<option value="" disabled={rest.required}>
+					<option value="" disabled={required}>
 						{placeholder}
 					</option>
 				) : null}

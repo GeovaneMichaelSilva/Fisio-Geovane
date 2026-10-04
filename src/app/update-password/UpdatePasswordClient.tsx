@@ -36,7 +36,8 @@ const UpdatePasswordClient: FC = () => {
 			token,
 			password: "",
 			confirmPassword: ""
-		}
+		},
+		mode: "all"
 	});
 
 	const onSubmit = async (values: ResetPasswordValues) => {

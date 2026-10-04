@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { AdminList, AdminListItem } from "@/components/admin/AdminList";
 import { FormSkeleton, ListSkeleton } from "@/components/admin/LoadingStates";
 import {
 	EmptyState,
@@ -96,7 +97,8 @@ const TeamSettingsPage: FC = () => {
 
 	const form = useForm<TeamMemberCreateInput, unknown, TeamMemberCreateParsed>({
 		resolver: zodResolver(teamMemberCreateSchema),
-		defaultValues: emptyMember
+		defaultValues: emptyMember,
+		mode: "all"
 	});
 
 	const createMutation = useMutation({
@@ -165,12 +167,9 @@ const TeamSettingsPage: FC = () => {
 		);
 	} else {
 		membersList = (
-			<ul className="divide-border divide-y">
+			<AdminList>
 				{(listQuery.data ?? []).map((m) => (
-					<li
-						key={m.userId}
-						className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"
-					>
+					<AdminListItem key={m.userId}>
 						<div className="min-w-0 space-y-1">
 							<div className="flex flex-wrap items-center gap-2">
 								<p className="font-medium">{m.fullName}</p>
@@ -224,9 +223,9 @@ const TeamSettingsPage: FC = () => {
 								</AlertDialogContent>
 							</AlertDialog>
 						) : null}
-					</li>
+					</AdminListItem>
 				))}
-			</ul>
+			</AdminList>
 		);
 	}
 

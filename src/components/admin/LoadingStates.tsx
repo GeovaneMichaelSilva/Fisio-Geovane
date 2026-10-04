@@ -17,9 +17,12 @@ const ListSkeleton: FC<ListSkeletonProps> = (props) => {
 		props;
 
 	return (
-		<div className={cn("space-y-2", className)} {...restProps}>
+		<div className={cn("flex flex-col gap-2", className)} {...restProps}>
 			{Array.from({ length: rows }).map((_, i) => (
-				<Skeleton key={i} className={rowClassName} />
+				<Skeleton
+					key={i}
+					className={cn("rounded-lg border border-transparent", rowClassName)}
+				/>
 			))}
 		</div>
 	);

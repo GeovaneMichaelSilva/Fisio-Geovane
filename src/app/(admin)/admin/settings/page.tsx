@@ -63,7 +63,8 @@ const SettingsPage: FC = () => {
 			licenseNumber: "",
 			timezone: "America/Sao_Paulo",
 			defaultSessionDurationMinutes: 50
-		}
+		},
+		mode: "all"
 	});
 
 	useEffect(() => {

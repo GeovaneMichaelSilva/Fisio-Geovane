@@ -116,7 +116,7 @@ const NewPatientPage: FC = () => {
 		<div className="space-y-6">
 			<PageHeader
 				title="Novo paciente"
-				description="Preencha os dados principais. Campos sem * são opcionais."
+				description="Preencha os dados. Campos com * vermelho são obrigatórios."
 			/>
 
 			<Card>

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 
+import { AdminList, AdminListItem } from "@/components/admin/AdminList";
 import { ListSkeleton } from "@/components/admin/LoadingStates";
 import PaginationControls from "@/components/admin/PaginationControls";
 import {
@@ -24,7 +25,6 @@ import { Input } from "@/components/ui/Input";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { normalizeTime } from "@/lib/sessions/agenda";
-import { cn } from "@/utils";
 
 import type { PaginationMeta } from "@/lib/pagination";
 import type { FC, ReactNode } from "react";
@@ -259,14 +259,9 @@ const FinancePage: FC = () => {
 	} else {
 		sessionsBody = (
 			<div className="space-y-4">
-				<ul className="divide-border divide-y">
+				<AdminList>
 					{sessions.map((row) => (
-						<li
-							key={row.id}
-							className={cn(
-								"flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"
-							)}
-						>
+						<AdminListItem key={row.id}>
 							<div className="min-w-0 space-y-1">
 								<p className="font-medium">{row.patientName}</p>
 								<p className="text-muted-foreground text-sm">
@@ -298,9 +293,9 @@ const FinancePage: FC = () => {
 									Abrir
 								</Link>
 							</Button>
-						</li>
+						</AdminListItem>
 					))}
-				</ul>
+				</AdminList>
 				{meta ? (
 					<PaginationControls
 						page={meta.page}

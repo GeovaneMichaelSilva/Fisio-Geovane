@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { AdminList, AdminListItem } from "@/components/admin/AdminList";
 import { ErrorState, PageHeader } from "@/components/admin/PageStates";
 import PatientForm from "@/components/patients/PatientForm";
+import PatientSummary from "@/components/patients/PatientSummary";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -108,7 +110,18 @@ const formatBrl = (value: string | number) => {
 const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 	const { patientId } = props;
 	const router = useRouter();
+	const searchParams = useSearchParams();
 	const queryClient = useQueryClient();
+
+	const isEditing = searchParams.get("mode") === "edit";
+
+	const setMode = (mode: "view" | "edit") => {
+		const url =
+			mode === "edit"
+				? `/admin/patients/${patientId}?mode=edit`
+				: `/admin/patients/${patientId}`;
+		router.replace(url);
+	};
 
 	const patientQuery = useQuery({
 		queryKey: ["patient", patientId],
@@ -117,10 +130,15 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 
 	const typesQuery = useQuery({
 		queryKey: ["service-types"],
-		queryFn: fetchServiceTypes
+		queryFn: fetchServiceTypes,
+		enabled: isEditing
 	});
 
-	usePageTitle(patientQuery.data?.fullName || "Paciente");
+	usePageTitle(
+		isEditing
+			? `Editar · ${patientQuery.data?.fullName || "Paciente"}`
+			: patientQuery.data?.fullName || "Paciente"
+	);
 
 	const saveMutation = useMutation({
 		mutationFn: async (values: PatientFormParsed) => {
@@ -137,6 +155,7 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 			queryClient.invalidateQueries({ queryKey: ["patient", patientId] });
 			queryClient.invalidateQueries({ queryKey: ["patients"] });
 			toast.success("Paciente atualizado.");
+			setMode("view");
 		},
 		onError: (err: Error) => toast.error(err.message)
 	});
@@ -201,28 +220,53 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 		);
 	}
 
-	let patientFormSection: ReactNode;
-	if (patientQuery.isLoading || typesQuery.isLoading) {
-		patientFormSection = (
+	let cadastroBody: ReactNode;
+	if (patientQuery.isLoading) {
+		cadastroBody = (
 			<div className="space-y-3">
 				<Skeleton className="h-10 w-full" />
 				<Skeleton className="h-10 w-full" />
 				<Skeleton className="h-10 w-2/3" />
 			</div>
 		);
-	} else if (patientQuery.data && typesQuery.data) {
-		patientFormSection = (
-			<PatientForm
-				key={patientQuery.data.id}
-				defaultValues={patientToFormValues(patientQuery.data)}
-				serviceTypes={typesQuery.data}
-				pending={saveMutation.isPending}
-				disabled={archived}
-				onSubmit={(values) => saveMutation.mutate(values)}
-			/>
-		);
+	} else if (isEditing && patientQuery.data) {
+		if (archived) {
+			cadastroBody = (
+				<p className="text-muted-foreground text-sm">
+					Paciente arquivado — restaure para editar o cadastro.
+				</p>
+			);
+		} else if (typesQuery.isLoading) {
+			cadastroBody = (
+				<div className="space-y-3">
+					<Skeleton className="h-10 w-full" />
+					<Skeleton className="h-10 w-full" />
+					<Skeleton className="h-10 w-2/3" />
+				</div>
+			);
+		} else if (typesQuery.data) {
+			cadastroBody = (
+				<PatientForm
+					key={`${patientQuery.data.id}-edit`}
+					defaultValues={patientToFormValues(patientQuery.data)}
+					serviceTypes={typesQuery.data}
+					submitLabel="Salvar alterações"
+					pending={saveMutation.isPending}
+					onSubmit={(values) => saveMutation.mutate(values)}
+					onCancel={() => setMode("view")}
+				/>
+			);
+		} else {
+			cadastroBody = (
+				<p className="text-destructive text-sm" role="alert">
+					Não foi possível carregar os tipos de atendimento.
+				</p>
+			);
+		}
+	} else if (patientQuery.data) {
+		cadastroBody = <PatientSummary patient={patientQuery.data} />;
 	} else {
-		patientFormSection = null;
+		cadastroBody = null;
 	}
 
 	let sessionsSection: ReactNode;
@@ -236,12 +280,9 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 		);
 	} else {
 		sessionsSection = (
-			<ul className="divide-border divide-y">
+			<AdminList>
 				{patientQuery.data.sessions.map((s) => (
-					<li
-						key={s.id}
-						className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"
-					>
+					<AdminListItem key={s.id}>
 						<div>
 							<p className="font-medium">
 								{s.scheduledDate} · {s.scheduledTime.slice(0, 5)}
@@ -255,60 +296,82 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 						<Button asChild variant="outline" size="sm">
 							<Link href={`/admin/sessions/${s.id}`}>Abrir</Link>
 						</Button>
-					</li>
+					</AdminListItem>
 				))}
-			</ul>
+			</AdminList>
 		);
 	}
 
 	const headerActions = (
 		<div className="flex flex-wrap gap-2">
-			<Button asChild variant="outline">
-				<Link href="/admin/patients">Voltar</Link>
-			</Button>
-			{!archived ? (
-				<Button asChild>
-					<Link href={`/admin/agenda?patientId=${patientId}`}>Agendar</Link>
-				</Button>
-			) : null}
-			<Button
-				type="button"
-				variant="secondary"
-				disabled={pdfMutation.isPending}
-				onClick={() => pdfMutation.mutate()}
-			>
-				{pdfMutation.isPending ? "Gerando PDF…" : "Exportar PDF"}
-			</Button>
-			<AlertDialog>
-				<AlertDialogTrigger asChild>
+			{isEditing ? (
+				<>
 					<Button
 						type="button"
-						variant="ghost"
-						color="destructive"
-						disabled={archiveMutation.isPending}
+						variant="outline"
+						onClick={() => setMode("view")}
+						disabled={saveMutation.isPending}
 					>
-						{archived ? "Restaurar" : "Arquivar"}
+						Cancelar
 					</Button>
-				</AlertDialogTrigger>
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>
-							{archived ? "Restaurar paciente?" : "Arquivar paciente?"}
-						</AlertDialogTitle>
-						<AlertDialogDescription>
-							{archiveDialogDescription}
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel>Cancelar</AlertDialogCancel>
-						<AlertDialogAction
-							onClick={() => archiveMutation.mutate(!archived)}
-						>
-							{archived ? "Restaurar" : "Arquivar"}
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
+				</>
+			) : (
+				<>
+					<Button asChild variant="outline">
+						<Link href="/admin/patients">Voltar</Link>
+					</Button>
+					{!archived ? (
+						<Button type="button" onClick={() => setMode("edit")}>
+							Editar
+						</Button>
+					) : null}
+					{!archived ? (
+						<Button asChild variant="secondary">
+							<Link href={`/admin/agenda?patientId=${patientId}`}>
+								Agendar
+							</Link>
+						</Button>
+					) : null}
+					<Button
+						type="button"
+						variant="secondary"
+						disabled={pdfMutation.isPending}
+						onClick={() => pdfMutation.mutate()}
+					>
+						{pdfMutation.isPending ? "Gerando PDF…" : "Exportar PDF"}
+					</Button>
+					<AlertDialog>
+						<AlertDialogTrigger asChild>
+							<Button
+								type="button"
+								variant="ghost"
+								color="destructive"
+								disabled={archiveMutation.isPending}
+							>
+								{archived ? "Restaurar" : "Arquivar"}
+							</Button>
+						</AlertDialogTrigger>
+						<AlertDialogContent>
+							<AlertDialogHeader>
+								<AlertDialogTitle>
+									{archived ? "Restaurar paciente?" : "Arquivar paciente?"}
+								</AlertDialogTitle>
+								<AlertDialogDescription>
+									{archiveDialogDescription}
+								</AlertDialogDescription>
+							</AlertDialogHeader>
+							<AlertDialogFooter>
+								<AlertDialogCancel>Cancelar</AlertDialogCancel>
+								<AlertDialogAction
+									onClick={() => archiveMutation.mutate(!archived)}
+								>
+									{archived ? "Restaurar" : "Arquivar"}
+								</AlertDialogAction>
+							</AlertDialogFooter>
+						</AlertDialogContent>
+					</AlertDialog>
+				</>
+			)}
 		</div>
 	);
 
@@ -321,77 +384,81 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 							{patientQuery.data?.fullName ?? "Paciente"}
 						</h1>
 						{archived ? <Badge variant="secondary">Arquivado</Badge> : null}
+						{isEditing ? <Badge variant="outline">Editando</Badge> : null}
 					</div>
 					<p className="text-muted-foreground text-sm">
-						Cadastro e histórico de atendimentos.
+						{isEditing
+							? "Modo edição — altere os dados e salve. Campos com * são obrigatórios."
+							: "Visualização do cadastro e histórico de atendimentos."}
 					</p>
 				</div>
 				{headerActions}
 			</div>
 
-			<div className="grid gap-4 sm:grid-cols-2">
-				<Card>
-					<CardHeader>
-						<CardTitle>Realizados</CardTitle>
-						<CardDescription>Sessões concluídas</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<p className="text-2xl font-medium">
-							{patientQuery.data?.stats.completedCount ?? "—"}
-						</p>
-					</CardContent>
-				</Card>
-				<Card>
-					<CardHeader>
-						<CardTitle>A receber</CardTitle>
-						<CardDescription>Realizados sem pagamento</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<p className="text-2xl font-medium">
-							{patientQuery.data
-								? formatBrl(patientQuery.data.stats.pendingValueBrl)
-								: "—"}
-						</p>
-					</CardContent>
-				</Card>
-			</div>
+			{!isEditing ? (
+				<div className="grid gap-4 sm:grid-cols-2">
+					<Card>
+						<CardHeader>
+							<CardTitle>Realizados</CardTitle>
+							<CardDescription>Sessões concluídas</CardDescription>
+						</CardHeader>
+						<CardContent>
+							<p className="text-2xl font-medium">
+								{patientQuery.data?.stats.completedCount ?? "—"}
+							</p>
+						</CardContent>
+					</Card>
+					<Card>
+						<CardHeader>
+							<CardTitle>A receber</CardTitle>
+							<CardDescription>Realizados sem pagamento</CardDescription>
+						</CardHeader>
+						<CardContent>
+							<p className="text-2xl font-medium">
+								{patientQuery.data
+									? formatBrl(patientQuery.data.stats.pendingValueBrl)
+									: "—"}
+							</p>
+						</CardContent>
+					</Card>
+				</div>
+			) : null}
 
 			<Card>
 				<CardHeader>
-					<CardTitle>Dados do paciente</CardTitle>
+					<CardTitle>
+						{isEditing ? "Formulário de edição" : "Dados do paciente"}
+					</CardTitle>
 					<CardDescription>
-						Alterações ficam salvas imediatamente após confirmar.
+						{isEditing
+							? "Revise com cuidado antes de salvar."
+							: "Informações do cadastro (somente leitura)."}
 					</CardDescription>
 				</CardHeader>
-				<CardContent>
-					{patientFormSection}
-					{archived ? (
-						<p className="text-muted-foreground mt-3 text-sm">
-							Paciente arquivado — restaure para editar o cadastro.
-						</p>
-					) : null}
-				</CardContent>
+				<CardContent>{cadastroBody}</CardContent>
 			</Card>
 
-			<Card>
-				<CardHeader>
-					<CardTitle>Histórico de sessões</CardTitle>
-					<CardDescription>Últimas sessões deste paciente.</CardDescription>
-				</CardHeader>
-				<CardContent>
-					{sessionsSection}
-					<div className="mt-4">
-						<Button
-							type="button"
-							variant="ghost"
-							size="sm"
-							onClick={() => router.push("/admin/agenda")}
-						>
-							Ir para agenda
-						</Button>
-					</div>
-				</CardContent>
-			</Card>
+			{!isEditing ? (
+				<Card>
+					<CardHeader>
+						<CardTitle>Histórico de sessões</CardTitle>
+						<CardDescription>Últimas sessões deste paciente.</CardDescription>
+					</CardHeader>
+					<CardContent>
+						{sessionsSection}
+						<div className="mt-4">
+							<Button
+								type="button"
+								variant="ghost"
+								size="sm"
+								onClick={() => router.push("/admin/agenda")}
+							>
+								Ir para agenda
+							</Button>
+						</div>
+					</CardContent>
+				</Card>
+			) : null}
 		</div>
 	);
 };

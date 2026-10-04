@@ -2,7 +2,7 @@ import { forwardRef, useId } from "react";
 
 import { cn } from "@/utils";
 
-import { Label } from "../Label";
+import { Label, resolveLabelAttributes } from "../Label";
 
 import type { ComponentPropsWithoutRef } from "react";
 import type { LabelAttributes } from "../Label";
@@ -24,6 +24,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>((props, ref) => {
 		className,
 		inputClassName,
 		disabled,
+		required,
 		...restProps
 	} = props;
 	const fallbackId = useId();
@@ -32,7 +33,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>((props, ref) => {
 	return (
 		<Label
 			htmlFor={id}
-			label={label}
+			label={resolveLabelAttributes(label, required)}
 			error={error}
 			helperText={helperText}
 			disabled={disabled}
@@ -42,6 +43,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>((props, ref) => {
 				ref={ref}
 				id={id}
 				disabled={disabled}
+				required={required}
+				aria-required={required || undefined}
 				aria-invalid={!!error || undefined}
 				className={cn(
 					"border-input bg-background file:text-foreground placeholder:text-muted-foreground",
