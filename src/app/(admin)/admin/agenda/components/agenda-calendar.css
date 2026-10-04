@@ -85,8 +85,18 @@
 	border: none;
 	border-radius: 0.375rem;
 	padding: 2px 4px;
+	overflow: hidden;
 	background: hsl(var(--primary));
 	color: hsl(var(--primary-foreground));
+}
+
+/* Label nativo (hora inicial–final) escondido: o conteúdo prioriza hora + nome */
+.agenda-calendar .rbc-event-label {
+	display: none;
+}
+
+.agenda-calendar .rbc-event-content {
+	overflow: hidden;
 }
 
 .agenda-calendar .rbc-event.rbc-selected {

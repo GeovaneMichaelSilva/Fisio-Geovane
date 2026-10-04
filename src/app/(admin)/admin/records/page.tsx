@@ -145,7 +145,7 @@ const RecordsPage: FC = () => {
 											className="min-h-11 sm:min-h-9"
 										>
 											<Link href={`/admin/sessions/${row.id}?mode=clinical`}>
-												Abrir
+												Ver
 											</Link>
 										</Button>
 									</AdminListItem>

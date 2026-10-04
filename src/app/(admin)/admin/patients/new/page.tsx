@@ -41,6 +41,8 @@ const NewPatientPage: FC = () => {
 			<PageHeader
 				title="Novo paciente"
 				description="Preencha os dados. Campos com * vermelho são obrigatórios."
+				backHref="/admin/patients"
+				backLabel="Voltar para pacientes"
 			/>
 
 			<Card>

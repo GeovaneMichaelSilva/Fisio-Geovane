@@ -310,7 +310,7 @@ const FinancePage: FC = () => {
 											className="min-h-11 sm:min-h-9"
 										>
 											<Link href={`/admin/sessions/${row.id}?mode=finance`}>
-												Abrir
+												Ver
 											</Link>
 										</Button>
 									</AdminListItem>

@@ -238,7 +238,7 @@ const AgendaClient: FC = () => {
 			notifyGoogleSync(result.googleSync);
 			toast.success("Agendamento criado.", {
 				action: {
-					label: "Abrir",
+					label: "Ver",
 					onClick: () => {
 						window.location.href = `/admin/sessions/${result.data.id}`;
 					}

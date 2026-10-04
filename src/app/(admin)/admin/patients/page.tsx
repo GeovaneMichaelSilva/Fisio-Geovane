@@ -152,7 +152,7 @@ const PatientsPage: FC = () => {
 												size="sm"
 												className="min-h-11 sm:min-h-9"
 											>
-												<Link href={`/admin/patients/${p.id}`}>Abrir</Link>
+												<Link href={`/admin/patients/${p.id}`}>Ver</Link>
 											</Button>
 											{!p.archivedAt && (
 												<Button

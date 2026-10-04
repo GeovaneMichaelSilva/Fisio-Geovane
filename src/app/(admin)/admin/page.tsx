@@ -36,29 +36,6 @@ const formatBrl = (value: string) =>
 		currency: "BRL"
 	});
 
-const tiles = [
-	{
-		href: "/admin/agenda",
-		title: "Agenda",
-		description: "Horários, agendamentos e retornos"
-	},
-	{
-		href: "/admin/patients",
-		title: "Pacientes",
-		description: "Dados pessoais e cadastros"
-	},
-	{
-		href: "/admin/finance",
-		title: "Financeiro",
-		description: "Pagamentos, pendências e notas"
-	},
-	{
-		href: "/admin/records",
-		title: "Atendimentos",
-		description: "Avaliações, evoluções e atividades"
-	}
-];
-
 const AdminHomePage: FC = () => {
 	usePageTitle("Início");
 
@@ -93,7 +70,7 @@ const AdminHomePage: FC = () => {
 		<div className="space-y-6">
 			<PageHeader
 				title="Seu espaço de trabalho"
-				description="Resumo do dia e atalhos para as áreas principais."
+				description="Resumo do dia: próximos horários e pendências financeiras."
 				actions={headerActions}
 			/>
 
@@ -160,7 +137,7 @@ const AdminHomePage: FC = () => {
 												{STATUS_LABEL[s.status] ?? s.status}
 											</Badge>
 											<Button asChild size="sm" variant="outline">
-												<Link href={`/admin/sessions/${s.id}`}>Abrir</Link>
+												<Link href={`/admin/sessions/${s.id}`}>Ver</Link>
 											</Button>
 											{s.status === "scheduled" && (
 												<Button asChild size="sm">
@@ -219,23 +196,6 @@ const AdminHomePage: FC = () => {
 						)}
 					</CardContent>
 				</Card>
-			</div>
-
-			<div className="grid gap-4 sm:grid-cols-2">
-				{tiles.map((tile) => (
-					<Link
-						key={tile.href}
-						href={tile.href}
-						className="focus-visible:ring-ring/70 rounded-xl focus-visible:ring-[3px] focus-visible:outline-hidden"
-					>
-						<Card className="hover:border-brand h-full transition-colors">
-							<CardHeader>
-								<CardTitle>{tile.title}</CardTitle>
-								<CardDescription>{tile.description}</CardDescription>
-							</CardHeader>
-						</Card>
-					</Link>
-				))}
 			</div>
 		</div>
 	);

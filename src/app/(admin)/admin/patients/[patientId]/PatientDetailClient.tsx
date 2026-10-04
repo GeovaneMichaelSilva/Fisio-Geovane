@@ -121,11 +121,8 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 				<PageHeader
 					title="Paciente"
 					description="Não foi possível carregar o cadastro."
-					actions={
-						<Button asChild variant="outline">
-							<Link href="/admin/patients">Voltar</Link>
-						</Button>
-					}
+					backHref="/admin/patients"
+					backLabel="Voltar para pacientes"
 				/>
 				<ErrorState
 					message={(patientQuery.error as Error).message}
@@ -144,7 +141,7 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 		typesQuery.data;
 
 	const headerActions = (
-		<div className="flex flex-wrap gap-2">
+		<>
 			{isEditing && (
 				<Button
 					type="button"
@@ -157,9 +154,6 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 			)}
 			{!isEditing && (
 				<>
-					<Button asChild variant="outline">
-						<Link href="/admin/patients">Voltar</Link>
-					</Button>
 					{!archived && (
 						<Button type="button" onClick={() => setMode("edit")}>
 							Editar
@@ -212,28 +206,30 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 					</AlertDialog>
 				</>
 			)}
-		</div>
+		</>
+	);
+
+	const titleNode = (
+		<span className="inline-flex flex-wrap items-center gap-2">
+			{patientQuery.data?.fullName ?? "Paciente"}
+			{archived && <Badge variant="secondary">Arquivado</Badge>}
+			{isEditing && <Badge variant="outline">Editando</Badge>}
+		</span>
 	);
 
 	return (
 		<div className="space-y-6">
-			<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-				<div className="space-y-1">
-					<div className="flex flex-wrap items-center gap-2">
-						<h1 className="text-2xl font-medium">
-							{patientQuery.data?.fullName ?? "Paciente"}
-						</h1>
-						{archived && <Badge variant="secondary">Arquivado</Badge>}
-						{isEditing && <Badge variant="outline">Editando</Badge>}
-					</div>
-					<p className="text-muted-foreground text-sm">
-						{isEditing
-							? "Modo edição — altere os dados e salve. Campos com * são obrigatórios."
-							: "Visualização do cadastro e histórico de atendimentos."}
-					</p>
-				</div>
-				{headerActions}
-			</div>
+			<PageHeader
+				title={titleNode}
+				description={
+					isEditing
+						? "Modo edição — altere os dados e salve. Campos com * são obrigatórios."
+						: "Visualização do cadastro e histórico de atendimentos."
+				}
+				backHref="/admin/patients"
+				backLabel="Voltar para pacientes"
+				actions={headerActions}
+			/>
 
 			{!isEditing && (
 				<div className="grid gap-4 sm:grid-cols-2">
@@ -355,7 +351,7 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 											</p>
 										</div>
 										<Button asChild variant="outline" size="sm">
-											<Link href={`/admin/sessions/${s.id}`}>Abrir</Link>
+											<Link href={`/admin/sessions/${s.id}`}>Ver</Link>
 										</Button>
 									</AdminListItem>
 								))}

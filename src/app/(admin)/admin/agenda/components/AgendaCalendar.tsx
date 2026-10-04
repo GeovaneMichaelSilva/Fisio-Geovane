@@ -61,11 +61,36 @@ const AgendaCalendar: FC<AgendaCalendarProps> = (props) => {
 	const components = useMemo(
 		() => ({
 			toolbar: () => null,
-			event: ({ event }: { event: AgendaCalendarEvent }) => (
-				<span className="block truncate text-[11px] leading-tight font-medium">
-					{event.title}
-				</span>
-			)
+			// Eventos curtos (< 90min) só cabe uma linha: hora inicial + nome.
+			// Detalhe (hora final + tipo) só em blocos mais altos.
+			event: ({ event }: { event: AgendaCalendarEvent }) => {
+				const showDetails = event.resource.durationMinutes >= 90;
+				return (
+					<div className="overflow-hidden text-[11px] leading-tight">
+						<p className="truncate font-medium">
+							{formatTimeHHMM(event.start)} · {event.resource.patientName}
+						</p>
+						{showDetails && (
+							<p className="truncate opacity-80">
+								{formatTimeHHMM(event.end)}
+								{event.resource.serviceTypeName
+									? ` · ${event.resource.serviceTypeName}`
+									: ""}
+							</p>
+						)}
+					</div>
+				);
+			}
+		}),
+		[]
+	);
+
+	const formats = useMemo(
+		() => ({
+			// Evita o label nativo "09:00 – 10:00" que compete com o nome
+			eventTimeRangeFormat: () => "",
+			eventTimeRangeStartFormat: () => "",
+			eventTimeRangeEndFormat: () => ""
 		}),
 		[]
 	);
@@ -143,7 +168,8 @@ const AgendaCalendar: FC<AgendaCalendarProps> = (props) => {
 				titleAccessor="title"
 				views={[Views.MONTH, Views.WEEK, Views.DAY]}
 				selectable
-				resizable
+				// No mês, o resize lateral vira evento multi-dia — desativado nessa view
+				resizable={view !== Views.MONTH}
 				popup
 				allDayAccessor={() => false}
 				step={15}
@@ -152,9 +178,12 @@ const AgendaCalendar: FC<AgendaCalendarProps> = (props) => {
 				max={max}
 				scrollToTime={scrollToTime}
 				components={components}
+				formats={formats}
 				eventPropGetter={eventPropGetter}
 				draggableAccessor={(event) => event.resource.status === "scheduled"}
-				resizableAccessor={(event) => event.resource.status === "scheduled"}
+				resizableAccessor={(event) =>
+					view !== Views.MONTH && event.resource.status === "scheduled"
+				}
 				onSelectSlot={handleSelectSlot}
 				onSelectEvent={(event) => {
 					router.push(`/admin/sessions/${event.resource.id}`);

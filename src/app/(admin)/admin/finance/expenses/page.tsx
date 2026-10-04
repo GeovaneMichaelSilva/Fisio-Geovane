@@ -1,8 +1,6 @@
 ﻿"use client";
 
-import Link from "next/link";
-
-import { Button } from "@/components/ui/Button";
+import { PageHeader } from "@/components/admin/PageStates";
 import {
 	Card,
 	CardContent,
@@ -19,17 +17,12 @@ const ExpensesPage: FC = () => {
 
 	return (
 		<div className="space-y-6">
-			<div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-				<div>
-					<h1 className="text-2xl font-medium">Despesas</h1>
-					<p className="text-muted-foreground text-sm">
-						Controle de caixa e despesas da clínica.
-					</p>
-				</div>
-				<Button asChild variant="outline">
-					<Link href="/admin/finance">Voltar ao financeiro</Link>
-				</Button>
-			</div>
+			<PageHeader
+				title="Despesas"
+				description="Controle de caixa e despesas da clínica."
+				backHref="/admin/finance"
+				backLabel="Voltar ao financeiro"
+			/>
 
 			<Card>
 				<CardHeader>

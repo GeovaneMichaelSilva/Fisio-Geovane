@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import OverlapConfirmDialog, {
 	type OverlapConflict
 } from "@/components/admin/OverlapConfirmDialog";
-import { ErrorState } from "@/components/admin/PageStates";
+import { ErrorState, PageHeader } from "@/components/admin/PageStates";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -61,8 +61,6 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 	const { sessionId } = props;
 	const router = useRouter();
 	const searchParams = useSearchParams();
-	const clinicalRef = useRef<HTMLDivElement>(null);
-
 	const modeParam = searchParams.get("mode");
 	const [mode, setMode] = useState<SessionMode>(
 		modeParam === "clinical"
@@ -163,14 +161,6 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 		if (modeParam === "clinical") setMode("clinical");
 		if (modeParam === "finance") setMode("finance");
 	}, [modeParam]);
-
-	useEffect(() => {
-		if (mode !== "clinical") return;
-		const t = window.setTimeout(() => {
-			clinicalRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-		}, 50);
-		return () => window.clearTimeout(t);
-	}, [mode, sessionQuery.isSuccess]);
 
 	const setModeUrl = (next: SessionMode) => {
 		setMode(next);
@@ -321,17 +311,12 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 	if (sessionQuery.isError) {
 		return (
 			<div className="space-y-6">
-				<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-					<div>
-						<h1 className="text-2xl font-medium">Sessão</h1>
-						<p className="text-muted-foreground text-sm">
-							Não foi possível carregar este atendimento.
-						</p>
-					</div>
-					<Button asChild variant="outline">
-						<Link href="/admin/agenda">Voltar à agenda</Link>
-					</Button>
-				</div>
+				<PageHeader
+					title="Sessão"
+					description="Não foi possível carregar este atendimento."
+					backHref="/admin/agenda"
+					backLabel="Voltar para a agenda"
+				/>
 				<ErrorState
 					message={(sessionQuery.error as Error).message}
 					onRetry={() => sessionQuery.refetch()}
@@ -340,82 +325,86 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 		);
 	}
 
+	const sessionTitle = (
+		<span className="inline-flex flex-wrap items-center gap-2">
+			{s?.patientName ?? "Sessão"}
+			{s && (
+				<Badge variant="outline">
+					{STATUS_LABEL[s.status] ?? s.status}
+				</Badge>
+			)}
+			{s?.googleEventId && (
+				<Badge variant="secondary">No Google Agenda</Badge>
+			)}
+		</span>
+	);
+
+	// Ordem: ação principal → próximo passo → navegação → utilitário
+	const sessionActions = (
+		<>
+			{canStart && (
+				<Button type="button" onClick={goClinical}>
+					INICIAR
+				</Button>
+			)}
+			{s && (
+				<Button asChild variant="secondary">
+					<Link href={`/admin/agenda?patientId=${s.patientId}`}>
+						Agendar retorno
+					</Link>
+				</Button>
+			)}
+			{s && (
+				<Button asChild variant="outline">
+					<Link href={`/admin/patients/${s.patientId}`}>Paciente</Link>
+				</Button>
+			)}
+			{s && (
+				<Button
+					type="button"
+					variant="ghost"
+					disabled={pdfPending}
+					onClick={async () => {
+						setPdfPending(true);
+						try {
+							const res = await fetch(
+								`/api/admin/patients/${s.patientId}/pdf`
+							);
+							const json = await res.json();
+							if (!res.ok) throw new Error(json.error || "Falha no PDF.");
+							const { downloadPatientHistoryPdf } = await import(
+								"@/lib/pdf/patient-history"
+							);
+							downloadPatientHistoryPdf(json.data);
+							toast.success("PDF gerado.");
+						} catch (err) {
+							toast.error(
+								err instanceof Error ? err.message : "Falha no PDF."
+							);
+						} finally {
+							setPdfPending(false);
+						}
+					}}
+				>
+					{pdfPending ? "Gerando PDF…" : "Exportar PDF"}
+				</Button>
+			)}
+		</>
+	);
+
 	return (
 		<div className="space-y-6">
-			<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-				<div className="space-y-1">
-					<div className="flex flex-wrap items-center gap-2">
-						<h1 className="text-2xl font-medium">
-							{s?.patientName ?? "Sessão"}
-						</h1>
-						{s ? (
-							<Badge variant="outline">
-								{STATUS_LABEL[s.status] ?? s.status}
-							</Badge>
-						) : null}
-						{s?.googleEventId ? (
-							<Badge variant="secondary">No Google Agenda</Badge>
-						) : null}
-					</div>
-					<p className="text-muted-foreground text-sm">
-						{s
-							? `${s.scheduledDate} · ${normalizeTime(String(s.scheduledTime)).slice(0, 5)} · ${s.serviceTypeName}`
-							: "Carregando…"}
-					</p>
-				</div>
-				<div className="flex flex-wrap gap-2">
-					<Button asChild variant="outline">
-						<Link href="/admin/agenda">Agenda</Link>
-					</Button>
-					{s ? (
-						<Button asChild variant="secondary">
-							<Link href={`/admin/patients/${s.patientId}`}>Paciente</Link>
-						</Button>
-					) : null}
-					{canStart ? (
-						<Button type="button" onClick={goClinical}>
-							INICIAR
-						</Button>
-					) : null}
-					{s ? (
-						<Button
-							type="button"
-							variant="secondary"
-							disabled={pdfPending}
-							onClick={async () => {
-								setPdfPending(true);
-								try {
-									const res = await fetch(
-										`/api/admin/patients/${s.patientId}/pdf`
-									);
-									const json = await res.json();
-									if (!res.ok) throw new Error(json.error || "Falha no PDF.");
-									const { downloadPatientHistoryPdf } = await import(
-										"@/lib/pdf/patient-history"
-									);
-									downloadPatientHistoryPdf(json.data);
-									toast.success("PDF gerado.");
-								} catch (err) {
-									toast.error(
-										err instanceof Error ? err.message : "Falha no PDF."
-									);
-								} finally {
-									setPdfPending(false);
-								}
-							}}
-						>
-							{pdfPending ? "Gerando PDF…" : "Exportar PDF"}
-						</Button>
-					) : null}
-					{s ? (
-						<Button asChild variant="ghost">
-							<Link href={`/admin/agenda?patientId=${s.patientId}`}>
-								Agendar retorno
-							</Link>
-						</Button>
-					) : null}
-				</div>
-			</div>
+			<PageHeader
+				title={sessionTitle}
+				description={
+					s
+						? `${s.scheduledDate} · ${normalizeTime(String(s.scheduledTime)).slice(0, 5)} · ${s.serviceTypeName}`
+						: "Carregando…"
+				}
+				backHref="/admin/agenda"
+				backLabel="Voltar para a agenda"
+				actions={sessionActions}
+			/>
 
 			<div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
 				<Button
@@ -425,7 +414,7 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 					variant={mode === "schedule" ? "default" : "outline"}
 					onClick={() => setModeUrl("schedule")}
 				>
-					Agenda
+					Agendamento
 				</Button>
 				<Button
 					type="button"
@@ -584,7 +573,7 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 				</Card>
 			) : mode === "clinical" ? (
 				<>
-					<Card ref={clinicalRef} id="clinical">
+					<Card>
 						<CardHeader>
 							<CardTitle>Registro clínico</CardTitle>
 							<CardDescription>
@@ -723,7 +712,7 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 														<Link
 															href={`/admin/sessions/${prev.id}?mode=clinical`}
 														>
-															Abrir
+															Ver
 														</Link>
 													</Button>
 												</div>

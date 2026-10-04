@@ -20,10 +20,10 @@ export const sessionToEvent = (session: AgendaSession): AgendaCalendarEvent => {
 	const start = parseDateString(session.scheduledDate);
 	start.setHours(h ?? 0, m ?? 0, 0, 0);
 	const end = new Date(start.getTime() + session.durationMinutes * 60_000);
-	const timeLabel = time.slice(0, 5);
 	return {
 		id: session.id,
-		title: `${timeLabel} · ${session.patientName}`,
+		// Fallback (a11y / views sem component custom): hora inicial + nome
+		title: `${time.slice(0, 5)} · ${session.patientName}`,
 		start,
 		end,
 		resource: session
