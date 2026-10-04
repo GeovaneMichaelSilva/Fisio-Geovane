@@ -5,6 +5,7 @@ import { Resend } from "resend";
 
 import { getDb } from "@/db";
 import { passwordResetTokens, users } from "@/db/schema";
+import { passwordSchema } from "@/lib/auth/password";
 
 const TOKEN_TTL_MS = 60 * 60 * 1000; // 1h
 
@@ -75,8 +76,14 @@ export const requestPasswordReset = async (emailRaw: string) => {
 }
 
 export const resetPasswordWithToken = async (token: string, newPassword: string) => {
-	if (newPassword.length < 8) {
-		return { ok: false as const, error: "Senha muito curta." };
+	const parsed = passwordSchema.safeParse(newPassword);
+	if (!parsed.success) {
+		return {
+			ok: false as const,
+			error:
+				parsed.error.issues[0]?.message ??
+				"Senha não atende aos requisitos de segurança."
+		};
 	}
 
 	const db = getDb();

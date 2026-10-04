@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { passwordSchema } from "@/lib/auth/password";
+
 export const teamMemberCreateSchema = z.object({
 	fullName: z
 		.string()
@@ -12,10 +14,7 @@ export const teamMemberCreateSchema = z.object({
 		.min(1, "E-mail obrigatório.")
 		.email("E-mail inválido.")
 		.transform((v) => v.toLowerCase()),
-	password: z
-		.string()
-		.min(8, "Senha com no mínimo 8 caracteres.")
-		.max(128, "Máximo 128 caracteres."),
+	password: passwordSchema,
 	role: z.enum(["staff", "owner"]).default("staff")
 });
 

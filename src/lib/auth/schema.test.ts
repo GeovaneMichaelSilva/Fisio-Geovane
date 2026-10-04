@@ -17,28 +17,36 @@ describe("loginSchema", () => {
 });
 
 describe("changePasswordSchema", () => {
-	it("exige senhas iguais e diferentes da atual", () => {
+	it("exige senhas iguais, fortes e diferentes da atual", () => {
 		expect(
 			changePasswordSchema.safeParse({
-				currentPassword: "antiga123",
-				password: "nova12345",
-				confirmPassword: "nova12345"
+				currentPassword: "Antiga1!",
+				password: "NovaSenha1!",
+				confirmPassword: "NovaSenha1!"
 			}).success
 		).toBe(true);
 
 		expect(
 			changePasswordSchema.safeParse({
-				currentPassword: "igual1234",
-				password: "igual1234",
-				confirmPassword: "igual1234"
+				currentPassword: "Igual123!",
+				password: "Igual123!",
+				confirmPassword: "Igual123!"
 			}).success
 		).toBe(false);
 
 		expect(
 			changePasswordSchema.safeParse({
-				currentPassword: "antiga123",
-				password: "nova12345",
-				confirmPassword: "outra"
+				currentPassword: "Antiga1!",
+				password: "NovaSenha1!",
+				confirmPassword: "OutraSenha1!"
+			}).success
+		).toBe(false);
+
+		expect(
+			changePasswordSchema.safeParse({
+				currentPassword: "Antiga1!",
+				password: "fraca123",
+				confirmPassword: "fraca123"
 			}).success
 		).toBe(false);
 	});

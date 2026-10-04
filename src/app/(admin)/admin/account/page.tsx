@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/Input";
 import { useClinicRole } from "@/hooks/useClinicRole";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import PasswordRequirements from "@/components/auth/PasswordRequirements";
 import {
 	changePasswordSchema,
 	type ChangePasswordInput,
@@ -110,7 +111,7 @@ const AccountPage: FC = () => {
 				<CardHeader>
 					<CardTitle>Alterar senha</CardTitle>
 					<CardDescription>
-						Use a senha atual e defina uma nova (mínimo 8 caracteres).
+						Use a senha atual e defina uma nova.
 					</CardDescription>
 				</CardHeader>
 				<CardContent>
@@ -126,13 +127,16 @@ const AccountPage: FC = () => {
 							error={form.formState.errors.currentPassword?.message}
 							{...form.register("currentPassword")}
 						/>
-						<Input
-							label={{ text: "Nova senha", required: true }}
-							type="password"
-							autoComplete="new-password"
-							error={form.formState.errors.password?.message}
-							{...form.register("password")}
-						/>
+						<div className="space-y-2">
+							<Input
+								label={{ text: "Nova senha", required: true }}
+								type="password"
+								autoComplete="new-password"
+								error={form.formState.errors.password?.message}
+								{...form.register("password")}
+							/>
+							<PasswordRequirements password={form.watch("password") ?? ""} />
+						</div>
 						<Input
 							label={{ text: "Confirmar nova senha", required: true }}
 							type="password"

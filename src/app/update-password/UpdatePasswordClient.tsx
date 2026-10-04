@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import AuthBrand from "@/components/auth/AuthBrand";
+import PasswordRequirements from "@/components/auth/PasswordRequirements";
 import { Button } from "@/components/ui/Button";
 import {
 	Card,
@@ -103,13 +104,16 @@ const UpdatePasswordClient: FC = () => {
 					>
 						{missingTokenNode}
 						<input type="hidden" {...form.register("token")} />
-						<Input
-							label={{ text: "Nova senha", required: true }}
-							type="password"
-							autoComplete="new-password"
-							error={form.formState.errors.password?.message}
-							{...form.register("password")}
-						/>
+						<div className="space-y-2">
+							<Input
+								label={{ text: "Nova senha", required: true }}
+								type="password"
+								autoComplete="new-password"
+								error={form.formState.errors.password?.message}
+								{...form.register("password")}
+							/>
+							<PasswordRequirements password={form.watch("password") ?? ""} />
+						</div>
 						<Input
 							label={{ text: "Confirmar senha", required: true }}
 							type="password"

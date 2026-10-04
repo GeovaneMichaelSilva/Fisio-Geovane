@@ -45,6 +45,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { useClinicRole } from "@/hooks/useClinicRole";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import PasswordRequirements from "@/components/auth/PasswordRequirements";
 import {
 	teamMemberCreateSchema,
 	type TeamMemberCreateInput,
@@ -252,14 +253,16 @@ const TeamSettingsPage: FC = () => {
 					error={form.formState.errors.email?.message}
 					{...form.register("email")}
 				/>
-				<Input
-					label={{ text: "Senha temporária", required: true }}
-					type="password"
-					autoComplete="new-password"
-					helperText="Mínimo 8 caracteres."
-					error={form.formState.errors.password?.message}
-					{...form.register("password")}
-				/>
+				<div className="space-y-2">
+					<Input
+						label={{ text: "Senha temporária", required: true }}
+						type="password"
+						autoComplete="new-password"
+						error={form.formState.errors.password?.message}
+						{...form.register("password")}
+					/>
+					<PasswordRequirements password={form.watch("password") ?? ""} />
+				</div>
 				<Select
 					label={{ text: "Papel", required: true }}
 					error={form.formState.errors.role?.message}

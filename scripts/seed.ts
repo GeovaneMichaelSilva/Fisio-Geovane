@@ -19,6 +19,7 @@ import {
 	DEFAULT_CLINIC,
 	DEFAULT_SERVICE_TYPES
 } from "../src/lib/clinic/defaults";
+import { passwordSchema } from "../src/lib/auth/password";
 
 config({ path: ".env" });
 
@@ -40,12 +41,15 @@ async function main() {
 		.limit(1);
 
 	if (!user) {
-		const password = process.env.OWNER_PASSWORD;
-		if (!password || password.length < 8) {
+		const parsedPassword = passwordSchema.safeParse(
+			process.env.OWNER_PASSWORD ?? ""
+		);
+		if (!parsedPassword.success) {
 			throw new Error(
-				"Defina OWNER_PASSWORD (mín. 8 caracteres) no .env ou no comando"
+				`Defina OWNER_PASSWORD no .env: ${parsedPassword.error.issues[0]?.message ?? "senha inválida"}`
 			);
 		}
+		const password = parsedPassword.data;
 
 		[user] = await db
 			.insert(users)

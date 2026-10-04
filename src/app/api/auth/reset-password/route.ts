@@ -10,7 +10,8 @@ export const POST = async (request: Request) => {
 		if (!parsed.success) {
 			return NextResponse.json(
 				{
-					error: "Dados inválidos. Senha com no mínimo 8 caracteres.",
+					error:
+						"Dados inválidos. A senha precisa ter 8+ caracteres, maiúscula, minúscula, número e caractere especial.",
 					issues: parsed.error.flatten().fieldErrors
 				},
 				{ status: 400 }
