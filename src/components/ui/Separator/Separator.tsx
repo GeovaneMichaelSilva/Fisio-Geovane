@@ -3,16 +3,18 @@
 import { cn } from "@/utils";
 import * as SeparatorPrimitive from "@radix-ui/react-separator";
 
-import type { ComponentPropsWithoutRef } from "react";
+import type { ComponentPropsWithoutRef, FC } from "react";
 
 type SeparatorProps = ComponentPropsWithoutRef<typeof SeparatorPrimitive.Root>;
 
-function Separator({
-	className,
-	orientation = "horizontal",
-	decorative = true,
-	...props
-}: SeparatorProps) {
+const Separator: FC<SeparatorProps> = (props) => {
+	const {
+		className,
+		orientation = "horizontal",
+		decorative = true,
+		...restProps
+	} = props;
+
 	return (
 		<SeparatorPrimitive.Root
 			decorative={decorative}
@@ -22,10 +24,10 @@ function Separator({
 				orientation === "horizontal" ? "h-px w-full" : "h-full w-px",
 				className
 			)}
-			{...props}
+			{...restProps}
 		/>
 	);
-}
+};
 
 export { Separator };
 export type { SeparatorProps };

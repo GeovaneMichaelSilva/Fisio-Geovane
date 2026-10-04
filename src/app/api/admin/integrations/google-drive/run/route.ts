@@ -7,7 +7,7 @@ import { runClinicDriveBackup } from "@/lib/google-drive/backup";
 /**
  * Dispara backup manual da clínica no Google Drive.
  */
-export async function POST() {
+export const POST = async () => {
 	try {
 		const ctx = await getOrCreateClinicContext();
 		requireOwner(ctx);

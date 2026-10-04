@@ -16,7 +16,7 @@ const patchSchema = z.object({
 /**
  * Status da conexão Google Agenda da clínica.
  */
-export async function GET() {
+export const GET = async () => {
 	try {
 		const ctx = await getOrCreateClinicContext();
 		const configured = isGoogleCalendarConfigured();
@@ -66,7 +66,7 @@ export async function GET() {
 /**
  * Atualiza agenda padrão da conexão.
  */
-export async function PATCH(request: Request) {
+export const PATCH = async (request: Request) => {
 	try {
 		const ctx = await getOrCreateClinicContext();
 		requireOwner(ctx);
@@ -110,7 +110,7 @@ export async function PATCH(request: Request) {
 /**
  * Desconecta Google Agenda, revoga token e limpa vínculos dos agendamentos.
  */
-export async function DELETE() {
+export const DELETE = async () => {
 	try {
 		const ctx = await getOrCreateClinicContext();
 		requireOwner(ctx);

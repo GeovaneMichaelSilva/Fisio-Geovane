@@ -8,11 +8,11 @@ import { passwordResetTokens, users } from "@/db/schema";
 
 const TOKEN_TTL_MS = 60 * 60 * 1000; // 1h
 
-export function hashToken(token: string) {
+export const hashToken = (token: string) => {
 	return createHash("sha256").update(token).digest("hex");
 }
 
-export function generateResetToken() {
+export const generateResetToken = () => {
 	return randomBytes(32).toString("hex");
 }
 
@@ -20,7 +20,7 @@ export function generateResetToken() {
  * Cria token de reset e envia e-mail via Resend.
  * Sempre retorna ok=true para não vazar existência de conta.
  */
-export async function requestPasswordReset(emailRaw: string) {
+export const requestPasswordReset = async (emailRaw: string) => {
 	const email = emailRaw.trim().toLowerCase();
 	const db = getDb();
 
@@ -74,7 +74,7 @@ export async function requestPasswordReset(emailRaw: string) {
 	return { ok: true as const };
 }
 
-export async function resetPasswordWithToken(token: string, newPassword: string) {
+export const resetPasswordWithToken = async (token: string, newPassword: string) => {
 	if (newPassword.length < 8) {
 		return { ok: false as const, error: "Senha muito curta." };
 	}

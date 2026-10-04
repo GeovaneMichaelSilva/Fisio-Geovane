@@ -3,7 +3,7 @@ import type { ClinicContext } from "@/lib/clinic/context";
 /**
  * Exige papel owner na clínica atual.
  */
-export function requireOwner(ctx: ClinicContext): void {
+export const requireOwner = (ctx: ClinicContext): void => {
 	if (ctx.role !== "owner") {
 		throw new Response(
 			JSON.stringify({
@@ -17,6 +17,6 @@ export function requireOwner(ctx: ClinicContext): void {
 	}
 }
 
-export function isOwner(ctx: ClinicContext) {
+export const isOwner = (ctx: ClinicContext) => {
 	return ctx.role === "owner";
 }

@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 
-import { AdminShell } from "./AdminShell";
+import AdminShell from "./AdminShell";
 
 export const metadata = {
 	robots: { index: false, follow: false },
@@ -21,5 +21,9 @@ export default async function AdminLayout({
 }) {
 	const session = await auth();
 
-	return <AdminShell email={session?.user?.email}>{children}</AdminShell>;
+	return (
+		<AdminShell name={session?.user?.name} email={session?.user?.email}>
+			{children}
+		</AdminShell>
+	);
 }

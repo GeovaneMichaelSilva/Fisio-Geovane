@@ -5,7 +5,7 @@ import type { Db } from "@/db";
 /**
  * Grava auditoria append-only da sessão.
  */
-export async function writeSessionAudit(
+export const writeSessionAudit = async (
 	db: Db,
 	input: {
 		clinicId: string;
@@ -15,7 +15,7 @@ export async function writeSessionAudit(
 		beforeState: unknown;
 		afterState: unknown;
 	}
-) {
+) => {
 	await db.insert(sessionAudits).values({
 		clinicId: input.clinicId,
 		sessionId: input.sessionId,

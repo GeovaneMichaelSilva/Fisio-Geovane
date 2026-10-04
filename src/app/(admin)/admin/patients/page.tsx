@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 
 import { ListSkeleton } from "@/components/admin/LoadingStates";
-import { PaginationControls } from "@/components/admin/PaginationControls";
+import PaginationControls from "@/components/admin/PaginationControls";
 import {
 	EmptyState,
 	ErrorState,
@@ -25,6 +25,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { usePageTitle } from "@/hooks/usePageTitle";
 
 import type { PaginationMeta } from "@/lib/pagination";
+import type { FC, ReactNode } from "react";
 
 type PatientListItem = {
 	id: string;
@@ -34,7 +35,7 @@ type PatientListItem = {
 	archivedAt: string | null;
 };
 
-async function fetchPatients(q: string, archived: boolean, page: number) {
+const fetchPatients = async (q: string, archived: boolean, page: number) => {
 	const params = new URLSearchParams({ page: String(page), pageSize: "20" });
 	const term = q.trim();
 	if (term) params.set("q", term);
@@ -46,9 +47,28 @@ async function fetchPatients(q: string, archived: boolean, page: number) {
 		data: json.data as PatientListItem[],
 		meta: json.meta as PaginationMeta
 	};
-}
+};
 
-export default function PatientsPage() {
+const emptyListCopy = (search: string, showArchived: boolean) => {
+	if (search) {
+		return {
+			title: "Nenhum paciente encontrado",
+			description: "Tente outro nome, telefone ou CPF."
+		};
+	}
+	if (showArchived) {
+		return {
+			title: "Nenhum paciente arquivado",
+			description: "Pacientes arquivados aparecem aqui."
+		};
+	}
+	return {
+		title: "Nenhum paciente cadastrado",
+		description: "Cadastre o primeiro paciente para agendar atendimentos."
+	};
+};
+
+const PatientsPage: FC = () => {
 	usePageTitle("Pacientes");
 	const [q, setQ] = useState("");
 	const search = useDebounce(q, 300).trim();
@@ -66,6 +86,91 @@ export default function PatientsPage() {
 
 	const rows = listQuery.data?.data ?? [];
 	const meta = listQuery.data?.meta;
+
+	let listBody: ReactNode;
+	if (listQuery.isLoading) {
+		listBody = <ListSkeleton />;
+	} else if (listQuery.isError) {
+		listBody = (
+			<ErrorState
+				message={(listQuery.error as Error).message}
+				onRetry={() => listQuery.refetch()}
+			/>
+		);
+	} else if (rows.length === 0) {
+		const copy = emptyListCopy(search, showArchived);
+		listBody = (
+			<EmptyState
+				title={copy.title}
+				description={copy.description}
+				action={
+					!search && !showArchived ? (
+						<Button asChild size="sm">
+							<Link href="/admin/patients/new">Novo paciente</Link>
+						</Button>
+					) : null
+				}
+			/>
+		);
+	} else {
+		listBody = (
+			<div className="space-y-4">
+				<ul className="divide-border divide-y">
+					{rows.map((p) => (
+						<li
+							key={p.id}
+							className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+						>
+							<div className="min-w-0 space-y-1">
+								<div className="flex flex-wrap items-center gap-2">
+									<p className="font-medium">{p.fullName}</p>
+									{p.archivedAt ? (
+										<Badge variant="secondary">Arquivado</Badge>
+									) : null}
+								</div>
+								<p className="text-muted-foreground text-sm">
+									{p.preferredServiceTypeName}
+									{p.phone ? ` · ${p.phone}` : ""}
+								</p>
+							</div>
+							<div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+								<Button
+									asChild
+									variant="outline"
+									size="sm"
+									className="min-h-11 sm:min-h-9"
+								>
+									<Link href={`/admin/patients/${p.id}`}>Abrir</Link>
+								</Button>
+								{!p.archivedAt ? (
+									<Button
+										asChild
+										variant="ghost"
+										size="sm"
+										className="min-h-11 sm:min-h-9"
+									>
+										<Link href={`/admin/agenda?patientId=${p.id}`}>
+											Agendar
+										</Link>
+									</Button>
+								) : null}
+							</div>
+						</li>
+					))}
+				</ul>
+				{meta ? (
+					<PaginationControls
+						page={meta.page}
+						totalPages={meta.totalPages}
+						total={meta.total}
+						pageSize={meta.pageSize}
+						pending={listQuery.isFetching}
+						onPageChange={setPage}
+					/>
+				) : null}
+			</div>
+		);
+	}
 
 	return (
 		<div className="space-y-6">
@@ -106,97 +211,11 @@ export default function PatientsPage() {
 							{showArchived ? "Ver ativos" : "Ver arquivados"}
 						</Button>
 					</div>
-
-					{listQuery.isLoading ? (
-						<ListSkeleton />
-					) : listQuery.isError ? (
-						<ErrorState
-							message={(listQuery.error as Error).message}
-							onRetry={() => listQuery.refetch()}
-						/>
-					) : rows.length === 0 ? (
-						<EmptyState
-							title={
-								search
-									? "Nenhum paciente encontrado"
-									: showArchived
-										? "Nenhum paciente arquivado"
-										: "Nenhum paciente cadastrado"
-							}
-							description={
-								search
-									? "Tente outro nome, telefone ou CPF."
-									: showArchived
-										? "Pacientes arquivados aparecem aqui."
-										: "Cadastre o primeiro paciente para agendar atendimentos."
-							}
-							action={
-								!search && !showArchived ? (
-									<Button asChild size="sm">
-										<Link href="/admin/patients/new">Novo paciente</Link>
-									</Button>
-								) : null
-							}
-						/>
-					) : (
-						<>
-							<ul className="divide-border divide-y">
-								{rows.map((p) => (
-									<li
-										key={p.id}
-										className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between"
-									>
-										<div className="min-w-0 space-y-1">
-											<div className="flex flex-wrap items-center gap-2">
-												<p className="font-medium">{p.fullName}</p>
-												{p.archivedAt ? (
-													<Badge variant="secondary">Arquivado</Badge>
-												) : null}
-											</div>
-											<p className="text-muted-foreground text-sm">
-												{p.preferredServiceTypeName}
-												{p.phone ? ` · ${p.phone}` : ""}
-											</p>
-										</div>
-										<div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-											<Button
-												asChild
-												variant="outline"
-												size="sm"
-												className="min-h-11 sm:min-h-9"
-											>
-												<Link href={`/admin/patients/${p.id}`}>Abrir</Link>
-											</Button>
-											{!p.archivedAt ? (
-												<Button
-													asChild
-													variant="ghost"
-													size="sm"
-													className="min-h-11 sm:min-h-9"
-												>
-													<Link href={`/admin/agenda?patientId=${p.id}`}>
-														Agendar
-													</Link>
-												</Button>
-											) : null}
-										</div>
-									</li>
-								))}
-							</ul>
-							{meta ? (
-								<PaginationControls
-									page={meta.page}
-									totalPages={meta.totalPages}
-									total={meta.total}
-									pageSize={meta.pageSize}
-									pending={listQuery.isFetching}
-									onPageChange={setPage}
-								/>
-							) : null}
-						</>
-					)}
+					{listBody}
 				</CardContent>
 			</Card>
 		</div>
 	);
-}
+};
+
+export default PatientsPage;

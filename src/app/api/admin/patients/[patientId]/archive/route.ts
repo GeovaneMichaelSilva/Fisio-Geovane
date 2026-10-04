@@ -15,7 +15,7 @@ const bodySchema = z.object({
 /**
  * Arquiva ou restaura paciente (sem hard-delete).
  */
-export async function POST(request: Request, { params }: Params) {
+export const POST = async (request: Request, { params }: Params) => {
 	try {
 		const { patientId } = await params;
 		const ctx = await getOrCreateClinicContext();

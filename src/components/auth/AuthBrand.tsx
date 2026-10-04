@@ -1,11 +1,22 @@
 import Image from "next/image";
 
+import { cn } from "@/utils";
+
+import type { FC, HTMLAttributes } from "react";
+
+type AuthBrandProps = HTMLAttributes<HTMLDivElement>;
+
 /**
  * Logo completa (símbolo + nome) nas telas de autenticação.
  */
-export function AuthBrand() {
+const AuthBrand: FC<AuthBrandProps> = (props) => {
+	const { className, ...restProps } = props;
+
 	return (
-		<div className="flex flex-col items-center pb-2">
+		<div
+			className={cn("flex flex-col items-center pb-2", className)}
+			{...restProps}
+		>
 			<Image
 				src="/brand/logo-full.png"
 				alt="Geovane M. da Silva — Fisioterapeuta"
@@ -16,4 +27,6 @@ export function AuthBrand() {
 			/>
 		</div>
 	);
-}
+};
+
+export default AuthBrand;

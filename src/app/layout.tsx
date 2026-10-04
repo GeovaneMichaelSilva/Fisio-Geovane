@@ -1,7 +1,8 @@
 import { Montserrat } from "next/font/google";
 
-import { Providers } from "@/providers/Providers";
+import Providers from "@/providers/Providers";
 
+import type { FC, ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
 
 import "@/styles/styles.css";
@@ -27,11 +28,13 @@ export const viewport: Viewport = {
 	themeColor: "#1f4d3a"
 };
 
-export default function RootLayout({
-	children
-}: Readonly<{
-	children: React.ReactNode;
-}>) {
+type RootLayoutProps = Readonly<{
+	children: ReactNode;
+}>;
+
+const RootLayout: FC<RootLayoutProps> = (props) => {
+	const { children } = props;
+
 	return (
 		<html lang="pt-BR" className={`${montserrat.variable} h-full antialiased`}>
 			<body className="bg-background text-foreground flex min-h-full flex-col font-sans">
@@ -39,4 +42,6 @@ export default function RootLayout({
 			</body>
 		</html>
 	);
-}
+};
+
+export default RootLayout;

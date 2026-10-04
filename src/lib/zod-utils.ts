@@ -3,9 +3,9 @@ import type { ZodError } from "zod";
 /**
  * Extrai a primeira mensagem de erro por campo (útil em forms controlados).
  */
-export function zodFieldErrors(
+export const zodFieldErrors = (
 	error: ZodError
-): Record<string, string | undefined> {
+): Record<string, string | undefined> => {
 	const flat = error.flatten().fieldErrors as Record<
 		string,
 		string[] | undefined

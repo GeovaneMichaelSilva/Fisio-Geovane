@@ -12,7 +12,7 @@ import {
 	ErrorState,
 	PageHeader
 } from "@/components/admin/PageStates";
-import { SettingsNav } from "@/components/admin/SettingsNav";
+import SettingsNav from "@/components/admin/SettingsNav";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import {
@@ -39,6 +39,8 @@ import {
 	type ServiceTypeFormValues
 } from "@/lib/service-types/schema";
 
+import type { FC, ReactNode } from "react";
+
 type ServiceType = {
 	id: string;
 	name: string;
@@ -49,17 +51,17 @@ type ServiceType = {
 	sortOrder: number;
 };
 
-async function fetchTypes(): Promise<ServiceType[]> {
+const fetchTypes = async (): Promise<ServiceType[]> => {
 	const res = await fetch("/api/admin/service-types");
 	const json = await res.json();
 	if (!res.ok) throw new Error(json.error || "Falha ao carregar.");
 	return json.data;
-}
+};
 
-function formatBrl(value: string | number) {
+const formatBrl = (value: string | number) => {
 	const n = typeof value === "string" ? Number(value) : value;
 	return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
+};
 
 const emptyForm: ServiceTypeFormValues = {
 	name: "",
@@ -68,7 +70,7 @@ const emptyForm: ServiceTypeFormValues = {
 	isActive: true
 };
 
-export default function ServiceTypesPage() {
+const ServiceTypesPage: FC = () => {
 	usePageTitle("Tipos de atendimento");
 	const queryClient = useQueryClient();
 	const { isOwner } = useClinicRole();
@@ -80,22 +82,18 @@ export default function ServiceTypesPage() {
 		queryFn: fetchTypes
 	});
 
-	const form = useForm<
-		ServiceTypeFormValues,
-		unknown,
-		ServiceTypeFormParsed
-	>({
+	const form = useForm<ServiceTypeFormValues, unknown, ServiceTypeFormParsed>({
 		resolver: zodResolver(serviceTypeFormSchema),
 		defaultValues: emptyForm
 	});
 
-	function openCreate() {
+	const openCreate = () => {
 		setEditingId(null);
 		form.reset(emptyForm);
 		setOpen(true);
-	}
+	};
 
-	function openEdit(row: ServiceType) {
+	const openEdit = (row: ServiceType) => {
 		setEditingId(row.id);
 		form.reset({
 			name: row.name,
@@ -104,7 +102,7 @@ export default function ServiceTypesPage() {
 			isActive: row.isActive
 		});
 		setOpen(true);
-	}
+	};
 
 	const saveMutation = useMutation({
 		mutationFn: async (values: ServiceTypeFormParsed) => {
@@ -156,16 +154,99 @@ export default function ServiceTypesPage() {
 		onError: (err: Error) => toast.error(err.message)
 	});
 
+	const pageDescription = isOwner
+		? "Nome, duração e valor padrão usados na agenda e nos pacientes."
+		: "Consulta dos tipos. Somente o responsável pode criar ou editar.";
+
+	let listBody: ReactNode;
+	if (listQuery.isLoading) {
+		listBody = <ListSkeleton />;
+	} else if (listQuery.isError) {
+		listBody = (
+			<ErrorState
+				message={(listQuery.error as Error).message}
+				onRetry={() => listQuery.refetch()}
+			/>
+		);
+	} else if (listQuery.data?.length === 0) {
+		listBody = (
+			<EmptyState
+				title="Nenhum tipo cadastrado"
+				description={
+					isOwner
+						? "Crie o primeiro tipo para usar na agenda."
+						: "Peça ao responsável para cadastrar os tipos."
+				}
+				action={
+					isOwner ? (
+						<Button type="button" size="sm" onClick={openCreate}>
+							Novo tipo
+						</Button>
+					) : undefined
+				}
+			/>
+		);
+	} else {
+		listBody = (
+			<ul className="divide-border divide-y">
+				{listQuery.data?.map((row) => (
+					<li
+						key={row.id}
+						className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+					>
+						<div className="min-w-0 space-y-1">
+							<div className="flex flex-wrap items-center gap-2">
+								<p className="font-medium">{row.name}</p>
+								<Badge variant={row.isActive ? "default" : "secondary"}>
+									{row.isActive ? "Ativo" : "Inativo"}
+								</Badge>
+							</div>
+							<p className="text-muted-foreground text-sm">
+								{row.defaultDurationMinutes} min · {formatBrl(row.defaultValueBrl)}
+							</p>
+						</div>
+						{isOwner ? (
+							<div className="flex flex-wrap gap-2">
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									onClick={() => openEdit(row)}
+								>
+									Editar
+								</Button>
+								<Button
+									type="button"
+									variant="ghost"
+									size="sm"
+									disabled={toggleMutation.isPending}
+									onClick={() => toggleMutation.mutate(row)}
+								>
+									{row.isActive ? "Desativar" : "Ativar"}
+								</Button>
+							</div>
+						) : null}
+					</li>
+				))}
+			</ul>
+		);
+	}
+
+	const dialogTitle = editingId ? "Editar tipo" : "Novo tipo";
+	const dialogDescription = editingId
+		? "Altere e salve. O slug é recalculado pelo nome."
+		: "Cadastre um novo tipo de atendimento.";
+
+	let submitLabel = "Criar tipo";
+	if (saveMutation.isPending) submitLabel = "Salvando…";
+	else if (editingId) submitLabel = "Salvar";
+
 	return (
 		<div className="space-y-6">
 			<div className="space-y-3">
 				<PageHeader
 					title="Tipos de atendimento"
-					description={
-						isOwner
-							? "Nome, duração e valor padrão usados na agenda e nos pacientes."
-							: "Consulta dos tipos. Somente o responsável pode criar ou editar."
-					}
+					description={pageDescription}
 					actions={
 						isOwner ? (
 							<Button type="button" onClick={openCreate}>
@@ -184,75 +265,7 @@ export default function ServiceTypesPage() {
 						Tipos inativos não aparecem em novos agendamentos.
 					</CardDescription>
 				</CardHeader>
-				<CardContent>
-					{listQuery.isLoading ? (
-						<ListSkeleton />
-					) : listQuery.isError ? (
-						<ErrorState
-							message={(listQuery.error as Error).message}
-							onRetry={() => listQuery.refetch()}
-						/>
-					) : listQuery.data?.length === 0 ? (
-						<EmptyState
-							title="Nenhum tipo cadastrado"
-							description={
-								isOwner
-									? "Crie o primeiro tipo para usar na agenda."
-									: "Peça ao responsável para cadastrar os tipos."
-							}
-							action={
-								isOwner ? (
-									<Button type="button" size="sm" onClick={openCreate}>
-										Novo tipo
-									</Button>
-								) : undefined
-							}
-						/>
-					) : (
-						<ul className="divide-border divide-y">
-							{listQuery.data?.map((row) => (
-								<li
-									key={row.id}
-									className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between"
-								>
-									<div className="min-w-0 space-y-1">
-										<div className="flex flex-wrap items-center gap-2">
-											<p className="font-medium">{row.name}</p>
-											<Badge variant={row.isActive ? "default" : "secondary"}>
-												{row.isActive ? "Ativo" : "Inativo"}
-											</Badge>
-										</div>
-										<p className="text-muted-foreground text-sm">
-											{row.defaultDurationMinutes} min ·{" "}
-											{formatBrl(row.defaultValueBrl)}
-										</p>
-									</div>
-									{isOwner ? (
-										<div className="flex flex-wrap gap-2">
-											<Button
-												type="button"
-												variant="outline"
-												size="sm"
-												onClick={() => openEdit(row)}
-											>
-												Editar
-											</Button>
-											<Button
-												type="button"
-												variant="ghost"
-												size="sm"
-												disabled={toggleMutation.isPending}
-												onClick={() => toggleMutation.mutate(row)}
-											>
-												{row.isActive ? "Desativar" : "Ativar"}
-											</Button>
-										</div>
-									) : null}
-								</li>
-							))}
-						</ul>
-					)}
-				</CardContent>
+				<CardContent>{listBody}</CardContent>
 			</Card>
 
 			<Dialog
@@ -267,14 +280,8 @@ export default function ServiceTypesPage() {
 			>
 				<DialogContent>
 					<DialogHeader>
-						<DialogTitle>
-							{editingId ? "Editar tipo" : "Novo tipo"}
-						</DialogTitle>
-						<DialogDescription>
-							{editingId
-								? "Altere e salve. O slug é recalculado pelo nome."
-								: "Cadastre um novo tipo de atendimento."}
-						</DialogDescription>
+						<DialogTitle>{dialogTitle}</DialogTitle>
+						<DialogDescription>{dialogDescription}</DialogDescription>
 					</DialogHeader>
 					<form
 						className="space-y-4"
@@ -322,11 +329,7 @@ export default function ServiceTypesPage() {
 								Cancelar
 							</Button>
 							<Button type="submit" disabled={saveMutation.isPending}>
-								{saveMutation.isPending
-									? "Salvando…"
-									: editingId
-										? "Salvar"
-										: "Criar tipo"}
+								{submitLabel}
 							</Button>
 						</DialogFooter>
 					</form>
@@ -334,4 +337,6 @@ export default function ServiceTypesPage() {
 			</Dialog>
 		</div>
 	);
-}
+};
+
+export default ServiceTypesPage;

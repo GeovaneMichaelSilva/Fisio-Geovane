@@ -9,14 +9,14 @@ import {
 	isGoogleDriveConfigured
 } from "@/lib/google-drive/oauth";
 
-function appBase() {
+const appBase = () => {
 	return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-}
+};
 
 /**
  * Inicia OAuth do Google Drive (redirect).
  */
-export async function GET() {
+export const GET = async () => {
 	try {
 		const session = await auth();
 		if (!session?.user?.id) {

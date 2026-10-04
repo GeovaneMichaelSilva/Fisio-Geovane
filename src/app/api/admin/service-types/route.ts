@@ -11,7 +11,7 @@ import { requireOwner } from "@/lib/clinic/rbac";
 import { slugify } from "@/lib/clinic/slug";
 import { serviceTypeCreateSchema } from "@/lib/service-types/schema";
 
-export async function GET() {
+export const GET = async () => {
 	try {
 		const ctx = await getOrCreateClinicContext();
 		const db = getDb();
@@ -34,7 +34,7 @@ export async function GET() {
 	}
 }
 
-export async function POST(request: Request) {
+export const POST = async (request: Request) => {
 	try {
 		const ctx = await getOrCreateClinicContext();
 		requireOwner(ctx);

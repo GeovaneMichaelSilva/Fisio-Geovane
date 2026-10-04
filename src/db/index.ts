@@ -7,7 +7,7 @@ import * as schema from "./schema";
  * Cliente Drizzle sobre Neon HTTP (pooled via DATABASE_URL).
  * Preferir em Server Components, Route Handlers e server actions.
  */
-export function getDb() {
+export const getDb = () => {
 	const url = process.env.DATABASE_URL;
 	if (!url) {
 		throw new Error("DATABASE_URL is not set");

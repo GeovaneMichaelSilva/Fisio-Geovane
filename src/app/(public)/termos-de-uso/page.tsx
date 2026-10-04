@@ -1,7 +1,8 @@
 import Link from "next/link";
 
-import { LegalLayout } from "@/components/site/LegalLayout";
+import LegalLayout from "@/components/site/LegalLayout";
 
+import type { FC } from "react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -17,7 +18,7 @@ const UPDATED = "4 de outubro de 2026";
 /**
  * Termos de uso da presença pública do site.
  */
-export default function TermsPage() {
+const TermsPage: FC = () => {
 	return (
 		<LegalLayout title="Termos de Uso" updated={UPDATED}>
 			<h2>1. Apresentação</h2>
@@ -134,4 +135,6 @@ export default function TermsPage() {
 			</p>
 		</LegalLayout>
 	);
-}
+};
+
+export default TermsPage;

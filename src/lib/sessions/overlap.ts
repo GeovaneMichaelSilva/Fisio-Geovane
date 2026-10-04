@@ -12,7 +12,7 @@ export type OverlapConflict = SessionInterval & {
 /**
  * Busca conflitos de horário no mesmo dia da clínica (com nome do paciente).
  */
-export async function getOverlappingSessions(
+export const getOverlappingSessions = async (
 	db: Db,
 	input: {
 		clinicId: string;
@@ -21,7 +21,7 @@ export async function getOverlappingSessions(
 		durationMinutes: number;
 		excludeSessionId?: string;
 	}
-): Promise<OverlapConflict[]> {
+): Promise<OverlapConflict[]> => {
 	const conditions = [
 		eq(sessions.clinicId, input.clinicId),
 		eq(sessions.scheduledDate, input.scheduledDate),

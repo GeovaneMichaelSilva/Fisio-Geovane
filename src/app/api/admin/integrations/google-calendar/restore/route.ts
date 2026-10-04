@@ -8,7 +8,7 @@ import { restoreClinicSessionsToGoogle } from "@/lib/google-calendar/sync";
  * Recria no Google os agendamentos ativos da clínica.
  * Usado após reconectar ou sob demanda.
  */
-export async function POST() {
+export const POST = async () => {
 	try {
 		const ctx = await getOrCreateClinicContext();
 		requireOwner(ctx);

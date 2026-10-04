@@ -37,27 +37,70 @@ export type PatientPdfInput = {
 	sessions: PatientPdfSession[];
 };
 
-function formatBrl(value: string) {
+const formatBrl = (value: string) => {
 	return Number(value).toLocaleString("pt-BR", {
 		style: "currency",
 		currency: "BRL"
 	});
-}
+};
 
-function wrapText(doc: jsPDF, text: string, maxWidth: number): string[] {
+const wrapText = (doc: jsPDF, text: string, maxWidth: number): string[] => {
 	return doc.splitTextToSize(text || "—", maxWidth) as string[];
-}
+};
 
 /**
  * Monta e baixa o PDF do paciente.
  */
-function truncateClinical(text: string, max = 2500) {
+const truncateClinical = (text: string, max = 2500) => {
 	const t = text.trim();
 	if (t.length <= max) return t;
 	return `${t.slice(0, max)}…`;
-}
+};
 
-export function downloadPatientHistoryPdf(input: PatientPdfInput) {
+const drawHeader = (
+	doc: jsPDF,
+	input: PatientPdfInput,
+	pageW: number,
+	margin: number
+) => {
+	doc.setFillColor(...GREEN);
+	doc.rect(0, 0, pageW, 28, "F");
+	doc.setFillColor(...GOLD);
+	doc.rect(0, 28, pageW, 1.5, "F");
+
+	doc.setTextColor(255, 255, 255);
+	doc.setFont("helvetica", "bold");
+	doc.setFontSize(14);
+	doc.text(input.clinic.displayName.toUpperCase(), margin, 12);
+	doc.setFont("helvetica", "normal");
+	doc.setFontSize(9);
+	doc.setTextColor(...SAND);
+	const cred = [
+		input.clinic.professionLabel,
+		input.clinic.licenseNumber ? `Crefito: ${input.clinic.licenseNumber}` : null
+	]
+		.filter(Boolean)
+		.join(" · ");
+	doc.text(cred, margin, 19);
+};
+
+const drawFooter = (doc: jsPDF, pageW: number, pageH: number) => {
+	const page = doc.getNumberOfPages();
+	doc.setPage(page);
+	doc.setDrawColor(...SAND);
+	doc.setLineWidth(0.4);
+	doc.line(14, pageH - 12, pageW - 14, pageH - 12);
+	doc.setFontSize(8);
+	doc.setTextColor(120);
+	doc.text(
+		"Documento confidencial — uso exclusivo do profissional e do paciente.",
+		14,
+		pageH - 7
+	);
+	doc.text(`Pag. ${page}`, pageW - 14, pageH - 7, { align: "right" });
+};
+
+export const downloadPatientHistoryPdf = (input: PatientPdfInput) => {
 	const doc = new jsPDF({ unit: "mm", format: "a4", compress: true });
 	const pageW = doc.internal.pageSize.getWidth();
 	const pageH = doc.internal.pageSize.getHeight();
@@ -177,47 +220,4 @@ export function downloadPatientHistoryPdf(input: PatientPdfInput) {
 		.replace(/^-|-$/g, "")
 		.slice(0, 40);
 	doc.save(`historico-${safeName || "paciente"}.pdf`);
-}
-
-function drawHeader(
-	doc: jsPDF,
-	input: PatientPdfInput,
-	pageW: number,
-	margin: number
-) {
-	doc.setFillColor(...GREEN);
-	doc.rect(0, 0, pageW, 28, "F");
-	doc.setFillColor(...GOLD);
-	doc.rect(0, 28, pageW, 1.5, "F");
-
-	doc.setTextColor(255, 255, 255);
-	doc.setFont("helvetica", "bold");
-	doc.setFontSize(14);
-	doc.text(input.clinic.displayName.toUpperCase(), margin, 12);
-	doc.setFont("helvetica", "normal");
-	doc.setFontSize(9);
-	doc.setTextColor(...SAND);
-	const cred = [
-		input.clinic.professionLabel,
-		input.clinic.licenseNumber ? `Crefito: ${input.clinic.licenseNumber}` : null
-	]
-		.filter(Boolean)
-		.join(" · ");
-	doc.text(cred, margin, 19);
-}
-
-function drawFooter(doc: jsPDF, pageW: number, pageH: number) {
-	const page = doc.getNumberOfPages();
-	doc.setPage(page);
-	doc.setDrawColor(...SAND);
-	doc.setLineWidth(0.4);
-	doc.line(14, pageH - 12, pageW - 14, pageH - 12);
-	doc.setFontSize(8);
-	doc.setTextColor(120);
-	doc.text(
-		"Documento confidencial — uso exclusivo do profissional e do paciente.",
-		14,
-		pageH - 7
-	);
-	doc.text(`Pag. ${page}`, pageW - 14, pageH - 7, { align: "right" });
-}
+};

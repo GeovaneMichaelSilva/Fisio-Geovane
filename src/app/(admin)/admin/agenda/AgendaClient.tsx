@@ -1,176 +1,48 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
-import {
-	OverlapConfirmDialog,
+import OverlapConfirmDialog, {
 	type OverlapConflict
 } from "@/components/admin/OverlapConfirmDialog";
-import { EmptyState, ErrorState, PageHeader } from "@/components/admin/PageStates";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle
-} from "@/components/ui/Dialog";
-import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
+import ErrorState from "@/components/admin/ErrorState";
+import PageHeader from "@/components/admin/PageHeader";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import {
 	addDays,
 	formatWeekLabel,
-	normalizeTime,
 	parseDateString,
 	startOfWeekMonday,
-	STATUS_LABEL,
-	toDateString,
-	WEEKDAY_LABELS
+	toDateString
 } from "@/lib/sessions/agenda";
 import {
 	sessionCreateSchema,
 	type SessionCreateInput,
 	type SessionCreateParsed
 } from "@/lib/sessions/schema";
-import { cn } from "@/utils";
 
-type AgendaSession = {
-	id: string;
-	patientId: string;
-	patientName: string;
-	scheduledDate: string;
-	scheduledTime: string;
-	durationMinutes: number;
-	serviceTypeId: string;
-	serviceTypeName: string;
-	status: string;
-	valueBrl: string;
-	googleEventId?: string | null;
-};
+import AgendaComposerDialog from "./components/AgendaComposerDialog";
+import AgendaHeaderActions from "./components/AgendaHeaderActions";
+import AgendaWeekBoard from "./components/AgendaWeekBoard";
+import {
+	fetchClinic,
+	fetchGoogleStatus,
+	fetchPatients,
+	fetchServiceTypes,
+	fetchWeek,
+	notifyGoogleSync
+} from "./components/agendaApi";
 
-type PatientOption = {
-	id: string;
-	fullName: string;
-	preferredServiceTypeId: string;
-};
+import type { AgendaSession, GoogleSyncResult } from "./components/types";
+import type { FC, ReactNode } from "react";
 
-type ServiceType = {
-	id: string;
-	name: string;
-	isActive: boolean;
-	defaultDurationMinutes: number;
-	defaultValueBrl: string;
-};
-
-type Clinic = {
-	defaultSessionDurationMinutes: number;
-};
-
-type GoogleStatus = {
-	configured: boolean;
-	connected: boolean;
-};
-
-type GoogleSyncResult =
-	| { status: "skipped" }
-	| { status: "synced"; action: "create" | "update" | "delete" }
-	| { status: "error"; message: string };
-
-async function fetchWeek(from: string, to: string) {
-	const res = await fetch(`/api/admin/sessions?from=${from}&to=${to}`);
-	const json = await res.json();
-	if (!res.ok) throw new Error(json.error || "Falha ao carregar agenda.");
-	return json.data as AgendaSession[];
-}
-
-async function fetchPatients(q: string) {
-	const params = new URLSearchParams({ pageSize: "50" });
-	if (q.trim()) params.set("q", q.trim());
-	const res = await fetch(`/api/admin/patients?${params}`);
-	const json = await res.json();
-	if (!res.ok) throw new Error(json.error || "Falha ao carregar pacientes.");
-	return json.data as PatientOption[];
-}
-
-async function fetchServiceTypes() {
-	const res = await fetch("/api/admin/service-types");
-	const json = await res.json();
-	if (!res.ok) throw new Error(json.error || "Falha ao carregar tipos.");
-	return json.data as ServiceType[];
-}
-
-async function fetchClinic() {
-	const res = await fetch("/api/admin/clinic");
-	const json = await res.json();
-	if (!res.ok) throw new Error(json.error || "Falha ao carregar clínica.");
-	return json.data as Clinic;
-}
-
-async function fetchGoogleStatus() {
-	const res = await fetch("/api/admin/integrations/google-calendar");
-	const json = await res.json();
-	if (!res.ok) throw new Error(json.error || "Falha ao carregar Google.");
-	return json.data as GoogleStatus;
-}
-
-function notifyGoogleSync(googleSync?: GoogleSyncResult) {
-	if (!googleSync) return;
-	if (googleSync.status === "error") {
-		toast.warning(
-			`Agendamento salvo, mas o Google Agenda falhou: ${googleSync.message}`
-		);
-	}
-}
-
-function statusVariant(status: string) {
-	if (status === "completed") return "default" as const;
-	if (status === "canceled" || status === "no_show") return "secondary" as const;
-	return "outline" as const;
-}
-
-function SessionCard({ s }: { s: AgendaSession }) {
-	return (
-		<div className="border-border hover:border-brand rounded-md border-l-brand border border-l-4 bg-white p-3 shadow-xs transition-colors">
-			<Link href={`/admin/sessions/${s.id}`} className="block">
-				<p className="text-xs font-medium">
-					{normalizeTime(String(s.scheduledTime)).slice(0, 5)} ·{" "}
-					{s.durationMinutes}min
-				</p>
-				<p className="truncate text-sm font-medium">{s.patientName}</p>
-				<p className="text-muted-foreground truncate text-xs">
-					{s.serviceTypeName}
-				</p>
-				<div className="mt-1 flex flex-wrap gap-1">
-					<Badge variant={statusVariant(s.status)}>
-						{STATUS_LABEL[s.status] ?? s.status}
-					</Badge>
-					{s.googleEventId ? (
-						<Badge variant="outline" className="text-[10px]">
-							Google
-						</Badge>
-					) : null}
-				</div>
-			</Link>
-			{s.status === "scheduled" ? (
-				<Button asChild size="sm" className="mt-2 min-h-11 w-full sm:min-h-9">
-					<Link href={`/admin/sessions/${s.id}?mode=clinical`}>INICIAR</Link>
-				</Button>
-			) : null}
-		</div>
-	);
-}
-
-export default function AgendaClient() {
+const AgendaClient: FC = () => {
 	usePageTitle("Agenda");
 	const searchParams = useSearchParams();
 	const queryClient = useQueryClient();
@@ -180,9 +52,7 @@ export default function AgendaClient() {
 	const todayStr = toDateString(new Date());
 
 	const [weekAnchor, setWeekAnchor] = useState(() =>
-		startOfWeekMonday(
-			initialDate ? parseDateString(initialDate) : new Date()
-		)
+		startOfWeekMonday(initialDate ? parseDateString(initialDate) : new Date())
 	);
 	const [composerOpen, setComposerOpen] = useState(
 		Boolean(initialPatientId || initialDate)
@@ -262,9 +132,7 @@ export default function AgendaClient() {
 		return map;
 	}, [days, weekQuery.data]);
 
-	const mobileDaySessions = sessionsByDay.get(selectedDay) ?? [];
-
-	function applyServiceType(typeId: string) {
+	const applyServiceType = (typeId: string) => {
 		form.setValue("serviceTypeId", typeId, { shouldValidate: true });
 		const t = typesQuery.data?.find((x) => x.id === typeId);
 		if (t) {
@@ -275,9 +143,9 @@ export default function AgendaClient() {
 				shouldValidate: true
 			});
 		}
-	}
+	};
 
-	function openComposer(dateStr: string) {
+	const openComposer = (dateStr: string) => {
 		setSelectedDay(dateStr);
 		setComposerOpen(true);
 		setPendingOverlap(false);
@@ -315,24 +183,24 @@ export default function AgendaClient() {
 			allowOverlap: false,
 			overlapReason: undefined
 		});
-	}
+	};
 
-	function closeComposer() {
+	const closeComposer = () => {
 		setComposerOpen(false);
 		setPendingOverlap(false);
 		setOverlapReason("");
 		setOverlapConflicts([]);
 		setPatientFilter("");
 		form.clearErrors();
-	}
+	};
 
-	function onPatientChange(id: string) {
+	const onPatientChange = (id: string) => {
 		form.setValue("patientId", id, { shouldValidate: true });
 		const p = patientsQuery.data?.find((x) => x.id === id);
 		if (p?.preferredServiceTypeId) {
 			applyServiceType(p.preferredServiceTypeId);
 		}
-	}
+	};
 
 	useEffect(() => {
 		const sub = form.watch((values, { name }) => {
@@ -388,7 +256,7 @@ export default function AgendaClient() {
 		onError: (err: Error) => toast.error(err.message)
 	});
 
-	function submitCreate(allowOverlap: boolean, reason?: string) {
+	const submitCreate = (allowOverlap: boolean, reason?: string) => {
 		form.setValue("allowOverlap", allowOverlap);
 		if (allowOverlap) {
 			form.setValue("overlapReason", reason?.trim() || "");
@@ -400,16 +268,12 @@ export default function AgendaClient() {
 				overlapReason: allowOverlap ? reason?.trim() : undefined
 			});
 		})();
-	}
+	};
 
-	const errors = form.formState.errors;
 	const selectedPatientId = form.watch("patientId");
 	const patientOptions = useMemo(() => {
 		const list = patientsQuery.data ?? [];
-		if (
-			selectedPatientId &&
-			!list.some((p) => p.id === selectedPatientId)
-		) {
+		if (selectedPatientId && !list.some((p) => p.id === selectedPatientId)) {
 			return [
 				{
 					id: selectedPatientId,
@@ -422,192 +286,79 @@ export default function AgendaClient() {
 		return list;
 	}, [patientsQuery.data, selectedPatientId]);
 
+	let weekContent: ReactNode = (
+		<div className="space-y-3">
+			<div className="flex gap-2 md:hidden">
+				{Array.from({ length: 7 }).map((_, i) => (
+					<Skeleton key={i} className="h-14 flex-1" />
+				))}
+			</div>
+			<Skeleton className="h-48 w-full md:hidden" />
+			<div className="hidden gap-3 md:grid md:grid-cols-7">
+				{Array.from({ length: 7 }).map((_, i) => (
+					<Skeleton key={i} className="h-48 w-full" />
+				))}
+			</div>
+		</div>
+	);
+
+	if (weekQuery.isError) {
+		weekContent = (
+			<ErrorState
+				message={(weekQuery.error as Error).message}
+				onRetry={() => weekQuery.refetch()}
+			/>
+		);
+	} else if (!weekQuery.isLoading) {
+		weekContent = (
+			<AgendaWeekBoard
+				days={days}
+				todayStr={todayStr}
+				selectedDay={selectedDay}
+				sessionsByDay={sessionsByDay}
+				onSelectDay={setSelectedDay}
+				onOpenComposer={openComposer}
+			/>
+		);
+	}
+
 	return (
 		<div className="space-y-6">
 			<PageHeader
 				title="Agenda"
 				description={`Semana ${formatWeekLabel(monday)}`}
 				actions={
-					<>
-						{googleQuery.data?.connected ? (
-							<Badge variant="outline" className="hidden sm:inline-flex">
-								Google Agenda conectada
-							</Badge>
-						) : googleQuery.data?.configured ? (
-							<Badge variant="secondary" className="hidden sm:inline-flex">
-								Google desconectado
-							</Badge>
-						) : null}
-						<div className="flex flex-wrap gap-2">
-							<Button
-								type="button"
-								variant="outline"
-								size="sm"
-								className="min-h-11 sm:min-h-9"
-								onClick={() => setWeekAnchor(addDays(monday, -7))}
-							>
-								Anterior
-							</Button>
-							<Button
-								type="button"
-								variant="secondary"
-								size="sm"
-								className="min-h-11 sm:min-h-9"
-								onClick={() => {
-									const now = new Date();
-									setWeekAnchor(startOfWeekMonday(now));
-									setSelectedDay(toDateString(now));
-								}}
-							>
-								Hoje
-							</Button>
-							<Button
-								type="button"
-								variant="outline"
-								size="sm"
-								className="min-h-11 sm:min-h-9"
-								onClick={() => setWeekAnchor(addDays(monday, 7))}
-							>
-								Próxima
-							</Button>
-						</div>
-						<Button
-							type="button"
-							className="min-h-11 w-full sm:min-h-10 sm:w-auto"
-							onClick={() => openComposer(selectedDay || todayStr)}
-						>
-							+ Agendar
-						</Button>
-					</>
+					<AgendaHeaderActions
+						monday={monday}
+						googleStatus={googleQuery.data}
+						onWeekAnchorChange={setWeekAnchor}
+						onSelectedDayChange={setSelectedDay}
+						onSchedule={() => openComposer(selectedDay || todayStr)}
+					/>
 				}
 			/>
 
-			<Dialog
+			<AgendaComposerDialog
 				open={composerOpen}
+				googleConnected={Boolean(googleQuery.data?.connected)}
+				patientFilter={patientFilter}
+				debouncedPatientQ={debouncedPatientQ}
+				patientsLoading={patientsQuery.isLoading}
+				patientsFetching={patientsQuery.isFetching}
+				patientOptions={patientOptions}
+				serviceTypes={typesQuery.data ?? []}
+				form={form}
+				pending={createMutation.isPending}
 				onOpenChange={(open) => {
 					if (!open) closeComposer();
 					else setComposerOpen(true);
 				}}
-			>
-				<DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
-					<DialogHeader>
-						<DialogTitle>Novo agendamento</DialogTitle>
-						<DialogDescription>
-							Duração padrão do tipo. Sobreposição exige override.
-							{googleQuery.data?.connected
-								? " Será sincronizado com o Google Agenda."
-								: ""}
-						</DialogDescription>
-					</DialogHeader>
-
-					{!patientsQuery.isLoading &&
-					!debouncedPatientQ &&
-					(patientsQuery.data?.length ?? 0) === 0 ? (
-						<EmptyState
-							title="Cadastre um paciente antes de agendar"
-							description="A agenda precisa de ao menos um paciente ativo."
-							action={
-								<Button asChild size="sm">
-									<Link href="/admin/patients/new">Novo paciente</Link>
-								</Button>
-							}
-						/>
-					) : (
-						<form
-							id="agenda-create-form"
-							className="grid gap-4 sm:grid-cols-2"
-							onSubmit={form.handleSubmit((values) =>
-								createMutation.mutate({
-									...values,
-									allowOverlap: false
-								})
-							)}
-						>
-							<div className="space-y-2 sm:col-span-2">
-								<Input
-									label={{ text: "Buscar paciente" }}
-									placeholder="Nome, telefone ou CPF…"
-									value={patientFilter}
-									onChange={(e) => setPatientFilter(e.target.value)}
-								/>
-								<Select
-									label={{ text: "Paciente", required: true }}
-									value={form.watch("patientId")}
-									onChange={(e) => onPatientChange(e.target.value)}
-									placeholder={
-										patientsQuery.isFetching
-											? "Buscando…"
-											: "Selecione…"
-									}
-									error={errors.patientId?.message}
-									options={patientOptions.map((p) => ({
-										value: p.id,
-										label: p.fullName
-									}))}
-								/>
-							</div>
-							<Select
-								className="sm:col-span-2"
-								label={{ text: "Tipo", required: true }}
-								value={form.watch("serviceTypeId")}
-								onChange={(e) => applyServiceType(e.target.value)}
-								placeholder="Selecione…"
-								error={errors.serviceTypeId?.message}
-								options={(typesQuery.data ?? [])
-									.filter((t) => t.isActive)
-									.map((t) => ({
-										value: t.id,
-										label: t.name
-									}))}
-							/>
-							<Input
-								label={{ text: "Data", required: true }}
-								type="date"
-								error={errors.scheduledDate?.message}
-								{...form.register("scheduledDate")}
-							/>
-							<Input
-								label={{ text: "Horário", required: true }}
-								type="time"
-								error={errors.scheduledTime?.message}
-								{...form.register("scheduledTime")}
-							/>
-							<Input
-								label={{ text: "Duração (min)", required: true }}
-								type="number"
-								inputMode="numeric"
-								min={5}
-								max={480}
-								error={errors.durationMinutes?.message}
-								{...form.register("durationMinutes", { valueAsNumber: true })}
-							/>
-							<Input
-								label={{ text: "Valor (R$)", required: true }}
-								type="number"
-								inputMode="decimal"
-								min={0}
-								step="0.01"
-								error={errors.valueBrl?.message}
-								{...form.register("valueBrl", { valueAsNumber: true })}
-							/>
-						</form>
-					)}
-
-					<DialogFooter className="gap-2 sm:gap-0">
-						<Button type="button" variant="ghost" onClick={closeComposer}>
-							Cancelar
-						</Button>
-						<Button
-							type="submit"
-							form="agenda-create-form"
-							className="min-h-11 sm:min-h-10"
-							disabled={createMutation.isPending}
-						>
-							{createMutation.isPending ? "Salvando…" : "Salvar agendamento"}
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
+				onClose={closeComposer}
+				onPatientFilterChange={setPatientFilter}
+				onPatientChange={onPatientChange}
+				onServiceTypeChange={applyServiceType}
+				onSubmit={(values) => createMutation.mutate(values)}
+			/>
 
 			<OverlapConfirmDialog
 				open={pendingOverlap}
@@ -629,143 +380,9 @@ export default function AgendaClient() {
 				}}
 			/>
 
-			{weekQuery.isLoading ? (
-				<div className="space-y-3">
-					<div className="flex gap-2 md:hidden">
-						{Array.from({ length: 7 }).map((_, i) => (
-							<Skeleton key={i} className="h-14 flex-1" />
-						))}
-					</div>
-					<Skeleton className="h-48 w-full md:hidden" />
-					<div className="hidden gap-3 md:grid md:grid-cols-7">
-						{Array.from({ length: 7 }).map((_, i) => (
-							<Skeleton key={i} className="h-48 w-full" />
-						))}
-					</div>
-				</div>
-			) : weekQuery.isError ? (
-				<ErrorState
-					message={(weekQuery.error as Error).message}
-					onRetry={() => weekQuery.refetch()}
-				/>
-			) : (
-				<>
-					<div className="space-y-4 md:hidden">
-						<div className="grid grid-cols-7 gap-1">
-							{days.map((day, index) => {
-								const dateStr = toDateString(day);
-								const count = sessionsByDay.get(dateStr)?.length ?? 0;
-								const isSelected = dateStr === selectedDay;
-								const isToday = dateStr === todayStr;
-
-								return (
-									<button
-										key={dateStr}
-										type="button"
-										onClick={() => setSelectedDay(dateStr)}
-										className={cn(
-											"flex min-h-14 flex-col items-center justify-center rounded-lg border px-0.5 py-1 text-center transition-colors",
-											isSelected
-												? "border-brand bg-brand/10 text-foreground"
-												: "border-border bg-card",
-											isToday && !isSelected && "border-brand/50"
-										)}
-									>
-										<span className="text-muted-foreground text-[10px] uppercase">
-											{WEEKDAY_LABELS[index].slice(0, 3)}
-										</span>
-										<span className="text-sm font-medium">
-											{day.getDate()}
-										</span>
-										{count > 0 ? (
-											<span className="bg-brand mt-0.5 size-1.5 rounded-full" />
-										) : (
-											<span className="mt-0.5 size-1.5" />
-										)}
-									</button>
-								);
-							})}
-						</div>
-
-						<div className="flex items-center justify-between gap-2">
-							<p className="text-sm font-medium">
-								{parseDateString(selectedDay).toLocaleDateString("pt-BR", {
-									weekday: "long",
-									day: "2-digit",
-									month: "long"
-								})}
-							</p>
-							<Button
-								type="button"
-								size="sm"
-								variant="outline"
-								className="min-h-11"
-								onClick={() => openComposer(selectedDay)}
-							>
-								+ Neste dia
-							</Button>
-						</div>
-
-						{mobileDaySessions.length === 0 ? (
-							<EmptyState
-								title="Sem horários neste dia"
-								description="Toque em + Neste dia para agendar."
-							/>
-						) : (
-							<ul className="space-y-2">
-								{mobileDaySessions.map((s) => (
-									<li key={s.id}>
-										<SessionCard s={s} />
-									</li>
-								))}
-							</ul>
-						)}
-					</div>
-
-					<div className="hidden gap-3 md:grid md:grid-cols-7">
-						{days.map((day, index) => {
-							const dateStr = toDateString(day);
-							const items = sessionsByDay.get(dateStr) ?? [];
-							const isToday = dateStr === todayStr;
-
-							return (
-								<section
-									key={dateStr}
-									className={cn(
-										"border-border bg-card flex min-h-48 flex-col rounded-xl border",
-										isToday && "border-brand border-2"
-									)}
-								>
-									<button
-										type="button"
-										className="hover:bg-accent/40 border-border border-b px-2 py-2 text-left"
-										onClick={() => openComposer(dateStr)}
-									>
-										<p className="text-muted-foreground text-xs tracking-wide uppercase">
-											{WEEKDAY_LABELS[index]}
-										</p>
-										<p className="text-sm font-medium">
-											{day.toLocaleDateString("pt-BR", {
-												day: "2-digit",
-												month: "2-digit"
-											})}
-										</p>
-									</button>
-									<div className="flex flex-1 flex-col gap-2 p-2">
-										{items.length === 0 ? (
-											<p className="text-muted-foreground px-1 text-xs">
-												Sem horários
-											</p>
-										) : (
-											items.map((s) => <SessionCard key={s.id} s={s} />)
-										)}
-									</div>
-								</section>
-							);
-						})}
-					</div>
-				</>
-			)}
+			{weekContent}
 		</div>
 	);
-}
+};
+
+export default AgendaClient;

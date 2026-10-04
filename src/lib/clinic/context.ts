@@ -17,7 +17,7 @@ export type ClinicContext = {
 /**
  * Exige sessão autenticada; lança Response 401 se ausente.
  */
-export async function requireUserId(): Promise<string> {
+export const requireUserId = async (): Promise<string> => {
 	const session = await auth();
 	const userId = session?.user?.id;
 	if (!userId) {
@@ -36,9 +36,9 @@ export async function requireUserId(): Promise<string> {
  * - Sem membership e staff: 403 (precisa ser convidado).
  * - Sem membership e owner sem clínica: cria clínica (bootstrap do primeiro acesso).
  */
-export async function getOrCreateClinicContext(
+export const getOrCreateClinicContext = async (
 	db: Db = getDb()
-): Promise<ClinicContext> {
+): Promise<ClinicContext> => {
 	const userId = await requireUserId();
 
 	const [membership] = await db
@@ -122,7 +122,7 @@ export async function getOrCreateClinicContext(
 /**
  * Insere os 3 tipos seed se a clínica ainda não tiver nenhum.
  */
-export async function ensureDefaultServiceTypes(db: Db, clinicId: string) {
+export const ensureDefaultServiceTypes = async (db: Db, clinicId: string) => {
 	const existing = await db
 		.select({ id: serviceTypes.id })
 		.from(serviceTypes)
@@ -147,11 +147,11 @@ export async function ensureDefaultServiceTypes(db: Db, clinicId: string) {
 /**
  * Garante membership na clínica informada (ou lança 403).
  */
-export async function assertClinicAccess(
+export const assertClinicAccess = async (
 	clinicId: string,
 	userId: string,
 	db: Db = getDb()
-) {
+) => {
 	const [row] = await db
 		.select({ role: clinicMembers.role })
 		.from(clinicMembers)

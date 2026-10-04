@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 
 import { ListSkeleton } from "@/components/admin/LoadingStates";
-import { PaginationControls } from "@/components/admin/PaginationControls";
+import PaginationControls from "@/components/admin/PaginationControls";
 import {
 	EmptyState,
 	ErrorState,
@@ -27,6 +27,7 @@ import { normalizeTime } from "@/lib/sessions/agenda";
 import { cn } from "@/utils";
 
 import type { PaginationMeta } from "@/lib/pagination";
+import type { FC, ReactNode } from "react";
 
 type FinanceSession = {
 	id: string;
@@ -54,22 +55,20 @@ type FinanceData = {
 
 type PeriodPreset = "this_month" | "last_month" | "this_year" | "all" | "custom";
 
-function pad2(n: number) {
-	return String(n).padStart(2, "0");
-}
+const pad2 = (n: number) => String(n).padStart(2, "0");
 
-function monthRange(year: number, monthIndex: number) {
+const monthRange = (year: number, monthIndex: number) => {
 	const from = `${year}-${pad2(monthIndex + 1)}-01`;
 	const lastDay = new Date(year, monthIndex + 1, 0).getDate();
 	const to = `${year}-${pad2(monthIndex + 1)}-${pad2(lastDay)}`;
 	return { from, to };
-}
+};
 
-function resolvePeriod(
+const resolvePeriod = (
 	preset: PeriodPreset,
 	customFrom: string,
 	customTo: string
-): { from?: string; to?: string } {
+): { from?: string; to?: string } => {
 	const now = new Date();
 	const y = now.getFullYear();
 	const m = now.getMonth();
@@ -85,9 +84,13 @@ function resolvePeriod(
 	}
 	if (customFrom && customTo) return { from: customFrom, to: customTo };
 	return monthRange(y, m);
-}
+};
 
-async function fetchFinance(from: string | undefined, to: string | undefined, page: number) {
+const fetchFinance = async (
+	from: string | undefined,
+	to: string | undefined,
+	page: number
+) => {
 	const params = new URLSearchParams({
 		page: String(page),
 		pageSize: "20"
@@ -103,20 +106,19 @@ async function fetchFinance(from: string | undefined, to: string | undefined, pa
 		data: json.data as FinanceData,
 		meta: json.meta as PaginationMeta
 	};
-}
+};
 
-function formatDatePt(value: string) {
+const formatDatePt = (value: string) => {
 	const [y, m, d] = value.split("-");
 	if (!y || !m || !d) return value;
 	return `${d}/${m}/${y}`;
-}
+};
 
-function formatBrl(value: string | number) {
-	return Number(value).toLocaleString("pt-BR", {
+const formatBrl = (value: string | number) =>
+	Number(value).toLocaleString("pt-BR", {
 		style: "currency",
 		currency: "BRL"
 	});
-}
 
 const PRESETS: Array<{ id: PeriodPreset; label: string }> = [
 	{ id: "this_month", label: "Este mês" },
@@ -126,7 +128,7 @@ const PRESETS: Array<{ id: PeriodPreset; label: string }> = [
 	{ id: "custom", label: "Personalizado" }
 ];
 
-export default function FinancePage() {
+const FinancePage: FC = () => {
 	usePageTitle("Financeiro");
 
 	const now = new Date();
@@ -164,6 +166,180 @@ export default function FinancePage() {
 			? `${formatDatePt(period.from)} – ${formatDatePt(period.to)}`
 			: "Todo o período";
 
+	let kpiSection: ReactNode;
+	if (query.isLoading) {
+		kpiSection = (
+			<div className="grid gap-4 sm:grid-cols-3">
+				<Skeleton className="h-28 w-full" />
+				<Skeleton className="h-28 w-full" />
+				<Skeleton className="h-28 w-full" />
+			</div>
+		);
+	} else if (query.isError) {
+		kpiSection = (
+			<ErrorState
+				message={(query.error as Error).message}
+				onRetry={() => query.refetch()}
+			/>
+		);
+	} else {
+		kpiSection = (
+			<div className="grid gap-4 sm:grid-cols-3">
+				<Card>
+					<CardHeader>
+						<CardTitle>Recebido</CardTitle>
+						<CardDescription>Sessões pagas no período</CardDescription>
+					</CardHeader>
+					<CardContent>
+						<p className="text-2xl font-medium">
+							{formatBrl(kpis?.receivedTotal ?? 0)}
+						</p>
+					</CardContent>
+				</Card>
+				<Card>
+					<CardHeader>
+						<CardTitle>A receber</CardTitle>
+						<CardDescription>
+							{kpis?.pendingCount ?? 0} pendente(s)
+						</CardDescription>
+					</CardHeader>
+					<CardContent>
+						<p className="text-2xl font-medium">
+							{formatBrl(kpis?.pendingTotal ?? 0)}
+						</p>
+					</CardContent>
+				</Card>
+				<Card>
+					<CardHeader>
+						<CardTitle>Realizados</CardTitle>
+						<CardDescription>Sessões no período</CardDescription>
+					</CardHeader>
+					<CardContent>
+						<p className="text-2xl font-medium">{kpis?.completedCount ?? 0}</p>
+					</CardContent>
+				</Card>
+			</div>
+		);
+	}
+
+	let sessionsBody: ReactNode;
+	if (customInvalid) {
+		sessionsBody = (
+			<EmptyState
+				title="Período inválido"
+				description="Ajuste as datas personalizadas para carregar."
+			/>
+		);
+	} else if (query.isLoading) {
+		sessionsBody = <ListSkeleton rows={2} rowClassName="h-12 w-full" />;
+	} else if (query.isError) {
+		sessionsBody = null;
+	} else if (sessions.length === 0) {
+		sessionsBody = (
+			<EmptyState
+				title="Nenhuma sessão no período"
+				description="Conclua atendimentos na agenda ou amplie o filtro."
+				action={
+					<div className="flex flex-wrap gap-2">
+						<Button asChild size="sm">
+							<Link href="/admin/agenda">Abrir agenda</Link>
+						</Button>
+						<Button
+							type="button"
+							size="sm"
+							variant="outline"
+							onClick={() => setPreset("all")}
+						>
+							Ver tudo
+						</Button>
+					</div>
+				}
+			/>
+		);
+	} else {
+		sessionsBody = (
+			<div className="space-y-4">
+				<ul className="divide-border divide-y">
+					{sessions.map((row) => (
+						<li
+							key={row.id}
+							className={cn(
+								"flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"
+							)}
+						>
+							<div className="min-w-0 space-y-1">
+								<p className="font-medium">{row.patientName}</p>
+								<p className="text-muted-foreground text-sm">
+									{formatDatePt(row.scheduledDate)} ·{" "}
+									{normalizeTime(String(row.scheduledTime)).slice(0, 5)} ·{" "}
+									{row.serviceTypeName} · {formatBrl(row.valueBrl)}
+								</p>
+								<div className="flex flex-wrap gap-2">
+									{row.paid ? (
+										<Badge>
+											Pago
+											{row.paidAt ? ` · ${formatDatePt(row.paidAt)}` : ""}
+										</Badge>
+									) : (
+										<Badge variant="secondary">Em aberto</Badge>
+									)}
+									{row.invoiceIssued ? (
+										<Badge variant="outline">NFS-e</Badge>
+									) : null}
+								</div>
+							</div>
+							<Button
+								asChild
+								variant="outline"
+								size="sm"
+								className="min-h-11 sm:min-h-9"
+							>
+								<Link href={`/admin/sessions/${row.id}?mode=finance`}>
+									Abrir
+								</Link>
+							</Button>
+						</li>
+					))}
+				</ul>
+				{meta ? (
+					<PaginationControls
+						page={meta.page}
+						totalPages={meta.totalPages}
+						total={meta.total}
+						pageSize={meta.pageSize}
+						pending={query.isFetching}
+						onPageChange={setPage}
+					/>
+				) : null}
+			</div>
+		);
+	}
+
+	const customPeriodFields =
+		preset === "custom" ? (
+			<div className="grid gap-4 sm:grid-cols-2">
+				<Input
+					label={{ text: "De", required: true }}
+					type="date"
+					value={customFrom}
+					max={customTo || undefined}
+					onChange={(e) => setCustomFrom(e.target.value)}
+					error={
+						customInvalid && customFrom > customTo
+							? "Data inicial depois da final."
+							: undefined
+					}
+				/>
+				<Input
+					label={{ text: "Até", required: true }}
+					type="date"
+					value={customTo}
+					min={customFrom || undefined}
+					onChange={(e) => setCustomTo(e.target.value)}
+				/>
+			</div>
+		) : null;
+
 	return (
 		<div className="space-y-6">
 			<PageHeader
@@ -196,82 +372,11 @@ export default function FinancePage() {
 							</Button>
 						))}
 					</div>
-					{preset === "custom" ? (
-						<div className="grid gap-4 sm:grid-cols-2">
-							<Input
-								label={{ text: "De", required: true }}
-								type="date"
-								value={customFrom}
-								max={customTo || undefined}
-								onChange={(e) => setCustomFrom(e.target.value)}
-								error={
-									customInvalid && customFrom > customTo
-										? "Data inicial depois da final."
-										: undefined
-								}
-							/>
-							<Input
-								label={{ text: "Até", required: true }}
-								type="date"
-								value={customTo}
-								min={customFrom || undefined}
-								onChange={(e) => setCustomTo(e.target.value)}
-							/>
-						</div>
-					) : null}
+					{customPeriodFields}
 				</CardContent>
 			</Card>
 
-			{query.isLoading ? (
-				<div className="grid gap-4 sm:grid-cols-3">
-					<Skeleton className="h-28 w-full" />
-					<Skeleton className="h-28 w-full" />
-					<Skeleton className="h-28 w-full" />
-				</div>
-			) : query.isError ? (
-				<ErrorState
-					message={(query.error as Error).message}
-					onRetry={() => query.refetch()}
-				/>
-			) : (
-				<div className="grid gap-4 sm:grid-cols-3">
-					<Card>
-						<CardHeader>
-							<CardTitle>Recebido</CardTitle>
-							<CardDescription>Sessões pagas no período</CardDescription>
-						</CardHeader>
-						<CardContent>
-							<p className="text-2xl font-medium">
-								{formatBrl(kpis?.receivedTotal ?? 0)}
-							</p>
-						</CardContent>
-					</Card>
-					<Card>
-						<CardHeader>
-							<CardTitle>A receber</CardTitle>
-							<CardDescription>
-								{kpis?.pendingCount ?? 0} pendente(s)
-							</CardDescription>
-						</CardHeader>
-						<CardContent>
-							<p className="text-2xl font-medium">
-								{formatBrl(kpis?.pendingTotal ?? 0)}
-							</p>
-						</CardContent>
-					</Card>
-					<Card>
-						<CardHeader>
-							<CardTitle>Realizados</CardTitle>
-							<CardDescription>Sessões no período</CardDescription>
-						</CardHeader>
-						<CardContent>
-							<p className="text-2xl font-medium">
-								{kpis?.completedCount ?? 0}
-							</p>
-						</CardContent>
-					</Card>
-				</div>
-			)}
+			{kpiSection}
 
 			<Card>
 				<CardHeader>
@@ -280,94 +385,10 @@ export default function FinancePage() {
 						Abra para marcar pago, data de pagamento e NFS-e.
 					</CardDescription>
 				</CardHeader>
-				<CardContent>
-					{customInvalid ? (
-						<EmptyState
-							title="Período inválido"
-							description="Ajuste as datas personalizadas para carregar."
-						/>
-					) : query.isLoading ? (
-						<ListSkeleton rows={2} rowClassName="h-12 w-full" />
-					) : query.isError ? null : sessions.length === 0 ? (
-						<EmptyState
-							title="Nenhuma sessão no período"
-							description="Conclua atendimentos na agenda ou amplie o filtro."
-							action={
-								<div className="flex flex-wrap gap-2">
-									<Button asChild size="sm">
-										<Link href="/admin/agenda">Abrir agenda</Link>
-									</Button>
-									<Button
-										type="button"
-										size="sm"
-										variant="outline"
-										onClick={() => setPreset("all")}
-									>
-										Ver tudo
-									</Button>
-								</div>
-							}
-						/>
-					) : (
-						<>
-							<ul className="divide-border divide-y">
-								{sessions.map((row) => (
-									<li
-										key={row.id}
-										className={cn(
-											"flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"
-										)}
-									>
-										<div className="min-w-0 space-y-1">
-											<p className="font-medium">{row.patientName}</p>
-											<p className="text-muted-foreground text-sm">
-												{formatDatePt(row.scheduledDate)} ·{" "}
-												{normalizeTime(String(row.scheduledTime)).slice(0, 5)} ·{" "}
-												{row.serviceTypeName} · {formatBrl(row.valueBrl)}
-											</p>
-											<div className="flex flex-wrap gap-2">
-												{row.paid ? (
-													<Badge>
-														Pago
-														{row.paidAt
-															? ` · ${formatDatePt(row.paidAt)}`
-															: ""}
-													</Badge>
-												) : (
-													<Badge variant="secondary">Em aberto</Badge>
-												)}
-												{row.invoiceIssued ? (
-													<Badge variant="outline">NFS-e</Badge>
-												) : null}
-											</div>
-										</div>
-										<Button
-											asChild
-											variant="outline"
-											size="sm"
-											className="min-h-11 sm:min-h-9"
-										>
-											<Link href={`/admin/sessions/${row.id}?mode=finance`}>
-												Abrir
-											</Link>
-										</Button>
-									</li>
-								))}
-							</ul>
-							{meta ? (
-								<PaginationControls
-									page={meta.page}
-									totalPages={meta.totalPages}
-									total={meta.total}
-									pageSize={meta.pageSize}
-									pending={query.isFetching}
-									onPageChange={setPage}
-								/>
-							) : null}
-						</>
-					)}
-				</CardContent>
+				<CardContent>{sessionsBody}</CardContent>
 			</Card>
 		</div>
 	);
-}
+};
+
+export default FinancePage;

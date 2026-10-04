@@ -8,7 +8,7 @@ import { getOrCreateClinicContext } from "@/lib/clinic/context";
 /**
  * Dados do usuário autenticado na clínica atual.
  */
-export async function GET() {
+export const GET = async () => {
 	try {
 		const ctx = await getOrCreateClinicContext();
 		const db = getDb();

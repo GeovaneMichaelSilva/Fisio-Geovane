@@ -10,7 +10,7 @@ import { writeSessionAudit } from "@/lib/sessions/audit";
 import { getOverlappingSessions } from "@/lib/sessions/overlap";
 import { sessionCreateSchema } from "@/lib/sessions/schema";
 
-export async function GET(request: Request) {
+export const GET = async (request: Request) => {
 	try {
 		const ctx = await getOrCreateClinicContext();
 		const { searchParams } = new URL(request.url);
@@ -135,7 +135,7 @@ export async function GET(request: Request) {
 	}
 }
 
-export async function POST(request: Request) {
+export const POST = async (request: Request) => {
 	try {
 		const ctx = await getOrCreateClinicContext();
 		const body = await request.json();

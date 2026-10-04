@@ -16,7 +16,7 @@ import { sessionUpdateSchema } from "@/lib/sessions/schema";
 
 type Params = { params: Promise<{ sessionId: string }> };
 
-export async function GET(_request: Request, { params }: Params) {
+export const GET = async (_request: Request, { params }: Params) => {
 	try {
 		const { sessionId } = await params;
 		const ctx = await getOrCreateClinicContext();
@@ -99,7 +99,7 @@ export async function GET(_request: Request, { params }: Params) {
 	}
 }
 
-export async function PUT(request: Request, { params }: Params) {
+export const PUT = async (request: Request, { params }: Params) => {
 	try {
 		const { sessionId } = await params;
 		const ctx = await getOrCreateClinicContext();

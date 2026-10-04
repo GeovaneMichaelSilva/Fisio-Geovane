@@ -18,7 +18,7 @@ export const paginationQuerySchema = z.object({
 
 export type PaginationQuery = z.infer<typeof paginationQuerySchema>;
 
-export function parsePagination(searchParams: URLSearchParams): PaginationQuery {
+export const parsePagination = (searchParams: URLSearchParams): PaginationQuery => {
 	const parsed = paginationQuerySchema.safeParse({
 		page: searchParams.get("page") ?? undefined,
 		pageSize: searchParams.get("pageSize") ?? undefined
@@ -29,11 +29,11 @@ export function parsePagination(searchParams: URLSearchParams): PaginationQuery 
 	return parsed.data;
 }
 
-export function paginationMeta(
+export const paginationMeta = (
 	total: number,
 	page: number,
 	pageSize: number
-) {
+) => {
 	const totalPages = Math.max(1, Math.ceil(total / pageSize));
 	const safePage = Math.min(page, totalPages);
 	return {

@@ -11,17 +11,17 @@ import {
 	parseOAuthState
 } from "@/lib/google-drive/oauth";
 
-function redirectIntegrations(query: string) {
+const redirectIntegrations = (query: string) => {
 	const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 	return NextResponse.redirect(
 		new URL(`/admin/settings/integrations?${query}`, base)
 	);
-}
+};
 
 /**
  * Callback OAuth Google Drive — troca code por tokens e persiste na clínica.
  */
-export async function GET(request: Request) {
+export const GET = async (request: Request) => {
 	try {
 		const session = await auth();
 		if (!session?.user?.id) {

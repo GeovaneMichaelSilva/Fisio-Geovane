@@ -3,8 +3,11 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import { AdminNav } from "./AdminNav";
-import { SignOutButton } from "./SignOutButton";
+import AdminNav from "./AdminNav";
+import UserMenu from "./UserMenu";
+
+import type { FC, ReactNode } from "react";
+import type { ComponentPropsWithoutRef } from "react";
 
 const navItems = [
 	{ href: "/admin", label: "Início", short: "Início" },
@@ -16,19 +19,25 @@ const navItems = [
 ];
 
 type AdminShellProps = {
+	name?: string | null;
 	email?: string | null;
-	children: React.ReactNode;
-};
+	children: ReactNode;
+} & ComponentPropsWithoutRef<"div">;
 
 /**
  * Shell do admin (client): header + nav inferior no mobile / superior no desktop.
  */
-export function AdminShell({ email, children }: AdminShellProps) {
+const AdminShell: FC<AdminShellProps> = (props) => {
+	const { name, email, children, ...restProps } = props;
+
 	return (
-		<div className="bg-background flex min-h-dvh flex-col">
+		<div className="bg-background flex min-h-dvh flex-col" {...restProps}>
 			<header className="border-border bg-primary text-primary-foreground border-b-brand sticky top-0 z-40 border-b-4">
 				<div className="mx-auto flex max-w-6xl items-center gap-3 px-3 py-3 sm:gap-4 sm:px-4 sm:py-4">
-					<Link href="/admin" className="flex min-w-0 shrink items-center gap-2.5 sm:gap-3">
+					<Link
+						href="/admin"
+						className="flex min-w-0 shrink items-center gap-2.5 sm:gap-3"
+					>
 						<Image
 							src="/brand/logo-mark.png"
 							alt="Geovane Michael da Silva"
@@ -45,23 +54,8 @@ export function AdminShell({ email, children }: AdminShellProps) {
 							</p>
 						</div>
 					</Link>
-					<div className="ml-auto flex shrink-0 items-center gap-2">
-						{email ? (
-							<Link
-								href="/admin/settings/account"
-								className="text-primary-foreground/80 hover:text-primary-foreground hidden max-w-[180px] truncate text-sm underline-offset-2 hover:underline lg:inline"
-								title="Conta e senha"
-							>
-								{email}
-							</Link>
-						) : null}
-						<Link
-							href="/admin/settings/account"
-							className="text-primary-foreground/90 hover:bg-primary-foreground/10 rounded-md px-2 py-1.5 text-sm lg:hidden"
-						>
-							Conta
-						</Link>
-						<SignOutButton />
+					<div className="ml-auto shrink-0">
+						<UserMenu name={name} email={email} />
 					</div>
 				</div>
 				{/* Desktop / tablet: nav no topo */}
@@ -80,4 +74,6 @@ export function AdminShell({ email, children }: AdminShellProps) {
 			</div>
 		</div>
 	);
-}
+};
+
+export default AdminShell;

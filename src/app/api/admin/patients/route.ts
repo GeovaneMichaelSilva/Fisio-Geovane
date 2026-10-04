@@ -7,7 +7,7 @@ import { getOrCreateClinicContext } from "@/lib/clinic/context";
 import { paginationMeta, parsePagination } from "@/lib/pagination";
 import { digitsOnly, patientFormSchema } from "@/lib/patients/schema";
 
-export async function GET(request: Request) {
+export const GET = async (request: Request) => {
 	try {
 		const ctx = await getOrCreateClinicContext();
 		const { searchParams } = new URL(request.url);
@@ -75,7 +75,7 @@ export async function GET(request: Request) {
 	}
 }
 
-export async function POST(request: Request) {
+export const POST = async (request: Request) => {
 	try {
 		const ctx = await getOrCreateClinicContext();
 		const body = await request.json();

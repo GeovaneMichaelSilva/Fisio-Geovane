@@ -2,6 +2,8 @@
 
 import { Button } from "@/components/ui/Button";
 
+import type { ComponentPropsWithoutRef, FC } from "react";
+
 type PaginationControlsProps = {
 	page: number;
 	totalPages: number;
@@ -9,26 +11,34 @@ type PaginationControlsProps = {
 	pageSize: number;
 	pending?: boolean;
 	onPageChange: (page: number) => void;
-};
+} & ComponentPropsWithoutRef<"div">;
 
 /**
  * Controles de paginação simples (anterior / próxima + contagem).
  */
-export function PaginationControls({
-	page,
-	totalPages,
-	total,
-	pageSize,
-	pending = false,
-	onPageChange
-}: PaginationControlsProps) {
-	if (total === 0) return null;
+const PaginationControls: FC<PaginationControlsProps> = (props) => {
+	const {
+		page,
+		totalPages,
+		total,
+		pageSize,
+		pending = false,
+		onPageChange,
+		...restProps
+	} = props;
+
+	if (total === 0) {
+		return null;
+	}
 
 	const from = (page - 1) * pageSize + 1;
 	const to = Math.min(page * pageSize, total);
 
 	return (
-		<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+		<div
+			className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+			{...restProps}
+		>
 			<p className="text-muted-foreground text-sm">
 				{from}–{to} de {total}
 			</p>
@@ -59,4 +69,6 @@ export function PaginationControls({
 			</div>
 		</div>
 	);
-}
+};
+
+export default PaginationControls;

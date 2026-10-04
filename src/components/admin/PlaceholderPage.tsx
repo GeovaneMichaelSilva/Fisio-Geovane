@@ -9,33 +9,33 @@ import {
 } from "@/components/ui/Card";
 import { usePageTitle } from "@/hooks/usePageTitle";
 
+import type { ComponentPropsWithoutRef, FC } from "react";
+
 type PlaceholderPageProps = {
 	title: string;
 	description: string;
 	soon?: boolean;
-};
+} & ComponentPropsWithoutRef<"div">;
 
-export function PlaceholderPage({
-	title,
-	description,
-	soon = false
-}: PlaceholderPageProps) {
+const PlaceholderPage: FC<PlaceholderPageProps> = (props) => {
+	const { title, description, soon = false, ...restProps } = props;
 	usePageTitle(title);
 
+	const cardTitle = soon ? "Em breve" : "Em construção";
+	const cardDescription = soon
+		? "Esta área está no roadmap e ainda não foi implementada."
+		: "Estrutura pronta — funcionalidade será implementada na sequência do MVP.";
+
 	return (
-		<div className="space-y-4">
+		<div className="space-y-4" {...restProps}>
 			<div>
 				<h1 className="text-2xl font-medium">{title}</h1>
 				<p className="text-muted-foreground text-sm">{description}</p>
 			</div>
 			<Card>
 				<CardHeader>
-					<CardTitle>{soon ? "Em breve" : "Em construção"}</CardTitle>
-					<CardDescription>
-						{soon
-							? "Esta área está no roadmap e ainda não foi implementada."
-							: "Estrutura pronta — funcionalidade será implementada na sequência do MVP."}
-					</CardDescription>
+					<CardTitle>{cardTitle}</CardTitle>
+					<CardDescription>{cardDescription}</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<p className="text-muted-foreground text-sm">
@@ -46,4 +46,6 @@ export function PlaceholderPage({
 			</Card>
 		</div>
 	);
-}
+};
+
+export default PlaceholderPage;

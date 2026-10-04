@@ -10,7 +10,7 @@ import { serviceTypeUpdateSchema } from "@/lib/service-types/schema";
 
 type Params = { params: Promise<{ id: string }> };
 
-export async function PATCH(request: Request, { params }: Params) {
+export const PATCH = async (request: Request, { params }: Params) => {
 	try {
 		const { id } = await params;
 		const ctx = await getOrCreateClinicContext();

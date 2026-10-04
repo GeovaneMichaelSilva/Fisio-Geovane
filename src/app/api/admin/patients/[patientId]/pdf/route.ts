@@ -10,7 +10,7 @@ type Params = { params: Promise<{ patientId: string }> };
 /**
  * Dados para exportação PDF do histórico clínico do paciente.
  */
-export async function GET(_request: Request, { params }: Params) {
+export const GET = async (_request: Request, { params }: Params) => {
 	try {
 		const { patientId } = await params;
 		const ctx = await getOrCreateClinicContext();

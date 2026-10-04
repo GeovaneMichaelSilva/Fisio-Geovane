@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import { AuthBrand } from "@/components/auth/AuthBrand";
+import AuthBrand from "@/components/auth/AuthBrand";
 import { Button } from "@/components/ui/Button";
 import {
 	Card,
@@ -21,7 +21,9 @@ import {
 	type ResetPasswordValues
 } from "@/lib/auth/schema";
 
-export default function UpdatePasswordClient() {
+import type { FC, ReactNode } from "react";
+
+const UpdatePasswordClient: FC = () => {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const token = searchParams.get("token") || "";
@@ -36,7 +38,7 @@ export default function UpdatePasswordClient() {
 		}
 	});
 
-	async function onSubmit(values: ResetPasswordValues) {
+	const onSubmit = async (values: ResetPasswordValues) => {
 		setError(null);
 		const res = await fetch("/api/auth/reset-password", {
 			method: "POST",
@@ -58,6 +60,29 @@ export default function UpdatePasswordClient() {
 
 		router.replace("/login");
 		router.refresh();
+	};
+
+	let missingTokenNode: ReactNode = null;
+	if (!token) {
+		missingTokenNode = (
+			<p className="text-destructive text-sm" role="alert">
+				Token ausente. Abra o link enviado por e-mail.
+			</p>
+		);
+	}
+
+	let errorNode: ReactNode = null;
+	if (error) {
+		errorNode = (
+			<p className="text-destructive text-sm" role="alert">
+				{error}
+			</p>
+		);
+	}
+
+	let submitLabel = "Salvar senha";
+	if (form.formState.isSubmitting) {
+		submitLabel = "Salvando…";
 	}
 
 	return (
@@ -76,11 +101,7 @@ export default function UpdatePasswordClient() {
 						className="space-y-4"
 						noValidate
 					>
-						{!token ? (
-							<p className="text-destructive text-sm" role="alert">
-								Token ausente. Abra o link enviado por e-mail.
-							</p>
-						) : null}
+						{missingTokenNode}
 						<input type="hidden" {...form.register("token")} />
 						<Input
 							label={{ text: "Nova senha", required: true }}
@@ -96,17 +117,13 @@ export default function UpdatePasswordClient() {
 							error={form.formState.errors.confirmPassword?.message}
 							{...form.register("confirmPassword")}
 						/>
-						{error ? (
-							<p className="text-destructive text-sm" role="alert">
-								{error}
-							</p>
-						) : null}
+						{errorNode}
 						<Button
 							type="submit"
 							className="w-full"
 							disabled={form.formState.isSubmitting || !token}
 						>
-							{form.formState.isSubmitting ? "Salvando…" : "Salvar senha"}
+							{submitLabel}
 						</Button>
 						<p className="text-muted-foreground text-center text-sm">
 							<Link href="/login" className="text-primary hover:underline">
@@ -118,4 +135,6 @@ export default function UpdatePasswordClient() {
 			</Card>
 		</main>
 	);
-}
+};
+
+export default UpdatePasswordClient;

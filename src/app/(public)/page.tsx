@@ -1,6 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import type { FC } from "react";
+
 export const metadata = {
 	title: "Geovane Michael da Silva — Fisioterapeuta",
 	description:
@@ -11,7 +13,7 @@ export const metadata = {
 /**
  * Landing pública — marca em primeiro plano.
  */
-export default function HomePage() {
+const HomePage: FC = () => {
 	return (
 		<main className="bg-background text-foreground relative min-h-dvh overflow-hidden">
 			<div
@@ -64,4 +66,6 @@ export default function HomePage() {
 			</div>
 		</main>
 	);
-}
+};
+
+export default HomePage;

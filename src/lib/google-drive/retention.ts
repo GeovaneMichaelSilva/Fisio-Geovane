@@ -11,11 +11,11 @@ export type DriveFileRef = {
 /**
  * Retorna arquivos com idade maior que retentionDays (a partir de now).
  */
-export function filesOlderThanRetention(
+export const filesOlderThanRetention = (
 	files: DriveFileRef[],
 	now: Date = new Date(),
 	retentionDays: number = BACKUP_RETENTION_DAYS
-): DriveFileRef[] {
+): DriveFileRef[] => {
 	const cutoffMs = now.getTime() - retentionDays * 24 * 60 * 60 * 1000;
 	return files.filter((f) => {
 		if (!f.createdTime) return false;
@@ -28,7 +28,7 @@ export function filesOlderThanRetention(
 /**
  * Nome do arquivo de backup no Drive.
  */
-export function buildBackupFileName(clinicId: string, at: Date = new Date()) {
+export const buildBackupFileName = (clinicId: string, at: Date = new Date()) => {
 	const stamp = at.toISOString().replace(/[:.]/g, "-");
 	return `${BACKUP_FILE_PREFIX}${clinicId.slice(0, 8)}-${stamp}.json`;
 }
@@ -36,7 +36,7 @@ export function buildBackupFileName(clinicId: string, at: Date = new Date()) {
 /**
  * Autoriza chamada de cron via Bearer CRON_SECRET.
  */
-export function authorizeCronRequest(request: Request): boolean {
+export const authorizeCronRequest = (request: Request): boolean => {
 	const secret = process.env.CRON_SECRET?.trim();
 	if (!secret) return false;
 	const header = request.headers.get("authorization") ?? "";

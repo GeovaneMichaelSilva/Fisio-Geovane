@@ -21,7 +21,7 @@ const mappingsSchema = z.object({
  * Atualiza o mapa Tipo de atendimento → agenda Google.
  * `null` = usar agenda padrão da conexão.
  */
-export async function PUT(request: Request) {
+export const PUT = async (request: Request) => {
 	try {
 		const ctx = await getOrCreateClinicContext();
 		requireOwner(ctx);

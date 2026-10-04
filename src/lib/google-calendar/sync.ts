@@ -26,7 +26,7 @@ type SessionForSync = {
 	googleCalendarId: string | null;
 };
 
-function pad2(n: number) {
+const pad2 = (n: number) => {
 	return String(n).padStart(2, "0");
 }
 
@@ -34,11 +34,11 @@ function pad2(n: number) {
  * Soma minutos a data/hora local abstrata (sem TZ do servidor).
  * Retorna `{ date, time }` em YYYY-MM-DD / HH:mm:ss.
  */
-export function addMinutesWallClock(
+export const addMinutesWallClock = (
 	date: string,
 	time: string,
 	minutes: number
-) {
+) => {
 	const normalized = normalizeTime(time);
 	const [y, mo, d] = date.split("-").map(Number);
 	const [hh, mm, ss] = normalized.split(":").map(Number);
@@ -50,7 +50,7 @@ export function addMinutesWallClock(
 	};
 }
 
-function toGoogleDateTime(date: string, time: string) {
+const toGoogleDateTime = (date: string, time: string) => {
 	const t = normalizeTime(time);
 	return `${date}T${t.length === 5 ? `${t}:00` : t}`;
 }
@@ -62,11 +62,11 @@ const STATUS_LABEL: Record<string, string> = {
 	no_show: "Faltou"
 };
 
-async function calendarFetch(
+const calendarFetch = async (
 	accessToken: string,
 	path: string,
 	init?: RequestInit
-) {
+) => {
 	const res = await fetch(`https://www.googleapis.com/calendar/v3${path}`, {
 		...init,
 		headers: {
@@ -88,7 +88,7 @@ async function calendarFetch(
 	return json as { id?: string };
 }
 
-async function loadSyncContext(session: SessionForSync, db: Db) {
+const loadSyncContext = async (session: SessionForSync, db: Db) => {
 	const [row] = await db
 		.select({
 			patientName: patients.fullName,
@@ -110,11 +110,11 @@ async function loadSyncContext(session: SessionForSync, db: Db) {
 	return row;
 }
 
-function buildEventBody(
+const buildEventBody = (
 	session: SessionForSync,
 	ctx: Awaited<ReturnType<typeof loadSyncContext>>,
 	appUrl: string
-) {
+) => {
 	const start = toGoogleDateTime(
 		session.scheduledDate,
 		String(session.scheduledTime)
@@ -152,10 +152,10 @@ export type GoogleSyncResult =
 /**
  * Remove vínculos Google das sessões da clínica (após desconectar / trocar conta).
  */
-export async function clearClinicGoogleEventLinks(
+export const clearClinicGoogleEventLinks = async (
 	clinicId: string,
 	db: Db = getDb()
-) {
+) => {
 	await db
 		.update(sessions)
 		.set({
@@ -169,11 +169,11 @@ export async function clearClinicGoogleEventLinks(
 /**
  * Espelha a sessão no Google Agenda. Não lança — retorna status para a UI.
  */
-export async function syncSessionToGoogleCalendar(
+export const syncSessionToGoogleCalendar = async (
 	sessionId: string,
 	clinicId: string,
 	db: Db = getDb()
-): Promise<GoogleSyncResult> {
+): Promise<GoogleSyncResult> => {
 	try {
 		const auth = await getValidAccessToken(clinicId, db);
 		if (!auth) return { status: "skipped" };
@@ -295,10 +295,10 @@ export type GoogleRestoreResult = {
  * Recria/atualiza no Google os agendamentos ativos da clínica
  * (agendados + realizados a partir de hoje).
  */
-export async function restoreClinicSessionsToGoogle(
+export const restoreClinicSessionsToGoogle = async (
 	clinicId: string,
 	db: Db = getDb()
-): Promise<GoogleRestoreResult> {
+): Promise<GoogleRestoreResult> => {
 	const auth = await getValidAccessToken(clinicId, db);
 	if (!auth) {
 		return { total: 0, synced: 0, errors: 0, skipped: 0 };
@@ -339,10 +339,10 @@ export async function restoreClinicSessionsToGoogle(
 /**
  * Limpa mapeamentos Tipo → agenda (útil ao trocar de conta Google).
  */
-export async function clearServiceTypeCalendarMappings(
+export const clearServiceTypeCalendarMappings = async (
 	clinicId: string,
 	db: Db = getDb()
-) {
+) => {
 	await db
 		.update(serviceTypes)
 		.set({ googleCalendarId: null, updatedAt: new Date() })

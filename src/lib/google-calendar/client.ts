@@ -10,14 +10,14 @@ import type { Db } from "@/db";
 /**
  * Retorna access token válido para a clínica, renovando se necessário.
  */
-export async function getValidAccessToken(
+export const getValidAccessToken = async (
 	clinicId: string,
 	db: Db = getDb()
 ): Promise<{
 	accessToken: string;
 	calendarId: string;
 	connectionId: string;
-} | null> {
+} | null> => {
 	const [conn] = await db
 		.select()
 		.from(googleCalendarConnections)

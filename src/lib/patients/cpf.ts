@@ -1,7 +1,7 @@
 /**
  * Remove caracteres não numéricos do CPF.
  */
-export function digitsOnlyCpf(value: string): string {
+export const digitsOnlyCpf = (value: string): string => {
 	return value.replace(/\D/g, "");
 }
 
@@ -9,7 +9,7 @@ export function digitsOnlyCpf(value: string): string {
  * Valida CPF brasileiro (11 dígitos + dígitos verificadores).
  * Aceita vazio como “não informado”.
  */
-export function isValidCpf(value: string | null | undefined): boolean {
+export const isValidCpf = (value: string | null | undefined): boolean => {
 	const cpf = digitsOnlyCpf(value ?? "");
 	if (cpf.length === 0) return true;
 	if (cpf.length !== 11) return false;
@@ -32,7 +32,7 @@ export function isValidCpf(value: string | null | undefined): boolean {
 /**
  * Formata CPF como 000.000.000-00 (só se tiver 11 dígitos).
  */
-export function formatCpf(value: string | null | undefined): string {
+export const formatCpf = (value: string | null | undefined): string => {
 	const cpf = digitsOnlyCpf(value ?? "");
 	if (cpf.length !== 11) return cpf;
 	return `${cpf.slice(0, 3)}.${cpf.slice(3, 6)}.${cpf.slice(6, 9)}-${cpf.slice(9)}`;

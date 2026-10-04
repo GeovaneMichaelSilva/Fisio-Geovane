@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
 
 const ALGO = "aes-256-gcm";
 
-function getKey() {
+const getKey = () => {
 	const secret = process.env.AUTH_SECRET;
 	if (!secret) {
 		throw new Error("AUTH_SECRET is not set");
@@ -14,7 +14,7 @@ function getKey() {
  * Criptografa texto sensível (ex.: refresh_token do Google).
  * Formato: base64(iv).base64(tag).base64(ciphertext)
  */
-export function encryptSecret(plain: string): string {
+export const encryptSecret = (plain: string): string => {
 	const iv = randomBytes(12);
 	const cipher = createCipheriv(ALGO, getKey(), iv);
 	const encrypted = Buffer.concat([
@@ -28,7 +28,7 @@ export function encryptSecret(plain: string): string {
 /**
  * Descriptografa valor gerado por encryptSecret.
  */
-export function decryptSecret(payload: string): string {
+export const decryptSecret = (payload: string): string => {
 	const [ivB64, tagB64, dataB64] = payload.split(".");
 	if (!ivB64 || !tagB64 || !dataB64) {
 		throw new Error("Payload criptografado inválido.");

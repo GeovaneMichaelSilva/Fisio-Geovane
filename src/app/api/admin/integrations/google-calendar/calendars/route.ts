@@ -8,7 +8,7 @@ import { getValidAccessToken } from "@/lib/google-calendar/client";
 /**
  * Lista agendas Google da conta conectada (com permissão de escrita).
  */
-export async function GET() {
+export const GET = async () => {
 	try {
 		const ctx = await getOrCreateClinicContext();
 		requireOwner(ctx);

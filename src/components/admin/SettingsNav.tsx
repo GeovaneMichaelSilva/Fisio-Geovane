@@ -6,10 +6,16 @@ import { usePathname } from "next/navigation";
 import { useClinicRole } from "@/hooks/useClinicRole";
 import { cn } from "@/utils";
 
+import type { ComponentPropsWithoutRef, FC } from "react";
+
+type SettingsNavProps = ComponentPropsWithoutRef<"nav">;
+
 /**
- * Subnav das configurações (itens sensíveis só para owner).
+ * Subnav das configurações da clínica (itens sensíveis só para owner).
+ * Conta do usuário fica em /admin/account (fora daqui).
  */
-export function SettingsNav() {
+const SettingsNav: FC<SettingsNavProps> = (props) => {
+	const { ...restProps } = props;
 	const pathname = usePathname();
 	const { isOwner, isLoading } = useClinicRole();
 
@@ -18,11 +24,6 @@ export function SettingsNav() {
 		{
 			href: "/admin/settings/service-types",
 			label: "Tipos de atendimento",
-			ownerOnly: false
-		},
-		{
-			href: "/admin/settings/account",
-			label: "Conta",
 			ownerOnly: false
 		},
 		{
@@ -38,11 +39,15 @@ export function SettingsNav() {
 	].filter((item) => !item.ownerOnly || isOwner || isLoading);
 
 	return (
-		<nav className="flex flex-wrap gap-2">
+		<nav className="flex flex-wrap gap-2" {...restProps}>
 			{items.map((item) => {
 				const active = item.exact
 					? pathname === item.href
 					: pathname.startsWith(item.href);
+
+				const activeClass = active
+					? "bg-primary text-primary-foreground font-medium"
+					: "bg-secondary text-secondary-foreground hover:bg-secondary-hover";
 
 				return (
 					<Link
@@ -50,9 +55,7 @@ export function SettingsNav() {
 						href={item.href}
 						className={cn(
 							"rounded-md px-3 py-1.5 text-sm transition-colors",
-							active
-								? "bg-primary text-primary-foreground font-medium"
-								: "bg-secondary text-secondary-foreground hover:bg-secondary-hover"
+							activeClass
 						)}
 					>
 						{item.label}
@@ -61,4 +64,6 @@ export function SettingsNav() {
 			})}
 		</nav>
 	);
-}
+};
+
+export default SettingsNav;

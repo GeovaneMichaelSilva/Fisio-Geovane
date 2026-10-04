@@ -1,7 +1,7 @@
 /**
  * Gera slug único a partir do nome (pt-BR, sem acento).
  */
-export function slugify(input: string): string {
+export const slugify = (input: string): string => {
 	return input
 		.normalize("NFD")
 		.replace(/[\u0300-\u036f]/g, "")

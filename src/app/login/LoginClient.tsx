@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signIn } from "next-auth/react";
 
-import { AuthBrand } from "@/components/auth/AuthBrand";
+import AuthBrand from "@/components/auth/AuthBrand";
 import { Button } from "@/components/ui/Button";
 import {
 	Card,
@@ -19,7 +19,9 @@ import {
 import { Input } from "@/components/ui/Input";
 import { loginSchema, type LoginValues } from "@/lib/auth/schema";
 
-export default function LoginClient() {
+import type { FC, ReactNode } from "react";
+
+const LoginClient: FC = () => {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const next = searchParams.get("next") || "/admin";
@@ -30,7 +32,7 @@ export default function LoginClient() {
 		defaultValues: { email: "", password: "" }
 	});
 
-	async function onSubmit(values: LoginValues) {
+	const onSubmit = async (values: LoginValues) => {
 		setAuthError(null);
 		const result = await signIn("credentials", {
 			email: values.email,
@@ -45,6 +47,20 @@ export default function LoginClient() {
 
 		router.replace(next);
 		router.refresh();
+	};
+
+	let authErrorNode: ReactNode = null;
+	if (authError) {
+		authErrorNode = (
+			<p className="text-destructive text-sm" role="alert">
+				{authError}
+			</p>
+		);
+	}
+
+	let submitLabel = "Entrar";
+	if (form.formState.isSubmitting) {
+		submitLabel = "Entrando…";
 	}
 
 	return (
@@ -77,17 +93,13 @@ export default function LoginClient() {
 							error={form.formState.errors.password?.message}
 							{...form.register("password")}
 						/>
-						{authError ? (
-							<p className="text-destructive text-sm" role="alert">
-								{authError}
-							</p>
-						) : null}
+						{authErrorNode}
 						<Button
 							type="submit"
 							className="w-full"
 							disabled={form.formState.isSubmitting}
 						>
-							{form.formState.isSubmitting ? "Entrando…" : "Entrar"}
+							{submitLabel}
 						</Button>
 						<p className="text-muted-foreground text-center text-sm">
 							<Link
@@ -102,4 +114,6 @@ export default function LoginClient() {
 			</Card>
 		</main>
 	);
-}
+};
+
+export default LoginClient;

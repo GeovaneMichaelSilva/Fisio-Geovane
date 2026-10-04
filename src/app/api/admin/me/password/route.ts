@@ -10,7 +10,7 @@ import { requireUserId } from "@/lib/clinic/context";
 /**
  * Troca a senha do usuário autenticado (owner ou staff).
  */
-export async function PUT(request: Request) {
+export const PUT = async (request: Request) => {
 	try {
 		const userId = await requireUserId();
 		const body = await request.json();

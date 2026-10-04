@@ -8,7 +8,7 @@ import { toast } from "sonner";
 
 import { FormSkeleton } from "@/components/admin/LoadingStates";
 import { ErrorState, PageHeader } from "@/components/admin/PageStates";
-import { SettingsNav } from "@/components/admin/SettingsNav";
+import SettingsNav from "@/components/admin/SettingsNav";
 import { Button } from "@/components/ui/Button";
 import {
 	Card,
@@ -26,6 +26,8 @@ import {
 	type ClinicUpdateParsed
 } from "@/lib/clinic/schema";
 
+import type { FC, ReactNode } from "react";
+
 type Clinic = {
 	id: string;
 	displayName: string;
@@ -35,14 +37,14 @@ type Clinic = {
 	defaultSessionDurationMinutes: number;
 };
 
-async function fetchClinic(): Promise<Clinic> {
+const fetchClinic = async (): Promise<Clinic> => {
 	const res = await fetch("/api/admin/clinic");
 	const json = await res.json();
 	if (!res.ok) throw new Error(json.error || "Falha ao carregar.");
 	return json.data;
-}
+};
 
-export default function SettingsPage() {
+const SettingsPage: FC = () => {
 	usePageTitle("Configurações");
 	const queryClient = useQueryClient();
 	const { isOwner, isLoading: roleLoading } = useClinicRole();
@@ -94,12 +96,84 @@ export default function SettingsPage() {
 		onError: (err: Error) => toast.error(err.message)
 	});
 
+	const readOnlyHint =
+		!roleLoading && !canEdit ? " Somente o responsável pode editar." : "";
+
+	let clinicFormBody: ReactNode;
+	if (clinicQuery.isLoading) {
+		clinicFormBody = <FormSkeleton />;
+	} else if (clinicQuery.isError) {
+		clinicFormBody = (
+			<ErrorState
+				message={(clinicQuery.error as Error).message}
+				onRetry={() => clinicQuery.refetch()}
+			/>
+		);
+	} else {
+		clinicFormBody = (
+			<form
+				className="grid max-w-xl gap-4"
+				onSubmit={form.handleSubmit((values) => {
+					if (!canEdit) return;
+					saveMutation.mutate(values);
+				})}
+			>
+				<fieldset disabled={!canEdit} className="grid gap-4 disabled:opacity-80">
+					<Input
+						label={{ text: "Nome exibido", required: true }}
+						error={form.formState.errors.displayName?.message}
+						{...form.register("displayName")}
+					/>
+					<Input
+						label={{ text: "Profissão", required: true }}
+						helperText="Aparece no cabeçalho do PDF (ex.: Fisioterapeuta)."
+						error={form.formState.errors.professionLabel?.message}
+						{...form.register("professionLabel")}
+					/>
+					<Input
+						label={{ text: "Crefito / registro" }}
+						helperText="Ex.: 549225-F"
+						error={form.formState.errors.licenseNumber?.message}
+						{...form.register("licenseNumber")}
+					/>
+					<Input
+						label={{ text: "Fuso horário", required: true }}
+						error={form.formState.errors.timezone?.message}
+						{...form.register("timezone")}
+					/>
+					<Input
+						label={{
+							text: "Duração padrão da sessão (min)",
+							required: true
+						}}
+						type="number"
+						min={5}
+						max={480}
+						error={
+							form.formState.errors.defaultSessionDurationMinutes?.message
+						}
+						{...form.register("defaultSessionDurationMinutes", {
+							valueAsNumber: true
+						})}
+					/>
+				</fieldset>
+				{canEdit ? (
+					<div>
+						<Button type="submit" disabled={saveMutation.isPending}>
+							{saveMutation.isPending ? "Salvando…" : "Salvar"}
+						</Button>
+					</div>
+				) : null}
+			</form>
+		);
+	}
+
 	return (
 		<div className="space-y-6">
 			<div className="space-y-3">
 				<PageHeader
 					title="Configurações"
-					description="Clínica, tipos, conta (senha) e integrações."
+					description="Dados da clínica, tipos de atendimento, equipe e integrações."
 				/>
 				<SettingsNav />
 			</div>
@@ -109,78 +183,13 @@ export default function SettingsPage() {
 					<CardTitle>Clínica</CardTitle>
 					<CardDescription>
 						Nome profissional, registro e duração padrão das sessões.
-						{!roleLoading && !canEdit
-							? " Somente o responsável pode editar."
-							: ""}
+						{readOnlyHint}
 					</CardDescription>
 				</CardHeader>
-				<CardContent>
-					{clinicQuery.isLoading ? (
-						<FormSkeleton />
-					) : clinicQuery.isError ? (
-						<ErrorState
-							message={(clinicQuery.error as Error).message}
-							onRetry={() => clinicQuery.refetch()}
-						/>
-					) : (
-						<form
-							className="grid max-w-xl gap-4"
-							onSubmit={form.handleSubmit((values) => {
-								if (!canEdit) return;
-								saveMutation.mutate(values);
-							})}
-						>
-							<fieldset disabled={!canEdit} className="grid gap-4 disabled:opacity-80">
-								<Input
-									label={{ text: "Nome exibido", required: true }}
-									error={form.formState.errors.displayName?.message}
-									{...form.register("displayName")}
-								/>
-								<Input
-									label={{ text: "Profissão", required: true }}
-									helperText="Aparece no cabeçalho do PDF (ex.: Fisioterapeuta)."
-									error={form.formState.errors.professionLabel?.message}
-									{...form.register("professionLabel")}
-								/>
-								<Input
-									label={{ text: "Crefito / registro" }}
-									helperText="Ex.: 549225-F"
-									error={form.formState.errors.licenseNumber?.message}
-									{...form.register("licenseNumber")}
-								/>
-								<Input
-									label={{ text: "Fuso horário", required: true }}
-									error={form.formState.errors.timezone?.message}
-									{...form.register("timezone")}
-								/>
-								<Input
-									label={{
-										text: "Duração padrão da sessão (min)",
-										required: true
-									}}
-									type="number"
-									min={5}
-									max={480}
-									error={
-										form.formState.errors.defaultSessionDurationMinutes
-											?.message
-									}
-									{...form.register("defaultSessionDurationMinutes", {
-										valueAsNumber: true
-									})}
-								/>
-							</fieldset>
-							{canEdit ? (
-								<div>
-									<Button type="submit" disabled={saveMutation.isPending}>
-										{saveMutation.isPending ? "Salvando…" : "Salvar"}
-									</Button>
-								</div>
-							) : null}
-						</form>
-					)}
-				</CardContent>
+				<CardContent>{clinicFormBody}</CardContent>
 			</Card>
 		</div>
 	);
-}
+};
+
+export default SettingsPage;

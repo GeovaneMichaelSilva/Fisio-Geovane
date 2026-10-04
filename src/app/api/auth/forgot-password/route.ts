@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { forgotPasswordSchema } from "@/lib/auth/schema";
 import { requestPasswordReset } from "@/lib/auth/password-reset";
 
-export async function POST(request: Request) {
+export const POST = async (request: Request) => {
 	try {
 		const json = await request.json();
 		const parsed = forgotPasswordSchema.safeParse(json);

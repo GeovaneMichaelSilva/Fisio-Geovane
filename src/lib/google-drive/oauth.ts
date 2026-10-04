@@ -14,7 +14,7 @@ const DRIVE_SCOPES = [
 	"profile"
 ].join(" ");
 
-function requireGoogleEnv() {
+const requireGoogleEnv = () => {
 	const clientId = process.env.GOOGLE_CLIENT_ID;
 	const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
 	if (!clientId || !clientSecret) {
@@ -25,13 +25,13 @@ function requireGoogleEnv() {
 	return { clientId, clientSecret };
 }
 
-export function isGoogleDriveConfigured() {
+export const isGoogleDriveConfigured = () => {
 	return Boolean(
 		process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
 	);
 }
 
-export function getGoogleDriveRedirectUri() {
+export const getGoogleDriveRedirectUri = () => {
 	const explicit = process.env.GOOGLE_DRIVE_REDIRECT_URI?.trim();
 	if (explicit) return explicit;
 	const base =
@@ -40,7 +40,7 @@ export function getGoogleDriveRedirectUri() {
 	return `${base}/api/admin/integrations/google-drive/callback`;
 }
 
-export function buildGoogleDriveAuthUrl(state: string) {
+export const buildGoogleDriveAuthUrl = (state: string) => {
 	const { clientId } = requireGoogleEnv();
 	const params = new URLSearchParams({
 		client_id: clientId,
@@ -55,7 +55,7 @@ export function buildGoogleDriveAuthUrl(state: string) {
 	return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
 }
 
-export async function exchangeDriveCodeForTokens(code: string) {
+export const exchangeDriveCodeForTokens = async (code: string) => {
 	const { clientId, clientSecret } = requireGoogleEnv();
 	const res = await fetch("https://oauth2.googleapis.com/token", {
 		method: "POST",

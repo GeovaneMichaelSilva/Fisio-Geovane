@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 
 import { ListSkeleton } from "@/components/admin/LoadingStates";
-import { PaginationControls } from "@/components/admin/PaginationControls";
+import PaginationControls from "@/components/admin/PaginationControls";
 import {
 	EmptyState,
 	ErrorState,
@@ -26,6 +26,7 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { normalizeTime } from "@/lib/sessions/agenda";
 
 import type { PaginationMeta } from "@/lib/pagination";
+import type { FC, ReactNode } from "react";
 
 type RecordItem = {
 	id: string;
@@ -40,7 +41,7 @@ type RecordItem = {
 	evolution: string | null;
 };
 
-async function fetchRecords(q: string, page: number) {
+const fetchRecords = async (q: string, page: number) => {
 	const params = new URLSearchParams({
 		status: "completed",
 		page: String(page),
@@ -55,22 +56,21 @@ async function fetchRecords(q: string, page: number) {
 		data: json.data as RecordItem[],
 		meta: json.meta as PaginationMeta
 	};
-}
+};
 
-function formatBrl(value: string) {
-	return Number(value).toLocaleString("pt-BR", {
+const formatBrl = (value: string) =>
+	Number(value).toLocaleString("pt-BR", {
 		style: "currency",
 		currency: "BRL"
 	});
-}
 
-function formatDatePt(value: string) {
+const formatDatePt = (value: string) => {
 	const [y, m, d] = value.split("-");
 	if (!y || !m || !d) return value;
 	return `${d}/${m}/${y}`;
-}
+};
 
-export default function RecordsPage() {
+const RecordsPage: FC = () => {
 	usePageTitle("Atendimentos");
 	const [q, setQ] = useState("");
 	const search = useDebounce(q, 300).trim();
@@ -87,6 +87,92 @@ export default function RecordsPage() {
 
 	const rows = listQuery.data?.data ?? [];
 	const meta = listQuery.data?.meta;
+
+	let listBody: ReactNode;
+	if (listQuery.isLoading) {
+		listBody = <ListSkeleton />;
+	} else if (listQuery.isError) {
+		listBody = (
+			<ErrorState
+				message={(listQuery.error as Error).message}
+				onRetry={() => listQuery.refetch()}
+			/>
+		);
+	} else if (rows.length === 0) {
+		listBody = (
+			<EmptyState
+				title={
+					search
+						? "Nenhum atendimento encontrado"
+						: "Nenhum atendimento realizado"
+				}
+				description={
+					search
+						? "Tente outro nome."
+						: "Conclua uma sessão na agenda para aparecer aqui."
+				}
+				action={
+					!search ? (
+						<Button asChild size="sm">
+							<Link href="/admin/agenda">Abrir agenda</Link>
+						</Button>
+					) : null
+				}
+			/>
+		);
+	} else {
+		listBody = (
+			<div className="space-y-4">
+				<ul className="divide-border divide-y">
+					{rows.map((row) => (
+						<li
+							key={row.id}
+							className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"
+						>
+							<div className="min-w-0 space-y-1">
+								<p className="font-medium">{row.patientName}</p>
+								<p className="text-muted-foreground text-sm">
+									{formatDatePt(row.scheduledDate)} ·{" "}
+									{normalizeTime(String(row.scheduledTime)).slice(0, 5)} ·{" "}
+									{row.serviceTypeName} · {formatBrl(row.valueBrl)}
+								</p>
+								<div className="flex flex-wrap gap-2">
+									{row.paid ? (
+										<Badge>Pago</Badge>
+									) : (
+										<Badge variant="secondary">Em aberto</Badge>
+									)}
+									{row.invoiceIssued ? (
+										<Badge variant="outline">NFS-e</Badge>
+									) : null}
+								</div>
+							</div>
+							<Button
+								asChild
+								variant="outline"
+								size="sm"
+								className="min-h-11 sm:min-h-9"
+							>
+								<Link href={`/admin/sessions/${row.id}?mode=clinical`}>
+									Abrir
+								</Link>
+							</Button>
+						</li>
+					))}
+				</ul>
+				{meta ? (
+					<PaginationControls
+						page={meta.page}
+						totalPages={meta.totalPages}
+						total={meta.total}
+						pageSize={meta.pageSize}
+						pending={listQuery.isFetching}
+						onPageChange={setPage}
+					/>
+				) : null}
+			</div>
+		);
+	}
 
 	return (
 		<div className="space-y-6">
@@ -119,87 +205,11 @@ export default function RecordsPage() {
 						onChange={(e) => setQ(e.target.value)}
 						autoComplete="off"
 					/>
-
-					{listQuery.isLoading ? (
-						<ListSkeleton />
-					) : listQuery.isError ? (
-						<ErrorState
-							message={(listQuery.error as Error).message}
-							onRetry={() => listQuery.refetch()}
-						/>
-					) : rows.length === 0 ? (
-						<EmptyState
-							title={
-								search
-									? "Nenhum atendimento encontrado"
-									: "Nenhum atendimento realizado"
-							}
-							description={
-								search
-									? "Tente outro nome."
-									: "Conclua uma sessão na agenda para aparecer aqui."
-							}
-							action={
-								!search ? (
-									<Button asChild size="sm">
-										<Link href="/admin/agenda">Abrir agenda</Link>
-									</Button>
-								) : null
-							}
-						/>
-					) : (
-						<>
-							<ul className="divide-border divide-y">
-								{rows.map((row) => (
-									<li
-										key={row.id}
-										className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"
-									>
-										<div className="min-w-0 space-y-1">
-											<p className="font-medium">{row.patientName}</p>
-											<p className="text-muted-foreground text-sm">
-												{formatDatePt(row.scheduledDate)} ·{" "}
-												{normalizeTime(String(row.scheduledTime)).slice(0, 5)} ·{" "}
-												{row.serviceTypeName} · {formatBrl(row.valueBrl)}
-											</p>
-											<div className="flex flex-wrap gap-2">
-												{row.paid ? (
-													<Badge>Pago</Badge>
-												) : (
-													<Badge variant="secondary">Em aberto</Badge>
-												)}
-												{row.invoiceIssued ? (
-													<Badge variant="outline">NFS-e</Badge>
-												) : null}
-											</div>
-										</div>
-										<Button
-											asChild
-											variant="outline"
-											size="sm"
-											className="min-h-11 sm:min-h-9"
-										>
-											<Link href={`/admin/sessions/${row.id}?mode=clinical`}>
-												Abrir
-											</Link>
-										</Button>
-									</li>
-								))}
-							</ul>
-							{meta ? (
-								<PaginationControls
-									page={meta.page}
-									totalPages={meta.totalPages}
-									total={meta.total}
-									pageSize={meta.pageSize}
-									pending={listQuery.isFetching}
-									onPageChange={setPage}
-								/>
-							) : null}
-						</>
-					)}
+					{listBody}
 				</CardContent>
 			</Card>
 		</div>
 	);
-}
+};
+
+export default RecordsPage;

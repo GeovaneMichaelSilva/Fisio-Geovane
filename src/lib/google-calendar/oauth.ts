@@ -17,7 +17,7 @@ export type GoogleTokenResponse = {
 	id_token?: string;
 };
 
-function requireGoogleEnv() {
+const requireGoogleEnv = () => {
 	const clientId = process.env.GOOGLE_CLIENT_ID;
 	const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
 	if (!clientId || !clientSecret) {
@@ -28,13 +28,13 @@ function requireGoogleEnv() {
 	return { clientId, clientSecret };
 }
 
-export function isGoogleCalendarConfigured() {
+export const isGoogleCalendarConfigured = () => {
 	return Boolean(
 		process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
 	);
 }
 
-export function getGoogleRedirectUri() {
+export const getGoogleRedirectUri = () => {
 	const explicit = process.env.GOOGLE_REDIRECT_URI?.trim();
 	if (explicit) return explicit;
 	const base =
@@ -43,7 +43,7 @@ export function getGoogleRedirectUri() {
 	return `${base}/api/admin/integrations/google-calendar/callback`;
 }
 
-function signState(payload: string) {
+const signState = (payload: string) => {
 	const secret = process.env.AUTH_SECRET;
 	if (!secret) throw new Error("AUTH_SECRET is not set");
 	return createHmac("sha256", secret).update(payload).digest("base64url");
@@ -52,17 +52,17 @@ function signState(payload: string) {
 /**
  * Gera state CSRF assinado: nonce.userId.clinicId.exp.sig
  */
-export function createOAuthState(userId: string, clinicId: string) {
+export const createOAuthState = (userId: string, clinicId: string) => {
 	const nonce = randomBytes(16).toString("hex");
 	const exp = String(Date.now() + 10 * 60 * 1000);
 	const body = `${nonce}.${userId}.${clinicId}.${exp}`;
 	return `${body}.${signState(body)}`;
 }
 
-export function parseOAuthState(state: string): {
+export const parseOAuthState = (state: string): {
 	userId: string;
 	clinicId: string;
-} {
+} => {
 	const parts = state.split(".");
 	if (parts.length !== 5) throw new Error("State OAuth inválido.");
 	const [nonce, userId, clinicId, exp, sig] = parts;
@@ -79,7 +79,7 @@ export function parseOAuthState(state: string): {
 	return { userId, clinicId };
 }
 
-export function buildGoogleAuthUrl(state: string) {
+export const buildGoogleAuthUrl = (state: string) => {
 	const { clientId } = requireGoogleEnv();
 	const params = new URLSearchParams({
 		client_id: clientId,
@@ -94,7 +94,7 @@ export function buildGoogleAuthUrl(state: string) {
 	return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
 }
 
-export async function exchangeCodeForTokens(code: string) {
+export const exchangeCodeForTokens = async (code: string) => {
 	const { clientId, clientSecret } = requireGoogleEnv();
 	const res = await fetch("https://oauth2.googleapis.com/token", {
 		method: "POST",
@@ -114,7 +114,7 @@ export async function exchangeCodeForTokens(code: string) {
 	return json;
 }
 
-export async function refreshAccessToken(refreshToken: string) {
+export const refreshAccessToken = async (refreshToken: string) => {
 	const { clientId, clientSecret } = requireGoogleEnv();
 	const res = await fetch("https://oauth2.googleapis.com/token", {
 		method: "POST",
@@ -133,7 +133,7 @@ export async function refreshAccessToken(refreshToken: string) {
 	return json;
 }
 
-export async function fetchGoogleAccountEmail(accessToken: string) {
+export const fetchGoogleAccountEmail = async (accessToken: string) => {
 	const res = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
 		headers: { Authorization: `Bearer ${accessToken}` }
 	});
@@ -147,7 +147,7 @@ export async function fetchGoogleAccountEmail(accessToken: string) {
 /**
  * Revoga o refresh token no Google (best-effort).
  */
-export async function revokeGoogleToken(token: string) {
+export const revokeGoogleToken = async (token: string) => {
 	try {
 		await fetch("https://oauth2.googleapis.com/revoke", {
 			method: "POST",

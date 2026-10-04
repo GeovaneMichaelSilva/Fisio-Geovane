@@ -11,7 +11,7 @@ type Params = { params: Promise<{ userId: string }> };
 /**
  * Remove membro da clínica — só owner.
  */
-export async function DELETE(_request: Request, { params }: Params) {
+export const DELETE = async (_request: Request, { params }: Params) => {
 	try {
 		const { userId } = await params;
 		const ctx = await getOrCreateClinicContext();

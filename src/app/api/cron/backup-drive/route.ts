@@ -7,15 +7,7 @@ import { authorizeCronRequest } from "@/lib/google-drive/retention";
  * Cron diário: backup no Drive para todas as clínicas conectadas.
  * Protegido por Authorization: Bearer CRON_SECRET.
  */
-export async function GET(request: Request) {
-	return handle(request);
-}
-
-export async function POST(request: Request) {
-	return handle(request);
-}
-
-async function handle(request: Request) {
+const handle = async (request: Request) => {
 	if (!authorizeCronRequest(request)) {
 		return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
 	}
@@ -30,4 +22,12 @@ async function handle(request: Request) {
 			{ status: 500 }
 		);
 	}
-}
+};
+
+export const GET = async (request: Request) => {
+	return handle(request);
+};
+
+export const POST = async (request: Request) => {
+	return handle(request);
+};

@@ -3,12 +3,12 @@ import { z } from "zod";
 import { isValidCpf } from "@/lib/patients/cpf";
 
 /** Mantém só dígitos. */
-export function digitsOnly(value: string | null | undefined): string {
+export const digitsOnly = (value: string | null | undefined): string => {
 	return (value ?? "").replace(/\D/g, "");
 }
 
 /** String vazia / só espaços → null. */
-export function emptyToNull(value: string | null | undefined): string | null {
+export const emptyToNull = (value: string | null | undefined): string | null => {
 	const t = (value ?? "").trim();
 	return t === "" ? null : t;
 }
@@ -98,7 +98,7 @@ export const patientFormSchema = z.object({
 export type PatientFormValues = z.input<typeof patientFormSchema>;
 export type PatientFormParsed = z.output<typeof patientFormSchema>;
 
-export function patientToFormValues(patient: {
+export const patientToFormValues = (patient: {
 	fullName: string;
 	phone: string | null;
 	cpf: string | null;
@@ -112,7 +112,7 @@ export function patientToFormValues(patient: {
 	addressCity: string | null;
 	addressZip: string | null;
 	notes: string | null;
-}): PatientFormValues {
+}): PatientFormValues => {
 	return {
 		fullName: patient.fullName,
 		phone: patient.phone ?? "",

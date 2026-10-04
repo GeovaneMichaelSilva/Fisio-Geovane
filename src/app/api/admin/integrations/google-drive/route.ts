@@ -12,7 +12,7 @@ import { BACKUP_RETENTION_DAYS } from "@/lib/google-drive/retention";
 /**
  * Status da conexão Google Drive (backup) da clínica.
  */
-export async function GET() {
+export const GET = async () => {
 	try {
 		const ctx = await getOrCreateClinicContext();
 		const configured = isGoogleDriveConfigured();
@@ -77,7 +77,7 @@ export async function GET() {
 /**
  * Desconecta Google Drive e revoga token (best-effort).
  */
-export async function DELETE() {
+export const DELETE = async () => {
 	try {
 		const ctx = await getOrCreateClinicContext();
 		requireOwner(ctx);

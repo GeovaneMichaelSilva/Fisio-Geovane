@@ -1,7 +1,8 @@
 import Link from "next/link";
 
-import { LegalLayout } from "@/components/site/LegalLayout";
+import LegalLayout from "@/components/site/LegalLayout";
 
+import type { FC } from "react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -17,7 +18,7 @@ const UPDATED = "4 de outubro de 2026";
 /**
  * Política de privacidade da presença pública do site.
  */
-export default function PrivacyPage() {
+const PrivacyPage: FC = () => {
 	return (
 		<LegalLayout title="Política de Privacidade" updated={UPDATED}>
 			<h2>1. Apresentação</h2>
@@ -117,4 +118,6 @@ export default function PrivacyPage() {
 			</p>
 		</LegalLayout>
 	);
-}
+};
+
+export default PrivacyPage;

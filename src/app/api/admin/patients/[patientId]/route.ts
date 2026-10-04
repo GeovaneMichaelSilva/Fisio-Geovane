@@ -8,7 +8,7 @@ import { patientFormSchema } from "@/lib/patients/schema";
 
 type Params = { params: Promise<{ patientId: string }> };
 
-export async function GET(_request: Request, { params }: Params) {
+export const GET = async (_request: Request, { params }: Params) => {
 	try {
 		const { patientId } = await params;
 		const ctx = await getOrCreateClinicContext();
@@ -94,7 +94,7 @@ export async function GET(_request: Request, { params }: Params) {
 	}
 }
 
-export async function PUT(request: Request, { params }: Params) {
+export const PUT = async (request: Request, { params }: Params) => {
 	try {
 		const { patientId } = await params;
 		const ctx = await getOrCreateClinicContext();

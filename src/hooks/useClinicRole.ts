@@ -11,17 +11,17 @@ type MeData = {
 	clinicName: string;
 };
 
-async function fetchMe() {
+const fetchMe = async () => {
 	const res = await fetch("/api/admin/me");
 	const json = await res.json();
 	if (!res.ok) throw new Error(json.error || "Falha ao carregar perfil.");
 	return json.data as MeData;
-}
+};
 
 /**
  * Papel do usuário na clínica atual.
  */
-export function useClinicRole() {
+export const useClinicRole = () => {
 	const query = useQuery({
 		queryKey: ["me"],
 		queryFn: fetchMe,
@@ -37,4 +37,4 @@ export function useClinicRole() {
 		isError: query.isError,
 		refetch: query.refetch
 	};
-}
+};

@@ -11,7 +11,7 @@ import { teamMemberCreateSchema } from "@/lib/team/schema";
 /**
  * Lista membros da clínica.
  */
-export async function GET() {
+export const GET = async () => {
 	try {
 		const ctx = await getOrCreateClinicContext();
 		const db = getDb();
@@ -49,7 +49,7 @@ export async function GET() {
 /**
  * Adiciona membro (cria usuário se necessário) — só owner.
  */
-export async function POST(request: Request) {
+export const POST = async (request: Request) => {
 	try {
 		const ctx = await getOrCreateClinicContext();
 		requireOwner(ctx);

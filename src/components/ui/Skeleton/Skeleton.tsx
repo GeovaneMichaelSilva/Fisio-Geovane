@@ -1,14 +1,16 @@
 import { cn } from "@/utils";
 
-import type { HTMLAttributes } from "react";
+import type { FC, HTMLAttributes } from "react";
 
-function Skeleton({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+const Skeleton: FC<HTMLAttributes<HTMLDivElement>> = (props) => {
+	const { className, ...restProps } = props;
+
 	return (
 		<div
 			className={cn("bg-muted animate-pulse rounded-md", className)}
-			{...props}
+			{...restProps}
 		/>
 	);
-}
+};
 
 export { Skeleton };

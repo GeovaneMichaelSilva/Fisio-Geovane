@@ -9,9 +9,9 @@ export type GoogleCalendarListItem = {
 	backgroundColor?: string;
 };
 
-export async function listGoogleCalendars(
+export const listGoogleCalendars = async (
 	accessToken: string
-): Promise<GoogleCalendarListItem[]> {
+): Promise<GoogleCalendarListItem[]> => {
 	const items: GoogleCalendarListItem[] = [];
 	let pageToken: string | undefined;
 
@@ -66,10 +66,10 @@ export async function listGoogleCalendars(
 /**
  * Resolve agenda alvo: tipo → padrão da conexão → primary.
  */
-export function resolveTargetCalendarId(input: {
+export const resolveTargetCalendarId = (input: {
 	serviceTypeCalendarId: string | null | undefined;
 	connectionDefaultCalendarId: string | null | undefined;
-}): string {
+}): string => {
 	return (
 		input.serviceTypeCalendarId?.trim() ||
 		input.connectionDefaultCalendarId?.trim() ||

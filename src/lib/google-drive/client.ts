@@ -10,7 +10,7 @@ import type { Db } from "@/db";
 /**
  * Retorna access token válido do Drive para a clínica, renovando se necessário.
  */
-export async function getValidDriveAccessToken(
+export const getValidDriveAccessToken = async (
 	clinicId: string,
 	db: Db = getDb()
 ): Promise<{
@@ -18,7 +18,7 @@ export async function getValidDriveAccessToken(
 	folderId: string | null;
 	connectionId: string;
 	googleAccountEmail: string;
-} | null> {
+} | null> => {
 	const [conn] = await db
 		.select()
 		.from(googleDriveConnections)

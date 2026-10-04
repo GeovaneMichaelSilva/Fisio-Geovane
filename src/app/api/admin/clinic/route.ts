@@ -7,7 +7,7 @@ import { getOrCreateClinicContext } from "@/lib/clinic/context";
 import { requireOwner } from "@/lib/clinic/rbac";
 import { clinicUpdateSchema } from "@/lib/clinic/schema";
 
-export async function GET() {
+export const GET = async () => {
 	try {
 		const ctx = await getOrCreateClinicContext();
 		return NextResponse.json({ data: ctx.clinic });
@@ -21,7 +21,7 @@ export async function GET() {
 	}
 }
 
-export async function PUT(request: Request) {
+export const PUT = async (request: Request) => {
 	try {
 		const ctx = await getOrCreateClinicContext();
 		requireOwner(ctx);

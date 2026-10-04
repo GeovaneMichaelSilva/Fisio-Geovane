@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { resetPasswordApiSchema } from "@/lib/auth/schema";
 import { resetPasswordWithToken } from "@/lib/auth/password-reset";
 
-export async function POST(request: Request) {
+export const POST = async (request: Request) => {
 	try {
 		const json = await request.json();
 		const parsed = resetPasswordApiSchema.safeParse(json);

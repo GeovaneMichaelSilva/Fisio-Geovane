@@ -2,7 +2,7 @@ import { cva } from "class-variance-authority";
 
 import { cn } from "@/utils";
 
-import type { HTMLAttributes } from "react";
+import type { FC, HTMLAttributes } from "react";
 import type { VariantProps } from "class-variance-authority";
 
 const badgeVariants = cva(
@@ -29,11 +29,16 @@ const badgeVariants = cva(
 type BadgeProps = HTMLAttributes<HTMLDivElement> &
 	VariantProps<typeof badgeVariants>;
 
-function Badge({ className, variant, ...props }: BadgeProps) {
+const Badge: FC<BadgeProps> = (props) => {
+	const { className, variant, ...restProps } = props;
+
 	return (
-		<div className={cn(badgeVariants({ variant }), className)} {...props} />
+		<div
+			className={cn(badgeVariants({ variant }), className)}
+			{...restProps}
+		/>
 	);
-}
+};
 
 export { Badge, badgeVariants };
 export type { BadgeProps };

@@ -1,9 +1,11 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import type { ReactNode } from "react";
+import { cn } from "@/utils";
 
-type LegalLayoutProps = {
+import type { FC, HTMLAttributes, ReactNode } from "react";
+
+type LegalLayoutProps = HTMLAttributes<HTMLElement> & {
 	title: string;
 	updated: string;
 	children: ReactNode;
@@ -12,9 +14,14 @@ type LegalLayoutProps = {
 /**
  * Layout simples para páginas jurídicas públicas (termos / privacidade).
  */
-export function LegalLayout({ title, updated, children }: LegalLayoutProps) {
+const LegalLayout: FC<LegalLayoutProps> = (props) => {
+	const { title, updated, children, className, ...restProps } = props;
+
 	return (
-		<main className="bg-background text-foreground min-h-dvh">
+		<main
+			className={cn("bg-background text-foreground min-h-dvh", className)}
+			{...restProps}
+		>
 			<header className="border-border bg-primary text-primary-foreground border-b-brand border-b-4">
 				<div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-4 sm:px-6">
 					<Link href="/" className="flex min-w-0 items-center gap-3">
@@ -48,8 +55,11 @@ export function LegalLayout({ title, updated, children }: LegalLayoutProps) {
 			</article>
 
 			<footer className="border-border text-muted-foreground border-t py-8 text-center text-xs">
-				<div className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-x-4 gap-y-2 px-4">
-					<Link href="/" className="hover:text-foreground underline-offset-4 hover:underline">
+				<nav className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-x-4 gap-y-2 px-4">
+					<Link
+						href="/"
+						className="hover:text-foreground underline-offset-4 hover:underline"
+					>
 						Início
 					</Link>
 					<Link
@@ -64,7 +74,7 @@ export function LegalLayout({ title, updated, children }: LegalLayoutProps) {
 					>
 						Termos de uso
 					</Link>
-				</div>
+				</nav>
 				<p className="mt-3">
 					© 2026 Geovane Michael da Silva. Todos os direitos reservados.
 				</p>
@@ -104,4 +114,6 @@ export function LegalLayout({ title, updated, children }: LegalLayoutProps) {
 			`}</style>
 		</main>
 	);
-}
+};
+
+export default LegalLayout;

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import { AuthBrand } from "@/components/auth/AuthBrand";
+import AuthBrand from "@/components/auth/AuthBrand";
 import { Button } from "@/components/ui/Button";
 import {
 	Card,
@@ -20,7 +20,9 @@ import {
 	type ForgotPasswordValues
 } from "@/lib/auth/schema";
 
-export default function ForgotPasswordPage() {
+import type { FC, ReactNode } from "react";
+
+const ForgotPasswordPage: FC = () => {
 	const [message, setMessage] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
 
@@ -29,7 +31,7 @@ export default function ForgotPasswordPage() {
 		defaultValues: { email: "" }
 	});
 
-	async function onSubmit(values: ForgotPasswordValues) {
+	const onSubmit = async (values: ForgotPasswordValues) => {
 		setError(null);
 		setMessage(null);
 
@@ -47,6 +49,29 @@ export default function ForgotPasswordPage() {
 		setMessage(
 			"Se o e-mail existir, você receberá um link para redefinir a senha."
 		);
+	};
+
+	let errorNode: ReactNode = null;
+	if (error) {
+		errorNode = (
+			<p className="text-destructive text-sm" role="alert">
+				{error}
+			</p>
+		);
+	}
+
+	let messageNode: ReactNode = null;
+	if (message) {
+		messageNode = (
+			<p className="text-success text-sm" role="status">
+				{message}
+			</p>
+		);
+	}
+
+	let submitLabel = "Enviar link";
+	if (form.formState.isSubmitting) {
+		submitLabel = "Enviando…";
 	}
 
 	return (
@@ -74,22 +99,14 @@ export default function ForgotPasswordPage() {
 							error={form.formState.errors.email?.message}
 							{...form.register("email")}
 						/>
-						{error ? (
-							<p className="text-destructive text-sm" role="alert">
-								{error}
-							</p>
-						) : null}
-						{message ? (
-							<p className="text-success text-sm" role="status">
-								{message}
-							</p>
-						) : null}
+						{errorNode}
+						{messageNode}
 						<Button
 							type="submit"
 							className="w-full"
 							disabled={form.formState.isSubmitting}
 						>
-							{form.formState.isSubmitting ? "Enviando…" : "Enviar link"}
+							{submitLabel}
 						</Button>
 						<p className="text-muted-foreground text-center text-sm">
 							<Link href="/login" className="text-primary hover:underline">
@@ -101,4 +118,6 @@ export default function ForgotPasswordPage() {
 			</Card>
 		</main>
 	);
-}
+};
+
+export default ForgotPasswordPage;

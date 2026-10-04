@@ -13,6 +13,8 @@ import {
 	type PatientFormValues
 } from "@/lib/patients/schema";
 
+import type { FC } from "react";
+
 type ServiceTypeOption = {
 	id: string;
 	name: string;
@@ -32,15 +34,17 @@ type PatientFormProps = {
 /**
  * Formulário de paciente em seções (melhor leitura no mobile).
  */
-export function PatientForm({
-	defaultValues,
-	serviceTypes,
-	submitLabel = "Salvar",
-	pending = false,
-	onSubmit,
-	onCancel,
-	disabled = false
-}: PatientFormProps) {
+const PatientForm: FC<PatientFormProps> = (props) => {
+	const {
+		defaultValues,
+		serviceTypes,
+		submitLabel = "Salvar",
+		pending = false,
+		onSubmit,
+		onCancel,
+		disabled = false
+	} = props;
+
 	const form = useForm<PatientFormValues, unknown, PatientFormParsed>({
 		resolver: zodResolver(patientFormSchema),
 		defaultValues
@@ -205,4 +209,6 @@ export function PatientForm({
 			</div>
 		</form>
 	);
-}
+};
+
+export default PatientForm;

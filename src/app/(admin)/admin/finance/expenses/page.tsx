@@ -12,7 +12,9 @@ import {
 } from "@/components/ui/Card";
 import { usePageTitle } from "@/hooks/usePageTitle";
 
-export default function ExpensesPage() {
+import type { FC } from "react";
+
+const ExpensesPage: FC = () => {
 	usePageTitle("Despesas");
 
 	return (
@@ -45,4 +47,6 @@ export default function ExpensesPage() {
 			</Card>
 		</div>
 	);
-}
+};
+
+export default ExpensesPage;

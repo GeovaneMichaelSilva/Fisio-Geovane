@@ -6,7 +6,14 @@ import { Toaster } from "sonner";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-export function Providers({ children }: { children: React.ReactNode }) {
+import type { ComponentPropsWithoutRef, FC, ReactNode } from "react";
+
+type ProvidersProps = {
+	children: ReactNode;
+} & Omit<ComponentPropsWithoutRef<typeof SessionProvider>, "children">;
+
+const Providers: FC<ProvidersProps> = (props) => {
+	const { children, ...restProps } = props;
 	const [queryClient] = useState(
 		() =>
 			new QueryClient({
@@ -20,11 +27,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
 	);
 
 	return (
-		<SessionProvider>
+		<SessionProvider {...restProps}>
 			<QueryClientProvider client={queryClient}>
 				{children}
 				<Toaster richColors position="top-center" closeButton />
 			</QueryClientProvider>
 		</SessionProvider>
 	);
-}
+};
+
+export default Providers;

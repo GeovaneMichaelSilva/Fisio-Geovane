@@ -10,7 +10,7 @@ import { paginationMeta, parsePagination } from "@/lib/pagination";
 /**
  * KPIs financeiros + lista paginada de sessões realizadas.
  */
-export async function GET(request: Request) {
+export const GET = async (request: Request) => {
 	try {
 		const ctx = await getOrCreateClinicContext();
 		const { searchParams } = new URL(request.url);

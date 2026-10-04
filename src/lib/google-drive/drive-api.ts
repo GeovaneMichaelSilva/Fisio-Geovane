@@ -8,7 +8,7 @@ type DriveErrorBody = {
 	error?: { message?: string };
 };
 
-async function driveFetch(accessToken: string, path: string, init?: RequestInit) {
+const driveFetch = async (accessToken: string, path: string, init?: RequestInit) => {
 	const res = await fetch(`https://www.googleapis.com/drive/v3${path}`, {
 		...init,
 		headers: {
@@ -29,10 +29,10 @@ async function driveFetch(accessToken: string, path: string, init?: RequestInit)
  * Garante pasta de backups no Drive; retorna o folderId.
  * Se a pasta salva foi para a lixeira ou sumiu, cria/reusa uma nova.
  */
-export async function ensureBackupFolder(
+export const ensureBackupFolder = async (
 	accessToken: string,
 	existingFolderId: string | null
-): Promise<string> {
+): Promise<string> => {
 	if (existingFolderId) {
 		try {
 			const res = await driveFetch(
@@ -82,10 +82,10 @@ export async function ensureBackupFolder(
 /**
  * Lista arquivos de backup na pasta (prefixo fisio-backup-).
  */
-export async function listBackupFiles(
+export const listBackupFiles = async (
 	accessToken: string,
 	folderId: string
-): Promise<DriveFileRef[]> {
+): Promise<DriveFileRef[]> => {
 	const q = [
 		`'${folderId}' in parents`,
 		"trashed=false",
@@ -121,7 +121,7 @@ export async function listBackupFiles(
 /**
  * Apaga arquivo no Drive (move para lixeira).
  */
-export async function trashDriveFile(accessToken: string, fileId: string) {
+export const trashDriveFile = async (accessToken: string, fileId: string) => {
 	await driveFetch(accessToken, `/files/${encodeURIComponent(fileId)}`, {
 		method: "DELETE"
 	});
@@ -130,12 +130,12 @@ export async function trashDriveFile(accessToken: string, fileId: string) {
 /**
  * Faz upload multipart de um JSON no Drive.
  */
-export async function uploadBackupJson(
+export const uploadBackupJson = async (
 	accessToken: string,
 	folderId: string,
 	fileName: string,
 	jsonBody: string
-): Promise<{ id: string; size: number }> {
+): Promise<{ id: string; size: number }> => {
 	const metadata = {
 		name: fileName,
 		parents: [folderId],

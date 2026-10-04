@@ -48,10 +48,10 @@ export type ClinicBackupPayload = {
 /**
  * Monta payload JSON de backup da clínica (sem senhas / tokens).
  */
-export async function buildClinicBackupPayload(
+export const buildClinicBackupPayload = async (
 	clinicId: string,
 	db: Db = getDb()
-): Promise<ClinicBackupPayload> {
+): Promise<ClinicBackupPayload> => {
 	const [clinic] = await db
 		.select({
 			id: clinics.id,
@@ -100,11 +100,11 @@ export type BackupRunResult = {
 /**
  * Gera backup, sobe no Drive e aplica retenção de 30 dias.
  */
-export async function runClinicDriveBackup(
+export const runClinicDriveBackup = async (
 	clinicId: string,
 	trigger: "manual" | "cron",
 	db: Db = getDb()
-): Promise<BackupRunResult> {
+): Promise<BackupRunResult> => {
 	let deletedOldFiles = 0;
 
 	try {
@@ -184,14 +184,14 @@ export async function runClinicDriveBackup(
 /**
  * Executa backup para todas as clínicas com Drive conectado.
  */
-export async function runAllClinicDriveBackups(
+export const runAllClinicDriveBackups = async (
 	db: Db = getDb()
 ): Promise<{
 	total: number;
 	success: number;
 	errors: number;
 	results: Array<{ clinicId: string } & BackupRunResult>;
-}> {
+}> => {
 	const connections = await db
 		.select({ clinicId: googleDriveConnections.clinicId })
 		.from(googleDriveConnections);
@@ -218,7 +218,7 @@ export async function runAllClinicDriveBackups(
 /**
  * Última execução de backup da clínica.
  */
-export async function getLatestBackupRun(clinicId: string, db: Db = getDb()) {
+export const getLatestBackupRun = async (clinicId: string, db: Db = getDb()) => {
 	const [run] = await db
 		.select({
 			id: backupRuns.id,

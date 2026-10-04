@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, type FC } from "react";
 
 import LoginClient from "./LoginClient";
 
@@ -7,10 +7,12 @@ export const metadata = {
 	robots: { index: false, follow: false }
 };
 
-export default function LoginPage() {
+const LoginPage: FC = () => {
 	return (
 		<Suspense fallback={<main className="bg-background min-h-screen" />}>
 			<LoginClient />
 		</Suspense>
 	);
-}
+};
+
+export default LoginPage;
