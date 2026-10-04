@@ -12,7 +12,16 @@ const mappingsSchema = z.object({
 	mappings: z.array(
 		z.object({
 			serviceTypeId: z.string().uuid(),
-			googleCalendarId: z.string().trim().min(1).max(256).nullable()
+			// null / "" / undefined → null (usa agenda padrão da conexão)
+			googleCalendarId: z
+				.union([z.string(), z.null(), z.undefined()])
+				.transform((v) => {
+					const t = (v ?? "").trim();
+					return t === "" ? null : t;
+				})
+				.refine((v) => v === null || v.length <= 256, {
+					message: "calendarId inválido."
+				})
 		})
 	)
 });

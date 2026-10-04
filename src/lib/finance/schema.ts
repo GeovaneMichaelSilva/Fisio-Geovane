@@ -1,16 +1,22 @@
 import { z } from "zod";
 
+import { emptyToNull } from "@/lib/zod/optional";
+
 const dateParam = z
-	.string()
-	.regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida (use YYYY-MM-DD).");
+	.union([z.string(), z.null(), z.undefined()])
+	.transform((v) => emptyToNull(v))
+	.refine((v) => v === null || /^\d{4}-\d{2}-\d{2}$/.test(v), {
+		message: "Data inválida (use YYYY-MM-DD)."
+	});
 
 /**
  * Query string do financeiro: período opcional por data da sessão.
+ * Aceita null/undefined/"" (ausente).
  */
 export const financeQuerySchema = z
 	.object({
-		from: dateParam.optional(),
-		to: dateParam.optional()
+		from: dateParam,
+		to: dateParam
 	})
 	.superRefine((data, ctx) => {
 		if (data.from && data.to && data.from > data.to) {
@@ -29,4 +35,7 @@ export const financeQuerySchema = z
 		}
 	});
 
-export type FinanceQuery = z.infer<typeof financeQuerySchema>;
+export type FinanceQuery = {
+	from: string | null;
+	to: string | null;
+};

@@ -1,5 +1,12 @@
 import { z } from "zod";
 
+import {
+	emptyToNull,
+	optionalDatePatch,
+	optionalTextMax,
+	optionalTextPatch
+} from "@/lib/zod/optional";
+
 const dateString = z
 	.string()
 	.trim()
@@ -24,11 +31,16 @@ const valueBrl = z.coerce
 	.max(999_999.99, "Valor muito alto.");
 
 const uuidField = (message: string) =>
-	z
-		.string()
-		.trim()
-		.min(1, message)
-		.uuid(message);
+	z.string().trim().min(1, message).uuid(message);
+
+/** Motivo de override em create: ausente/null → null */
+const overlapReasonCreate = optionalTextMax(1000);
+
+/** Motivo de override em update: omitido ≠ limpar */
+const overlapReasonPatch = optionalTextPatch(1000);
+
+/** Texto clínico em PATCH (omitido = não altera). */
+const clinicalTextPatch = optionalTextPatch(20000);
 
 /**
  * Criação de sessão (API + formulário da agenda).
@@ -42,14 +54,10 @@ export const sessionCreateSchema = z
 		serviceTypeId: uuidField("Selecione o tipo."),
 		valueBrl: valueBrl.optional(),
 		allowOverlap: z.boolean().optional().default(false),
-		overlapReason: z
-			.string()
-			.trim()
-			.max(1000, "Máximo 1000 caracteres.")
-			.optional()
+		overlapReason: overlapReasonCreate
 	})
 	.superRefine((data, ctx) => {
-		if (data.allowOverlap && !data.overlapReason?.trim()) {
+		if (data.allowOverlap && !data.overlapReason) {
 			ctx.addIssue({
 				code: "custom",
 				message: "Informe o motivo do override de sobreposição.",
@@ -60,6 +68,7 @@ export const sessionCreateSchema = z
 
 /**
  * Atualização parcial de sessão (API).
+ * Campos omitidos não são alterados; `null` / `""` limpam nullable.
  */
 export const sessionUpdateSchema = z
 	.object({
@@ -74,27 +83,11 @@ export const sessionUpdateSchema = z
 				error: "Status inválido."
 			})
 			.optional(),
-		assessment: z
-			.string()
-			.max(20000, "Máximo 20000 caracteres.")
-			.nullable()
-			.optional(),
-		evolution: z
-			.string()
-			.max(20000, "Máximo 20000 caracteres.")
-			.nullable()
-			.optional(),
-		activities: z
-			.string()
-			.max(20000, "Máximo 20000 caracteres.")
-			.nullable()
-			.optional(),
+		assessment: clinicalTextPatch,
+		evolution: clinicalTextPatch,
+		activities: clinicalTextPatch,
 		paid: z.boolean().optional(),
-		paidAt: z
-			.string()
-			.regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida.")
-			.nullable()
-			.optional(),
+		paidAt: optionalDatePatch("Data de pagamento"),
 		invoiceIssued: z.boolean().optional(),
 		reason: z
 			.string()
@@ -102,21 +95,17 @@ export const sessionUpdateSchema = z
 			.min(1, "Motivo obrigatório.")
 			.max(1000, "Máximo 1000 caracteres."),
 		allowOverlap: z.boolean().optional().default(false),
-		overlapReason: z
-			.string()
-			.trim()
-			.max(1000, "Máximo 1000 caracteres.")
-			.optional()
+		overlapReason: overlapReasonPatch
 	})
 	.superRefine((data, ctx) => {
-		if (data.allowOverlap && !data.overlapReason?.trim()) {
+		if (data.allowOverlap && !data.overlapReason) {
 			ctx.addIssue({
 				code: "custom",
 				message: "Informe o motivo do override de sobreposição.",
 				path: ["overlapReason"]
 			});
 		}
-		if (data.paid === true && !data.paidAt) {
+		if (data.paid === true && data.paidAt !== undefined && !data.paidAt) {
 			ctx.addIssue({
 				code: "custom",
 				message: "Informe a data de pagamento.",
@@ -125,6 +114,7 @@ export const sessionUpdateSchema = z
 		}
 		if (
 			data.status === "completed" &&
+			data.evolution !== undefined &&
 			!(data.evolution && data.evolution.trim().length > 0)
 		) {
 			ctx.addIssue({
@@ -160,12 +150,39 @@ export const sessionScheduleFormSchema = z.object({
  */
 export const sessionClinicalFormSchema = z
 	.object({
-		assessment: z.string().max(20000, "Máximo 20000 caracteres."),
-		evolution: z.string().max(20000, "Máximo 20000 caracteres."),
-		activities: z.string().max(20000, "Máximo 20000 caracteres."),
+		assessment: z
+			.union([z.string(), z.null(), z.undefined()])
+			.transform((v) => v ?? ""),
+		evolution: z
+			.union([z.string(), z.null(), z.undefined()])
+			.transform((v) => v ?? ""),
+		activities: z
+			.union([z.string(), z.null(), z.undefined()])
+			.transform((v) => v ?? ""),
 		complete: z.boolean()
 	})
 	.superRefine((data, ctx) => {
+		if (data.assessment.length > 20000) {
+			ctx.addIssue({
+				code: "custom",
+				message: "Máximo 20000 caracteres.",
+				path: ["assessment"]
+			});
+		}
+		if (data.evolution.length > 20000) {
+			ctx.addIssue({
+				code: "custom",
+				message: "Máximo 20000 caracteres.",
+				path: ["evolution"]
+			});
+		}
+		if (data.activities.length > 20000) {
+			ctx.addIssue({
+				code: "custom",
+				message: "Máximo 20000 caracteres.",
+				path: ["activities"]
+			});
+		}
 		if (data.complete && !data.evolution.trim()) {
 			ctx.addIssue({
 				code: "custom",
@@ -182,7 +199,9 @@ export const sessionFinanceFormSchema = z
 	.object({
 		valueBrl,
 		paid: z.boolean(),
-		paidAt: z.string().trim(),
+		paidAt: z
+			.union([z.string(), z.null(), z.undefined()])
+			.transform((v) => emptyToNull(v) ?? ""),
 		invoiceIssued: z.boolean(),
 		reason: z
 			.string()

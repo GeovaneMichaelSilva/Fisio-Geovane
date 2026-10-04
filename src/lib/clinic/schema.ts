@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { optionalTextMax } from "@/lib/zod/optional";
+
 export const clinicUpdateSchema = z.object({
 	displayName: z
 		.string()
@@ -11,11 +13,7 @@ export const clinicUpdateSchema = z.object({
 		.trim()
 		.min(1, "Profissão obrigatória.")
 		.max(80, "Máximo 80 caracteres."),
-	licenseNumber: z
-		.string()
-		.trim()
-		.max(40, "Máximo 40 caracteres.")
-		.transform((v) => (v === "" ? null : v)),
+	licenseNumber: optionalTextMax(40),
 	timezone: z
 		.string()
 		.trim()
