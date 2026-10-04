@@ -7,7 +7,7 @@ import type { FC, HTMLAttributes } from "react";
 type AuthBrandProps = HTMLAttributes<HTMLDivElement>;
 
 /**
- * Logo completa (símbolo + nome) nas telas de autenticação.
+ * Marca (símbolo) nas telas de autenticação.
  */
 const AuthBrand: FC<AuthBrandProps> = (props) => {
 	const { className, ...restProps } = props;
@@ -18,12 +18,12 @@ const AuthBrand: FC<AuthBrandProps> = (props) => {
 			{...restProps}
 		>
 			<Image
-				src="/brand/logo-full.png"
+				src="/brand/logo-mark.png"
 				alt="Geovane M. da Silva — Fisioterapeuta"
-				width={220}
-				height={280}
+				width={160}
+				height={160}
 				priority
-				className="h-auto w-[160px] sm:w-[180px]"
+				className="size-[112px] object-contain sm:size-[128px]"
 			/>
 		</div>
 	);

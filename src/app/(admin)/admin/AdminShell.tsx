@@ -25,7 +25,7 @@ type AdminShellProps = {
 } & ComponentPropsWithoutRef<"div">;
 
 /**
- * Shell do admin (client): header + nav inferior no mobile / superior no desktop.
+ * Shell do admin: uma barra (logo · nav · conta).
  */
 const AdminShell: FC<AdminShellProps> = (props) => {
 	const { name, email, children, ...restProps } = props;
@@ -33,45 +33,33 @@ const AdminShell: FC<AdminShellProps> = (props) => {
 	return (
 		<div className="bg-background flex min-h-dvh flex-col" {...restProps}>
 			<header className="border-border bg-primary text-primary-foreground border-b-brand sticky top-0 z-40 border-b-4">
-				<div className="mx-auto flex max-w-6xl items-center gap-3 px-3 py-3 sm:gap-4 sm:px-4 sm:py-4">
+				<div className="mx-auto flex max-w-6xl items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4 sm:py-2.5">
 					<Link
 						href="/admin"
-						className="flex min-w-0 shrink items-center gap-2.5 sm:gap-3"
+						className="shrink-0 rounded-md focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:outline-hidden"
+						aria-label="Início"
 					>
 						<Image
-							src="/brand/logo-mark.png"
-							alt="Geovane Michael da Silva"
-							width={48}
-							height={48}
-							className="size-10 shrink-0 rounded-md bg-white object-contain p-0.5 sm:size-14"
+							src="/brand/logo-mark-white.png"
+							alt=""
+							width={40}
+							height={40}
+							className="size-9 object-contain sm:size-10"
+							priority
 						/>
-						<div className="min-w-0">
-							<p className="truncate text-[10px] tracking-[0.16em] uppercase opacity-80 sm:text-xs sm:tracking-[0.2em]">
-								Geovane Michael da Silva
-							</p>
-							<p className="truncate text-base font-medium sm:text-lg">
-								Gestão de atendimentos
-							</p>
-						</div>
 					</Link>
-					<div className="ml-auto shrink-0">
+
+					<AdminNav items={navItems} />
+
+					<div className="shrink-0">
 						<UserMenu name={name} email={email} />
 					</div>
 				</div>
-				{/* Desktop / tablet: nav no topo */}
-				<div className="hidden md:block">
-					<AdminNav items={navItems} variant="top" />
-				</div>
 			</header>
 
-			<main className="mx-auto w-full max-w-6xl flex-1 px-4 py-5 pb-24 sm:py-6 md:pb-6">
+			<main className="mx-auto w-full max-w-6xl flex-1 px-4 py-5 sm:py-6">
 				{children}
 			</main>
-
-			{/* Mobile: nav inferior fixa */}
-			<div className="border-border bg-primary text-primary-foreground fixed inset-x-0 bottom-0 z-40 border-t md:hidden">
-				<AdminNav items={navItems} variant="bottom" />
-			</div>
 		</div>
 	);
 };

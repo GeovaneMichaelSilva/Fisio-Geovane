@@ -1,10 +1,9 @@
-# Brand assets
+# Brand assets (fonte)
 
-| Arquivo | Conteúdo | Uso típico |
-|---|---|---|
-| `logo-mark.png` | Só o símbolo (cérebro / marca) | Header do admin, favicon, espaços pequenos |
-| `logo-full.png` | Símbolo + “GEOVANE M. DA SILVA” + Fisioterapeuta | Login, landing, materiais onde a marca completa aparece |
+| Arquivo | Uso |
+| --- | --- |
+| `logo-mark.png` | Símbolo colorido — login, recuperação de senha, favicon |
+| `logo-mark-white.png` | Símbolo branco — header admin (fundo primary) |
+| `logo-full.png` | Marca completa — login, landing |
 
 Cópias servidas pelo Next: `public/brand/`.
-
-Documentação: [`docs/design/brand.md`](../../docs/design/brand.md)
