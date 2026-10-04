@@ -13,8 +13,8 @@ import {
 } from "@/components/ui/Card";
 import { Select } from "@/components/ui/Select";
 
-import type { GoogleStatus } from "./integrationsApi";
 import type { FC, ReactNode } from "react";
+import type { GoogleStatus } from "./integrationsApi";
 
 type GoogleCalendarSectionProps = {
 	status: GoogleStatus | undefined;
@@ -63,7 +63,8 @@ const GoogleCalendarSection: FC<GoogleCalendarSectionProps> = (props) => {
 			<p className="text-muted-foreground text-sm">
 				Integração não configurada no servidor. Defina{" "}
 				<code className="text-foreground">GOOGLE_CLIENT_ID</code> e{" "}
-				<code className="text-foreground">GOOGLE_CLIENT_SECRET</code> no ambiente.
+				<code className="text-foreground">GOOGLE_CLIENT_SECRET</code> no
+				ambiente.
 			</p>
 		);
 	} else if (status.connected) {
@@ -113,7 +114,9 @@ const GoogleCalendarSection: FC<GoogleCalendarSectionProps> = (props) => {
 						disabled={restorePending}
 						onClick={onRestore}
 					>
-						{restorePending ? "Restaurando…" : "Restaurar agendamentos no Google"}
+						{restorePending
+							? "Restaurando…"
+							: "Restaurar agendamentos no Google"}
 					</Button>
 					<Button
 						type="button"
@@ -162,7 +165,7 @@ const GoogleCalendarSection: FC<GoogleCalendarSectionProps> = (props) => {
 					{status?.connected ? (
 						<Badge>Conectado</Badge>
 					) : (
-						<Badge variant="secondary">Não conectado</Badge>
+						<Badge variant="destructive">Não conectado</Badge>
 					)}
 				</div>
 				<CardDescription>

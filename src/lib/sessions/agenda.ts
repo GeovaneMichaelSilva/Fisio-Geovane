@@ -42,7 +42,37 @@ export const formatWeekLabel = (monday: Date): string => {
 	const fmt = (d: Date) =>
 		d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
 	return `${fmt(monday)} – ${fmt(sunday)}`;
-}
+};
+
+/** Primeiro dia do mês (local). */
+export const startOfMonth = (date: Date): Date => {
+	return new Date(date.getFullYear(), date.getMonth(), 1);
+};
+
+/** Rótulo do mês (ex.: “outubro de 2026”). */
+export const formatMonthLabel = (date: Date): string => {
+	const label = date.toLocaleDateString("pt-BR", {
+		month: "long",
+		year: "numeric"
+	});
+	return label.charAt(0).toUpperCase() + label.slice(1);
+};
+
+/**
+ * Grade do mês (6 semanas × 7 dias), começando na segunda da semana do dia 1.
+ */
+export const buildMonthGrid = (monthAnchor: Date): Date[] => {
+	const first = startOfMonth(monthAnchor);
+	const gridStart = startOfWeekMonday(first);
+	return Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
+};
+
+/** Avança/retrocede N meses a partir do 1º dia do mês de referência. */
+export const addMonths = (date: Date, months: number): Date => {
+	const d = startOfMonth(date);
+	d.setMonth(d.getMonth() + months);
+	return d;
+};
 
 export const timeToMinutes = (time: string): number => {
 	const [h, m] = time.split(":").map(Number);

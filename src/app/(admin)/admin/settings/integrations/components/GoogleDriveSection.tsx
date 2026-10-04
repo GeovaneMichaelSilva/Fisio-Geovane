@@ -12,8 +12,8 @@ import {
 	CardTitle
 } from "@/components/ui/Card";
 
-import type { DriveStatus } from "./integrationsApi";
 import type { FC, ReactNode } from "react";
+import type { DriveStatus } from "./integrationsApi";
 
 type GoogleDriveSectionProps = {
 	driveStatus: DriveStatus | undefined;
@@ -102,7 +102,9 @@ const GoogleDriveSection: FC<GoogleDriveSectionProps> = (props) => {
 						className="min-h-11 sm:min-h-10"
 						asChild
 					>
-						<a href="/api/admin/integrations/google-drive/connect">Reconectar</a>
+						<a href="/api/admin/integrations/google-drive/connect">
+							Reconectar
+						</a>
 					</Button>
 					<Button
 						type="button"
@@ -141,7 +143,7 @@ const GoogleDriveSection: FC<GoogleDriveSectionProps> = (props) => {
 					{driveStatus?.connected ? (
 						<Badge>Conectado</Badge>
 					) : (
-						<Badge variant="secondary">Não conectado</Badge>
+						<Badge variant="destructive">Não conectado</Badge>
 					)}
 				</div>
 				<CardDescription>

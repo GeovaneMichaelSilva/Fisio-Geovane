@@ -55,6 +55,51 @@ export const notifyGoogleSync = (googleSync?: GoogleSyncResult) => {
 	}
 };
 
+export type RescheduleSessionInput = {
+	sessionId: string;
+	scheduledDate: string;
+	scheduledTime: string;
+	durationMinutes: number;
+	allowOverlap?: boolean;
+	overlapReason?: string;
+	reason?: string;
+};
+
+export const rescheduleSession = async (input: RescheduleSessionInput) => {
+	const res = await fetch(`/api/admin/sessions/${input.sessionId}`, {
+		method: "PUT",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({
+			scheduledDate: input.scheduledDate,
+			scheduledTime: input.scheduledTime,
+			durationMinutes: input.durationMinutes,
+			allowOverlap: input.allowOverlap ?? false,
+			overlapReason: input.overlapReason,
+			reason: input.reason ?? "Remarcado na agenda (calendário)."
+		})
+	});
+	const json = await res.json();
+	if (res.status === 409 && json.error === "overlap") {
+		return {
+			overlap: true as const,
+			conflicts: (json.conflicts ?? []) as Array<{
+				id: string;
+				patientName?: string;
+				scheduledTime: string;
+				durationMinutes: number;
+				status?: string;
+			}>
+		};
+	}
+	if (!res.ok) {
+		throw new Error(json.error || json.message || "Falha ao remarcar.");
+	}
+	return {
+		overlap: false as const,
+		googleSync: json.googleSync as GoogleSyncResult | undefined
+	};
+};
+
 export const statusVariant = (status: string) => {
 	if (status === "completed") return "default" as const;
 	if (status === "canceled" || status === "no_show") return "secondary" as const;

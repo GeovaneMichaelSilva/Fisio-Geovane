@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+	buildMonthGrid,
 	findOverlaps,
+	formatMonthLabel,
 	intervalsOverlap,
 	normalizeTime,
+	startOfMonth,
 	startOfWeekMonday,
 	toDateString,
 	type SessionInterval
@@ -38,6 +41,26 @@ describe("startOfWeekMonday", () => {
 	it("domingo pertence à semana que começou na segunda anterior", () => {
 		const monday = startOfWeekMonday(new Date(2026, 9, 11)); // domingo
 		expect(toDateString(monday)).toBe("2026-10-05");
+	});
+});
+
+describe("month helpers", () => {
+	it("startOfMonth volta para o dia 1", () => {
+		expect(toDateString(startOfMonth(new Date(2026, 9, 15)))).toBe(
+			"2026-10-01"
+		);
+	});
+
+	it("buildMonthGrid começa na segunda da semana do dia 1", () => {
+		// Out/2026 começa na quinta → grade inicia em 28/09
+		const grid = buildMonthGrid(new Date(2026, 9, 1));
+		expect(grid).toHaveLength(42);
+		expect(toDateString(grid[0]!)).toBe("2026-09-28");
+		expect(toDateString(grid[41]!)).toBe("2026-11-08");
+	});
+
+	it("formatMonthLabel capitaliza o mês", () => {
+		expect(formatMonthLabel(new Date(2026, 9, 1))).toMatch(/^Outubro/);
 	});
 });
 

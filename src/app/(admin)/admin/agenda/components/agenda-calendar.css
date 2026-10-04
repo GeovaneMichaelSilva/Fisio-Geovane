@@ -1,0 +1,133 @@
+/* Temas do react-big-calendar para a identidade Fisio Geovane */
+
+.agenda-calendar {
+	--rbc-primary: hsl(var(--primary));
+	--rbc-brand: hsl(var(--brand));
+	height: min(72vh, 820px);
+	min-height: 480px;
+}
+
+.agenda-calendar .rbc-calendar {
+	font-family: var(--font-montserrat), ui-sans-serif, system-ui, sans-serif;
+	color: hsl(var(--foreground));
+}
+
+.agenda-calendar .rbc-toolbar {
+	display: none;
+}
+
+/* Sem eventos all-day — some a faixa vazia sob os títulos dos dias */
+.agenda-calendar .rbc-allday-cell,
+.agenda-calendar .rbc-time-header-content > .rbc-row.rbc-row-resource {
+	display: none;
+}
+
+/* Em week/day, a 2ª row do header é o gutter all-day */
+.agenda-calendar .rbc-time-header-content > .rbc-row:nth-child(2) {
+	display: none;
+}
+
+.agenda-calendar .rbc-time-header-gutter {
+	border-bottom: 1px solid hsl(var(--border));
+}
+
+.agenda-calendar .rbc-time-header.rbc-overflowing {
+	margin-right: 0 !important;
+}
+
+/* View Dia: o título já está no PageHeader — some o header vazio do RBC */
+.agenda-calendar--day .rbc-time-header {
+	display: none;
+}
+
+.agenda-calendar--day .rbc-time-content {
+	border-top: none;
+}
+
+.agenda-calendar .rbc-header {
+	padding: 0.5rem 0.25rem;
+	font-size: 0.75rem;
+	font-weight: 500;
+	text-transform: capitalize;
+	border-color: hsl(var(--border));
+	color: hsl(var(--muted-foreground));
+}
+
+.agenda-calendar .rbc-month-view,
+.agenda-calendar .rbc-time-view,
+.agenda-calendar .rbc-agenda-view {
+	border-color: hsl(var(--border));
+	border-radius: 0;
+}
+
+.agenda-calendar .rbc-day-bg + .rbc-day-bg,
+.agenda-calendar .rbc-month-row + .rbc-month-row,
+.agenda-calendar .rbc-timeslot-group,
+.agenda-calendar .rbc-time-content > * + * > *,
+.agenda-calendar .rbc-time-header-content,
+.agenda-calendar .rbc-day-slot .rbc-time-slot {
+	border-color: hsl(var(--border));
+}
+
+.agenda-calendar .rbc-off-range-bg {
+	background: hsl(var(--muted) / 0.45);
+}
+
+.agenda-calendar .rbc-today {
+	background: hsl(var(--brand) / 0.08);
+}
+
+.agenda-calendar .rbc-current-time-indicator {
+	background-color: hsl(var(--brand));
+}
+
+.agenda-calendar .rbc-event {
+	border: none;
+	border-radius: 0.375rem;
+	padding: 2px 4px;
+	background: hsl(var(--primary));
+	color: hsl(var(--primary-foreground));
+}
+
+.agenda-calendar .rbc-event.rbc-selected {
+	background: hsl(var(--primary-hover));
+}
+
+.agenda-calendar .rbc-event--completed {
+	background: hsl(var(--success));
+	color: hsl(var(--success-foreground));
+}
+
+.agenda-calendar .rbc-event--canceled,
+.agenda-calendar .rbc-event--no-show {
+	background: hsl(var(--muted-foreground) / 0.55);
+	color: white;
+	opacity: 0.85;
+}
+
+.agenda-calendar .rbc-addons-dnd .rbc-addons-dnd-resize-ns-icon,
+.agenda-calendar .rbc-addons-dnd .rbc-addons-dnd-resize-ew-icon {
+	border-color: hsl(var(--primary-foreground) / 0.7);
+}
+
+.agenda-calendar .rbc-slot-selection {
+	background: hsl(var(--brand) / 0.2);
+}
+
+.agenda-calendar .rbc-show-more {
+	color: hsl(var(--brand));
+	font-weight: 500;
+}
+
+.agenda-calendar .rbc-time-content,
+.agenda-calendar .rbc-time-view,
+.agenda-calendar .rbc-month-view {
+	background: hsl(var(--card));
+}
+
+@media (max-width: 767px) {
+	.agenda-calendar {
+		height: min(70vh, 640px);
+		min-height: 420px;
+	}
+}
