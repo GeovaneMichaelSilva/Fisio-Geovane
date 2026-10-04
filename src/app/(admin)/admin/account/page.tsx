@@ -1,7 +1,6 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -23,6 +22,7 @@ import {
 	type ChangePasswordInput,
 	type ChangePasswordParsed
 } from "@/lib/auth/schema";
+import { useChangePasswordMutation } from "@/queries/meQuery";
 
 import type { FC, ReactNode } from "react";
 
@@ -43,20 +43,7 @@ const AccountPage: FC = () => {
 		mode: "all"
 	});
 
-	const mutation = useMutation({
-		mutationFn: async (values: ChangePasswordParsed) => {
-			const res = await fetch("/api/admin/me/password", {
-				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					currentPassword: values.currentPassword,
-					password: values.password
-				})
-			});
-			const json = await res.json();
-			if (!res.ok) throw new Error(json.error || "Falha ao alterar senha.");
-			return json.data;
-		},
+	const mutation = useChangePasswordMutation({
 		onSuccess: () => {
 			form.reset();
 			toast.success("Senha alterada.");
@@ -118,7 +105,12 @@ const AccountPage: FC = () => {
 				<CardContent>
 					<form
 						className="grid max-w-md gap-4"
-						onSubmit={form.handleSubmit((values) => mutation.mutate(values))}
+						onSubmit={form.handleSubmit((values) =>
+							mutation.mutate({
+								currentPassword: values.currentPassword,
+								password: values.password
+							})
+						)}
 						noValidate
 					>
 						<Input

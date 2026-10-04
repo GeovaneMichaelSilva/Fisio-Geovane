@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
 
 import { AdminList, AdminListItem } from "@/components/admin/AdminList";
 import { ListSkeleton } from "@/components/admin/LoadingStates";
@@ -25,33 +24,9 @@ import { Input } from "@/components/ui/Input";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { normalizeTime } from "@/lib/sessions/agenda";
+import { useFinanceQuery } from "@/queries/financeQuery";
 
-import type { PaginationMeta } from "@/lib/pagination";
 import type { FC, ReactNode } from "react";
-
-type FinanceSession = {
-	id: string;
-	patientId: string;
-	patientName: string;
-	scheduledDate: string;
-	scheduledTime: string;
-	serviceTypeName: string;
-	valueBrl: string;
-	paid: boolean;
-	paidAt: string | null;
-	invoiceIssued: boolean;
-};
-
-type FinanceData = {
-	period: { from: string; to: string } | null;
-	kpis: {
-		completedCount: number;
-		receivedTotal: string;
-		pendingTotal: string;
-		pendingCount: number;
-	};
-	sessions: FinanceSession[];
-};
 
 type PeriodPreset = "this_month" | "last_month" | "this_year" | "all" | "custom";
 
@@ -84,28 +59,6 @@ const resolvePeriod = (
 	}
 	if (customFrom && customTo) return { from: customFrom, to: customTo };
 	return monthRange(y, m);
-};
-
-const fetchFinance = async (
-	from: string | undefined,
-	to: string | undefined,
-	page: number
-) => {
-	const params = new URLSearchParams({
-		page: String(page),
-		pageSize: "20"
-	});
-	if (from && to) {
-		params.set("from", from);
-		params.set("to", to);
-	}
-	const res = await fetch(`/api/admin/finance?${params}`);
-	const json = await res.json();
-	if (!res.ok) throw new Error(json.error || "Falha ao carregar.");
-	return {
-		data: json.data as FinanceData,
-		meta: json.meta as PaginationMeta
-	};
 };
 
 const formatDatePt = (value: string) => {
@@ -152,11 +105,14 @@ const FinancePage: FC = () => {
 		preset === "custom" &&
 		(!customFrom || !customTo || customFrom > customTo);
 
-	const query = useQuery({
-		queryKey: ["finance", period.from ?? null, period.to ?? null, page],
-		queryFn: () => fetchFinance(period.from, period.to, page),
-		enabled: !customInvalid
-	});
+	const query = useFinanceQuery(
+		{
+			from: period.from ?? null,
+			to: period.to ?? null,
+			page
+		},
+		{ enabled: !customInvalid }
+	);
 
 	const kpis = query.data?.data.kpis;
 	const sessions = query.data?.data.sessions ?? [];

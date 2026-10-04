@@ -1,6 +1,5 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 
 import { AdminList, AdminListItem } from "@/components/admin/AdminList";
@@ -26,38 +25,10 @@ import {
 	STATUS_LABEL,
 	toDateString
 } from "@/lib/sessions/agenda";
+import { useFinanceHomeQuery } from "@/queries/financeQuery";
+import { useSessionsTodayQuery } from "@/queries/sessionQuery";
 
 import type { FC, ReactNode } from "react";
-
-type AgendaSession = {
-	id: string;
-	patientName: string;
-	scheduledDate: string;
-	scheduledTime: string;
-	serviceTypeName: string;
-	status: string;
-};
-
-type FinanceKpis = {
-	pendingTotal: string;
-	pendingCount: number;
-	completedCount: number;
-};
-
-const fetchToday = async () => {
-	const today = toDateString(new Date());
-	const res = await fetch(`/api/admin/sessions?from=${today}&to=${today}`);
-	const json = await res.json();
-	if (!res.ok) throw new Error(json.error || "Falha ao carregar agenda.");
-	return json.data as AgendaSession[];
-};
-
-const fetchFinance = async () => {
-	const res = await fetch("/api/admin/finance");
-	const json = await res.json();
-	if (!res.ok) throw new Error(json.error || "Falha ao carregar financeiro.");
-	return json.data.kpis as FinanceKpis;
-};
 
 const formatBrl = (value: string) =>
 	Number(value).toLocaleString("pt-BR", {
@@ -91,17 +62,9 @@ const tiles = [
 const AdminHomePage: FC = () => {
 	usePageTitle("Início");
 
-	const todayQuery = useQuery({
-		queryKey: ["sessions-today"],
-		queryFn: fetchToday
-	});
-
-	const financeQuery = useQuery({
-		queryKey: ["finance-home"],
-		queryFn: fetchFinance
-	});
-
 	const today = toDateString(new Date());
+	const todayQuery = useSessionsTodayQuery(today);
+	const financeQuery = useFinanceHomeQuery();
 	const monday = startOfWeekMonday(new Date());
 	const upcoming =
 		todayQuery.data?.filter((s) => s.status === "scheduled").slice(0, 5) ?? [];

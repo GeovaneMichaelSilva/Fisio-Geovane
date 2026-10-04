@@ -211,6 +211,7 @@ export const sessionFinanceFormSchema = z
 export type SessionCreateInput = z.input<typeof sessionCreateSchema>;
 export type SessionCreateParsed = z.output<typeof sessionCreateSchema>;
 export type SessionUpdateInput = z.input<typeof sessionUpdateSchema>;
+export type SessionUpdateParsed = z.output<typeof sessionUpdateSchema>;
 export type SessionScheduleFormValues = z.input<typeof sessionScheduleFormSchema>;
 export type SessionClinicalFormValues = z.input<typeof sessionClinicalFormSchema>;
 export type SessionFinanceFormValues = z.input<typeof sessionFinanceFormSchema>;

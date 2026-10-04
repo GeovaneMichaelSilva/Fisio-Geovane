@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { AdminList, AdminListItem } from "@/components/admin/AdminList";
@@ -39,25 +38,14 @@ import {
 	type ServiceTypeFormParsed,
 	type ServiceTypeFormValues
 } from "@/lib/service-types/schema";
+import {
+	useSaveServiceTypeMutation,
+	useServiceTypesQuery,
+	useToggleServiceTypeMutation,
+	type ServiceType
+} from "@/queries/serviceTypeQuery";
 
 import type { FC, ReactNode } from "react";
-
-type ServiceType = {
-	id: string;
-	name: string;
-	slug: string;
-	defaultDurationMinutes: number;
-	defaultValueBrl: string;
-	isActive: boolean;
-	sortOrder: number;
-};
-
-const fetchTypes = async (): Promise<ServiceType[]> => {
-	const res = await fetch("/api/admin/service-types");
-	const json = await res.json();
-	if (!res.ok) throw new Error(json.error || "Falha ao carregar.");
-	return json.data;
-};
 
 const formatBrl = (value: string | number) => {
 	const n = typeof value === "string" ? Number(value) : value;
@@ -73,15 +61,11 @@ const emptyForm: ServiceTypeFormValues = {
 
 const ServiceTypesPage: FC = () => {
 	usePageTitle("Tipos de atendimento");
-	const queryClient = useQueryClient();
 	const { isOwner } = useClinicRole();
 	const [open, setOpen] = useState(false);
 	const [editingId, setEditingId] = useState<string | null>(null);
 
-	const listQuery = useQuery({
-		queryKey: ["service-types"],
-		queryFn: fetchTypes
-	});
+	const listQuery = useServiceTypesQuery();
 
 	const form = useForm<ServiceTypeFormValues, unknown, ServiceTypeFormParsed>({
 		resolver: zodResolver(serviceTypeFormSchema),
@@ -106,30 +90,8 @@ const ServiceTypesPage: FC = () => {
 		setOpen(true);
 	};
 
-	const saveMutation = useMutation({
-		mutationFn: async (values: ServiceTypeFormParsed) => {
-			if (editingId) {
-				const res = await fetch(`/api/admin/service-types/${editingId}`, {
-					method: "PATCH",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify(values)
-				});
-				const json = await res.json();
-				if (!res.ok) throw new Error(json.error || "Falha ao atualizar.");
-				return json.data as ServiceType;
-			}
-
-			const res = await fetch("/api/admin/service-types", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(values)
-			});
-			const json = await res.json();
-			if (!res.ok) throw new Error(json.error || "Falha ao criar.");
-			return json.data as ServiceType;
-		},
+	const saveMutation = useSaveServiceTypeMutation({
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["service-types"] });
 			toast.success(editingId ? "Tipo atualizado." : "Tipo criado.");
 			setOpen(false);
 			setEditingId(null);
@@ -138,19 +100,8 @@ const ServiceTypesPage: FC = () => {
 		onError: (err: Error) => toast.error(err.message)
 	});
 
-	const toggleMutation = useMutation({
-		mutationFn: async (row: ServiceType) => {
-			const res = await fetch(`/api/admin/service-types/${row.id}`, {
-				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ isActive: !row.isActive })
-			});
-			const json = await res.json();
-			if (!res.ok) throw new Error(json.error || "Falha ao alterar status.");
-			return json.data as ServiceType;
-		},
+	const toggleMutation = useToggleServiceTypeMutation({
 		onSuccess: (data) => {
-			queryClient.invalidateQueries({ queryKey: ["service-types"] });
 			toast.success(data.isActive ? "Tipo ativado." : "Tipo desativado.");
 		},
 		onError: (err: Error) => toast.error(err.message)
@@ -285,7 +236,7 @@ const ServiceTypesPage: FC = () => {
 					<form
 						className="space-y-4"
 						onSubmit={form.handleSubmit((values) =>
-							saveMutation.mutate(values)
+							saveMutation.mutate({ id: editingId, values })
 						)}
 					>
 						<Input

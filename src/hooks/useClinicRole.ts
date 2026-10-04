@@ -1,32 +1,14 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMeQuery } from "@/queries/meQuery";
 
-type MeData = {
-	userId: string;
-	fullName: string | null;
-	email: string | null;
-	role: "owner" | "staff";
-	clinicId: string;
-	clinicName: string;
-};
-
-const fetchMe = async () => {
-	const res = await fetch("/api/admin/me");
-	const json = await res.json();
-	if (!res.ok) throw new Error(json.error || "Falha ao carregar perfil.");
-	return json.data as MeData;
-};
+export type { MeData } from "@/queries/meQuery";
 
 /**
  * Papel do usuário na clínica atual.
  */
 export const useClinicRole = () => {
-	const query = useQuery({
-		queryKey: ["me"],
-		queryFn: fetchMe,
-		staleTime: 5 * 60_000
-	});
+	const query = useMeQuery();
 
 	return {
 		role: query.data?.role,

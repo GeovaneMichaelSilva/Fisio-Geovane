@@ -2,23 +2,33 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { EmptyState, PageHeader } from "@/components/admin/PageStates";
 import SettingsNav from "@/components/admin/SettingsNav";
 import { useClinicRole } from "@/hooks/useClinicRole";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import {
+	googleCalendarQueryKeys,
+	googleDriveQueryKeys,
+	useDisconnectGoogleCalendarMutation,
+	useDisconnectGoogleDriveMutation,
+	useGoogleCalendarStatusQuery,
+	useGoogleCalendarsQuery,
+	useGoogleDriveStatusQuery,
+	usePatchGoogleCalendarDefaultMutation,
+	useRestoreGoogleCalendarMutation,
+	useRunGoogleDriveBackupMutation,
+	useSaveGoogleCalendarMappingsMutation
+} from "@/queries/googleIntegrationsQuery";
+import {
+	serviceTypeQueryKeys,
+	useServiceTypesQuery
+} from "@/queries/serviceTypeQuery";
 
 import GoogleCalendarSection from "./GoogleCalendarSection";
 import GoogleDriveSection from "./GoogleDriveSection";
-import {
-	fetchCalendars,
-	fetchDriveStatus,
-	fetchGoogleStatus,
-	fetchIntegrationServiceTypes,
-	runCalendarRestore
-} from "./integrationsApi";
 import TypeMappingSection from "./TypeMappingSection";
 
 import type { FC } from "react";
@@ -30,27 +40,19 @@ const IntegrationsInner: FC = () => {
 	const { isOwner, isLoading: roleLoading } = useClinicRole();
 	const [typeMaps, setTypeMaps] = useState<Record<string, string>>({});
 
-	const statusQuery = useQuery({
-		queryKey: ["google-calendar-status"],
-		queryFn: fetchGoogleStatus,
+	const statusQuery = useGoogleCalendarStatusQuery({
 		enabled: isOwner
 	});
 
-	const driveStatusQuery = useQuery({
-		queryKey: ["google-drive-status"],
-		queryFn: fetchDriveStatus,
+	const driveStatusQuery = useGoogleDriveStatusQuery({
 		enabled: isOwner
 	});
 
-	const calendarsQuery = useQuery({
-		queryKey: ["google-calendars"],
-		queryFn: fetchCalendars,
+	const calendarsQuery = useGoogleCalendarsQuery({
 		enabled: Boolean(isOwner && statusQuery.data?.connected)
 	});
 
-	const typesQuery = useQuery({
-		queryKey: ["service-types"],
-		queryFn: fetchIntegrationServiceTypes,
+	const typesQuery = useServiceTypesQuery({
 		enabled: Boolean(isOwner && statusQuery.data?.connected)
 	});
 
@@ -63,10 +65,8 @@ const IntegrationsInner: FC = () => {
 		setTypeMaps(next);
 	}, [typesQuery.data]);
 
-	const restoreMutation = useMutation({
-		mutationFn: runCalendarRestore,
+	const restoreMutation = useRestoreGoogleCalendarMutation({
 		onSuccess: (data) => {
-			queryClient.invalidateQueries({ queryKey: ["sessions-week"] });
 			toast.success(
 				`Google: ${data.synced} de ${data.total} agendamentos sincronizados.` +
 					(data.errors > 0 ? ` (${data.errors} falha(s))` : "")
@@ -82,9 +82,12 @@ const IntegrationsInner: FC = () => {
 
 		if (google === "connected") {
 			toast.success("Google Agenda conectada.");
-			queryClient.invalidateQueries({ queryKey: ["google-calendar-status"] });
-			queryClient.invalidateQueries({ queryKey: ["google-calendars"] });
-			queryClient.invalidateQueries({ queryKey: ["service-types"] });
+			queryClient.invalidateQueries({
+				queryKey: googleCalendarQueryKeys.root()
+			});
+			queryClient.invalidateQueries({
+				queryKey: serviceTypeQueryKeys.list()
+			});
 			if (searchParams.get("restore") === "1") {
 				toast.message("Restaurando agendamentos no Google…");
 				restoreMutation.mutate();
@@ -97,7 +100,9 @@ const IntegrationsInner: FC = () => {
 
 		if (drive === "connected") {
 			toast.success("Google Drive conectado para backups.");
-			queryClient.invalidateQueries({ queryKey: ["google-drive-status"] });
+			queryClient.invalidateQueries({
+				queryKey: googleDriveQueryKeys.root()
+			});
 		} else if (drive === "error") {
 			toast.error(
 				searchParams.get("message") || "Falha ao conectar Google Drive."
@@ -108,52 +113,22 @@ const IntegrationsInner: FC = () => {
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- só no retorno OAuth
 	}, [searchParams, queryClient]);
 
-	const disconnectMutation = useMutation({
-		mutationFn: async () => {
-			const res = await fetch("/api/admin/integrations/google-calendar", {
-				method: "DELETE"
-			});
-			const json = await res.json();
-			if (!res.ok) throw new Error(json.error || "Falha ao desconectar.");
-		},
+	const disconnectMutation = useDisconnectGoogleCalendarMutation({
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["google-calendar-status"] });
-			queryClient.invalidateQueries({ queryKey: ["google-calendars"] });
 			toast.success("Google Agenda desconectada.");
 		},
 		onError: (err: Error) => toast.error(err.message)
 	});
 
-	const disconnectDriveMutation = useMutation({
-		mutationFn: async () => {
-			const res = await fetch("/api/admin/integrations/google-drive", {
-				method: "DELETE"
-			});
-			const json = await res.json();
-			if (!res.ok) throw new Error(json.error || "Falha ao desconectar Drive.");
-		},
+	const disconnectDriveMutation = useDisconnectGoogleDriveMutation({
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["google-drive-status"] });
 			toast.success("Google Drive desconectado.");
 		},
 		onError: (err: Error) => toast.error(err.message)
 	});
 
-	const runBackupMutation = useMutation({
-		mutationFn: async () => {
-			const res = await fetch("/api/admin/integrations/google-drive/run", {
-				method: "POST"
-			});
-			const json = await res.json();
-			if (!res.ok) throw new Error(json.error || "Falha no backup.");
-			return json.data as {
-				fileName?: string;
-				bytes?: number;
-				deletedOldFiles: number;
-			};
-		},
+	const runBackupMutation = useRunGoogleDriveBackupMutation({
 		onSuccess: (data) => {
-			queryClient.invalidateQueries({ queryKey: ["google-drive-status"] });
 			toast.success(
 				`Backup enviado${data.fileName ? `: ${data.fileName}` : "."}` +
 					(data.deletedOldFiles > 0
@@ -164,46 +139,15 @@ const IntegrationsInner: FC = () => {
 		onError: (err: Error) => toast.error(err.message)
 	});
 
-	const defaultCalendarMutation = useMutation({
-		mutationFn: async (calendarId: string) => {
-			const res = await fetch("/api/admin/integrations/google-calendar", {
-				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ calendarId })
-			});
-			const json = await res.json();
-			if (!res.ok) throw new Error(json.error || "Falha ao salvar.");
-			return json.data as { calendarId: string };
-		},
+	const defaultCalendarMutation = usePatchGoogleCalendarDefaultMutation({
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["google-calendar-status"] });
 			toast.success("Agenda padrão atualizada.");
 		},
 		onError: (err: Error) => toast.error(err.message)
 	});
 
-	const mappingsMutation = useMutation({
-		mutationFn: async () => {
-			const mappings = Object.entries(typeMaps).map(
-				([serviceTypeId, googleCalendarId]) => ({
-					serviceTypeId,
-					googleCalendarId: googleCalendarId || null
-				})
-			);
-			const res = await fetch(
-				"/api/admin/integrations/google-calendar/mappings",
-				{
-					method: "PUT",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ mappings })
-				}
-			);
-			const json = await res.json();
-			if (!res.ok) throw new Error(json.error || "Falha ao salvar mapeamento.");
-			return json.data;
-		},
+	const mappingsMutation = useSaveGoogleCalendarMappingsMutation({
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["service-types"] });
 			toast.success("Mapeamento Tipo → agenda salvo.");
 		},
 		onError: (err: Error) => toast.error(err.message)
@@ -270,7 +214,14 @@ const IntegrationsInner: FC = () => {
 					}))
 				}
 				savePending={mappingsMutation.isPending}
-				onSave={() => mappingsMutation.mutate()}
+				onSave={() =>
+					mappingsMutation.mutate(
+						Object.entries(typeMaps).map(([serviceTypeId, googleCalendarId]) => ({
+							serviceTypeId,
+							googleCalendarId: googleCalendarId || null
+						}))
+					)
+				}
 			/>
 		);
 	}

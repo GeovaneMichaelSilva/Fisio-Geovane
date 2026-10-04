@@ -2,9 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-
 import { AdminList, AdminListItem } from "@/components/admin/AdminList";
 import { ErrorState, PageHeader } from "@/components/admin/PageStates";
 import PatientForm from "@/components/patients/PatientForm";
@@ -36,6 +34,13 @@ import {
 	patientToFormValues,
 	type PatientFormParsed
 } from "@/lib/patients/schema";
+import {
+	useArchivePatientMutation,
+	usePatientPdfMutation,
+	usePatientQuery,
+	useUpdatePatientMutation
+} from "@/queries/patientQuery";
+import { useServiceTypesQuery } from "@/queries/serviceTypeQuery";
 
 import type { FC, ReactNode } from "react";
 
@@ -43,63 +48,11 @@ type PatientDetailClientProps = {
 	patientId: string;
 };
 
-type ServiceType = {
-	id: string;
-	name: string;
-	isActive: boolean;
-};
-
-type PatientDetail = {
-	id: string;
-	fullName: string;
-	phone: string | null;
-	cpf: string | null;
-	birthDate: string | null;
-	weightKg: string | null;
-	heightCm: string | null;
-	preferredServiceTypeId: string;
-	preferredServiceTypeName: string;
-	addressStreet: string | null;
-	addressNumber: string | null;
-	addressNeighborhood: string | null;
-	addressCity: string | null;
-	addressZip: string | null;
-	notes: string | null;
-	archivedAt: string | null;
-	stats: {
-		completedCount: number;
-		pendingValueBrl: string;
-	};
-	sessions: Array<{
-		id: string;
-		scheduledDate: string;
-		scheduledTime: string;
-		status: string;
-		valueBrl: string;
-		paid: boolean;
-		serviceTypeName: string;
-	}>;
-};
-
 const STATUS_LABEL: Record<string, string> = {
 	scheduled: "Agendado",
 	completed: "Realizado",
 	canceled: "Cancelado",
 	no_show: "Faltou"
-};
-
-const fetchPatient = async (id: string) => {
-	const res = await fetch(`/api/admin/patients/${id}`);
-	const json = await res.json();
-	if (!res.ok) throw new Error(json.error || "Falha ao carregar.");
-	return json.data as PatientDetail;
-};
-
-const fetchServiceTypes = async () => {
-	const res = await fetch("/api/admin/service-types");
-	const json = await res.json();
-	if (!res.ok) throw new Error(json.error || "Falha ao carregar tipos.");
-	return json.data as ServiceType[];
 };
 
 const formatBrl = (value: string | number) => {
@@ -111,7 +64,6 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 	const { patientId } = props;
 	const router = useRouter();
 	const searchParams = useSearchParams();
-	const queryClient = useQueryClient();
 
 	const isEditing = searchParams.get("mode") === "edit";
 
@@ -123,16 +75,9 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 		router.replace(url);
 	};
 
-	const patientQuery = useQuery({
-		queryKey: ["patient", patientId],
-		queryFn: () => fetchPatient(patientId)
-	});
+	const patientQuery = usePatientQuery(patientId);
 
-	const typesQuery = useQuery({
-		queryKey: ["service-types"],
-		queryFn: fetchServiceTypes,
-		enabled: isEditing
-	});
+	const typesQuery = useServiceTypesQuery({ enabled: isEditing });
 
 	usePageTitle(
 		isEditing
@@ -140,40 +85,16 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 			: patientQuery.data?.fullName || "Paciente"
 	);
 
-	const saveMutation = useMutation({
-		mutationFn: async (values: PatientFormParsed) => {
-			const res = await fetch(`/api/admin/patients/${patientId}`, {
-				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(values)
-			});
-			const json = await res.json();
-			if (!res.ok) throw new Error(json.error || "Falha ao salvar.");
-			return json.data;
-		},
+	const saveMutation = useUpdatePatientMutation(patientId, {
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["patient", patientId] });
-			queryClient.invalidateQueries({ queryKey: ["patients"] });
 			toast.success("Paciente atualizado.");
 			setMode("view");
 		},
 		onError: (err: Error) => toast.error(err.message)
 	});
 
-	const archiveMutation = useMutation({
-		mutationFn: async (archived: boolean) => {
-			const res = await fetch(`/api/admin/patients/${patientId}/archive`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ archived })
-			});
-			const json = await res.json();
-			if (!res.ok) throw new Error(json.error || "Falha ao arquivar.");
-			return json.data as { archivedAt: string | null };
-		},
+	const archiveMutation = useArchivePatientMutation(patientId, {
 		onSuccess: (data) => {
-			queryClient.invalidateQueries({ queryKey: ["patient", patientId] });
-			queryClient.invalidateQueries({ queryKey: ["patients"] });
 			toast.success(
 				data.archivedAt ? "Paciente arquivado." : "Paciente restaurado."
 			);
@@ -181,13 +102,7 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 		onError: (err: Error) => toast.error(err.message)
 	});
 
-	const pdfMutation = useMutation({
-		mutationFn: async () => {
-			const res = await fetch(`/api/admin/patients/${patientId}/pdf`);
-			const json = await res.json();
-			if (!res.ok) throw new Error(json.error || "Falha ao gerar PDF.");
-			return json.data;
-		},
+	const pdfMutation = usePatientPdfMutation(patientId, {
 		onSuccess: (data) => {
 			downloadPatientHistoryPdf(data);
 			toast.success("PDF gerado.");

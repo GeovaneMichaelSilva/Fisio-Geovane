@@ -3,7 +3,6 @@
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { FormSkeleton } from "@/components/admin/LoadingStates";
@@ -25,35 +24,16 @@ import {
 	type ClinicUpdateInput,
 	type ClinicUpdateParsed
 } from "@/lib/clinic/schema";
+import { useClinicQuery, useUpdateClinicMutation } from "@/queries/clinicQuery";
 
 import type { FC, ReactNode } from "react";
 
-type Clinic = {
-	id: string;
-	displayName: string;
-	professionLabel: string;
-	licenseNumber: string | null;
-	timezone: string;
-	defaultSessionDurationMinutes: number;
-};
-
-const fetchClinic = async (): Promise<Clinic> => {
-	const res = await fetch("/api/admin/clinic");
-	const json = await res.json();
-	if (!res.ok) throw new Error(json.error || "Falha ao carregar.");
-	return json.data;
-};
-
 const SettingsPage: FC = () => {
 	usePageTitle("Configurações");
-	const queryClient = useQueryClient();
 	const { isOwner, isLoading: roleLoading } = useClinicRole();
 	const canEdit = isOwner;
 
-	const clinicQuery = useQuery({
-		queryKey: ["clinic"],
-		queryFn: fetchClinic
-	});
+	const clinicQuery = useClinicQuery();
 
 	const form = useForm<ClinicUpdateInput, unknown, ClinicUpdateParsed>({
 		resolver: zodResolver(clinicUpdateSchema),
@@ -79,19 +59,8 @@ const SettingsPage: FC = () => {
 		});
 	}, [clinicQuery.data, form]);
 
-	const saveMutation = useMutation({
-		mutationFn: async (values: ClinicUpdateParsed) => {
-			const res = await fetch("/api/admin/clinic", {
-				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(values)
-			});
-			const json = await res.json();
-			if (!res.ok) throw new Error(json.error || "Falha ao salvar.");
-			return json.data as Clinic;
-		},
-		onSuccess: (data) => {
-			queryClient.setQueryData(["clinic"], data);
+	const saveMutation = useUpdateClinicMutation({
+		onSuccess: () => {
 			toast.success("Dados da clínica salvos.");
 		},
 		onError: (err: Error) => toast.error(err.message)

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
 
 import { AdminList, AdminListItem } from "@/components/admin/AdminList";
 import { ListSkeleton } from "@/components/admin/LoadingStates";
@@ -24,31 +23,9 @@ import {
 import { Input } from "@/components/ui/Input";
 import { useDebounce } from "@/hooks/useDebounce";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { usePatientsQuery } from "@/queries/patientQuery";
 
-import type { PaginationMeta } from "@/lib/pagination";
 import type { FC, ReactNode } from "react";
-
-type PatientListItem = {
-	id: string;
-	fullName: string;
-	phone: string | null;
-	preferredServiceTypeName: string;
-	archivedAt: string | null;
-};
-
-const fetchPatients = async (q: string, archived: boolean, page: number) => {
-	const params = new URLSearchParams({ page: String(page), pageSize: "20" });
-	const term = q.trim();
-	if (term) params.set("q", term);
-	if (archived) params.set("archived", "1");
-	const res = await fetch(`/api/admin/patients?${params}`);
-	const json = await res.json();
-	if (!res.ok) throw new Error(json.error || "Falha ao listar.");
-	return {
-		data: json.data as PatientListItem[],
-		meta: json.meta as PaginationMeta
-	};
-};
 
 const emptyListCopy = (search: string, showArchived: boolean) => {
 	if (search) {
@@ -80,9 +57,10 @@ const PatientsPage: FC = () => {
 		setPage(1);
 	}, [search, showArchived]);
 
-	const listQuery = useQuery({
-		queryKey: ["patients", search, showArchived, page],
-		queryFn: () => fetchPatients(search, showArchived, page)
+	const listQuery = usePatientsQuery({
+		q: search,
+		archived: showArchived,
+		page
 	});
 
 	const rows = listQuery.data?.data ?? [];

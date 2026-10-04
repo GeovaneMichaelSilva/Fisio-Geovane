@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import OverlapConfirmDialog, {
@@ -44,7 +43,12 @@ import {
 import { zodFieldErrors } from "@/lib/zod-utils";
 
 import SessionAuditCard from "./components/SessionAuditCard";
-import { fetchPatients, fetchServiceTypes, fetchSession } from "./api";
+import { usePatientOptionsQuery } from "@/queries/patientQuery";
+import {
+	useSessionQuery,
+	useUpdateSessionMutation
+} from "@/queries/sessionQuery";
+import { useServiceTypesQuery } from "@/queries/serviceTypeQuery";
 
 import type { FC, ReactNode } from "react";
 import type { SessionDetail, SessionMode } from "./types";
@@ -57,7 +61,6 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 	const { sessionId } = props;
 	const router = useRouter();
 	const searchParams = useSearchParams();
-	const queryClient = useQueryClient();
 	const clinicalRef = useRef<HTMLDivElement>(null);
 
 	const modeParam = searchParams.get("mode");
@@ -69,10 +72,8 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 				: "schedule"
 	);
 
-	const sessionQuery = useQuery({
-		queryKey: ["session", sessionId],
-		queryFn: () => fetchSession(sessionId)
-	});
+	const sessionQuery = useSessionQuery(sessionId);
+	const updateMutation = useUpdateSessionMutation(sessionId);
 	const [patientFilter, setPatientFilter] = useState("");
 	const [debouncedPatientQ, setDebouncedPatientQ] = useState("");
 
@@ -81,14 +82,8 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 		return () => clearTimeout(t);
 	}, [patientFilter]);
 
-	const patientsQuery = useQuery({
-		queryKey: ["patients-options", debouncedPatientQ],
-		queryFn: () => fetchPatients(debouncedPatientQ)
-	});
-	const typesQuery = useQuery({
-		queryKey: ["service-types"],
-		queryFn: fetchServiceTypes
-	});
+	const patientsQuery = usePatientOptionsQuery(debouncedPatientQ);
+	const typesQuery = useServiceTypesQuery();
 
 	usePageTitle(
 		sessionQuery.data
@@ -206,161 +201,119 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 		return parsed.data;
 	};
 
-	const saveScheduleMutation = useMutation({
-		mutationFn: async (allowOverlap: boolean) => {
-			const data = validateSchedule();
-			if (!data) {
-				throw new Error("Corrija os campos destacados.");
+	const saveSchedule = (allowOverlap: boolean) => {
+		const data = validateSchedule();
+		if (!data) {
+			toast.error("Corrija os campos destacados.");
+			return;
+		}
+		if (allowOverlap && !overlapReason.trim()) {
+			toast.error("Informe o motivo do override de sobreposição.");
+			return;
+		}
+		updateMutation.mutate(
+			{
+				...data,
+				allowOverlap,
+				overlapReason: allowOverlap ? overlapReason : undefined
+			},
+			{
+				onSuccess: (result) => {
+					if (result.kind === "overlap") {
+						setOverlapConflicts(result.conflicts);
+						setPendingOverlap(true);
+						toast.message("Há sobreposição. Confirme o override.");
+						return;
+					}
+					if (result.googleSync?.status === "error") {
+						toast.warning(
+							`Salvo, mas Google Agenda falhou: ${result.googleSync.message}`
+						);
+					} else {
+						toast.success("Agendamento atualizado.");
+					}
+					setReason("");
+					setPendingOverlap(false);
+					setOverlapReason("");
+					setOverlapConflicts([]);
+					setScheduleErrors({});
+				},
+				onError: (err: Error) => toast.error(err.message)
 			}
-			if (allowOverlap && !overlapReason.trim()) {
-				throw new Error("Informe o motivo do override de sobreposição.");
-			}
-			const res = await fetch(`/api/admin/sessions/${sessionId}`, {
-				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					...data,
-					allowOverlap,
-					overlapReason: allowOverlap ? overlapReason : undefined
-				})
-			});
-			const json = await res.json();
-			if (res.status === 409 && json.error === "overlap") {
-				return {
-					overlap: true as const,
-					conflicts: (json.conflicts ?? []) as OverlapConflict[]
-				};
-			}
-			if (!res.ok) throw new Error(json.error || "Falha ao salvar.");
-			return {
-				overlap: false as const,
-				googleSync: json.googleSync as
-					| { status: "skipped" }
-					| { status: "synced"; action: string }
-					| { status: "error"; message: string }
-					| undefined
-			};
-		},
-		onSuccess: (result) => {
-			if (result.overlap) {
-				setOverlapConflicts(result.conflicts);
-				setPendingOverlap(true);
-				toast.message("Há sobreposição. Confirme o override.");
-				return;
-			}
-			queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
-			queryClient.invalidateQueries({ queryKey: ["sessions-week"] });
-			queryClient.invalidateQueries({ queryKey: ["records"] });
-			if (result.googleSync?.status === "error") {
-				toast.warning(
-					`Salvo, mas Google Agenda falhou: ${result.googleSync.message}`
-				);
-			} else {
-				toast.success("Agendamento atualizado.");
-			}
-			setReason("");
-			setPendingOverlap(false);
-			setOverlapReason("");
-			setOverlapConflicts([]);
-			setScheduleErrors({});
-		},
-		onError: (err: Error) => toast.error(err.message)
-	});
+		);
+	};
 
-	const saveClinicalMutation = useMutation({
-		mutationFn: async (complete: boolean) => {
-			const parsed = sessionClinicalFormSchema.safeParse({
-				assessment: formAssessment,
-				evolution: formEvolution,
-				activities: formActivities,
-				complete
-			});
-			if (!parsed.success) {
-				setClinicalErrors(zodFieldErrors(parsed.error));
-				throw new Error("Corrija os campos destacados.");
+	const saveClinical = (complete: boolean) => {
+		const parsed = sessionClinicalFormSchema.safeParse({
+			assessment: formAssessment,
+			evolution: formEvolution,
+			activities: formActivities,
+			complete
+		});
+		if (!parsed.success) {
+			setClinicalErrors(zodFieldErrors(parsed.error));
+			toast.error("Corrija os campos destacados.");
+			return;
+		}
+		setClinicalErrors({});
+		updateMutation.mutate(
+			{
+				assessment: parsed.data.assessment || null,
+				evolution: parsed.data.evolution || null,
+				activities: parsed.data.activities || null,
+				status: complete ? "completed" : undefined,
+				reason: complete ? "Conclusão do atendimento" : "Registro clínico",
+				allowOverlap: false
+			},
+			{
+				onSuccess: (result) => {
+					if (result.kind === "overlap") return;
+					toast.success(
+						complete ? "Atendimento concluído." : "Registro clínico salvo."
+					);
+					if (result.googleSync?.status === "error") {
+						toast.warning(`Google Agenda: ${result.googleSync.message}`);
+					}
+				},
+				onError: (err: Error) => toast.error(err.message)
 			}
-			setClinicalErrors({});
-			const res = await fetch(`/api/admin/sessions/${sessionId}`, {
-				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					assessment: parsed.data.assessment || null,
-					evolution: parsed.data.evolution || null,
-					activities: parsed.data.activities || null,
-					status: complete ? "completed" : undefined,
-					reason: complete
-						? "Conclusão do atendimento"
-						: "Registro clínico"
-				})
-			});
-			const json = await res.json();
-			if (!res.ok) throw new Error(json.error || "Falha ao salvar clínico.");
-			return {
-				complete,
-				googleSync: json.googleSync as
-					| { status: "error"; message: string }
-					| { status: string }
-					| undefined
-			};
-		},
-		onSuccess: ({ complete, googleSync }) => {
-			queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
-			queryClient.invalidateQueries({ queryKey: ["sessions-week"] });
-			queryClient.invalidateQueries({ queryKey: ["records"] });
-			queryClient.invalidateQueries({ queryKey: ["finance"] });
-			queryClient.invalidateQueries({ queryKey: ["patient"] });
-			toast.success(
-				complete ? "Atendimento concluído." : "Registro clínico salvo."
-			);
-			if (googleSync && "status" in googleSync && googleSync.status === "error") {
-				toast.warning(
-					`Google Agenda: ${(googleSync as { message: string }).message}`
-				);
-			}
-		},
-		onError: (err: Error) => toast.error(err.message)
-	});
+		);
+	};
 
-	const saveFinanceMutation = useMutation({
-		mutationFn: async () => {
-			const parsed = sessionFinanceFormSchema.safeParse({
-				valueBrl: formFinanceValue,
-				paid: formPaid,
-				paidAt: formPaidAt,
-				invoiceIssued: formInvoice,
-				reason: financeReason
-			});
-			if (!parsed.success) {
-				setFinanceErrors(zodFieldErrors(parsed.error));
-				throw new Error("Corrija os campos destacados.");
+	const saveFinance = () => {
+		const parsed = sessionFinanceFormSchema.safeParse({
+			valueBrl: formFinanceValue,
+			paid: formPaid,
+			paidAt: formPaidAt,
+			invoiceIssued: formInvoice,
+			reason: financeReason
+		});
+		if (!parsed.success) {
+			setFinanceErrors(zodFieldErrors(parsed.error));
+			toast.error("Corrija os campos destacados.");
+			return;
+		}
+		setFinanceErrors({});
+		updateMutation.mutate(
+			{
+				valueBrl: parsed.data.valueBrl,
+				paid: parsed.data.paid,
+				paidAt: parsed.data.paid ? parsed.data.paidAt : null,
+				invoiceIssued: parsed.data.invoiceIssued,
+				reason: parsed.data.reason,
+				allowOverlap: false
+			},
+			{
+				onSuccess: (result) => {
+					if (result.kind === "overlap") return;
+					toast.success("Dados financeiros salvos.");
+					setFinanceReason("");
+					setFinanceErrors({});
+				},
+				onError: (err: Error) => toast.error(err.message)
 			}
-			setFinanceErrors({});
-			const res = await fetch(`/api/admin/sessions/${sessionId}`, {
-				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					valueBrl: parsed.data.valueBrl,
-					paid: parsed.data.paid,
-					paidAt: parsed.data.paid ? parsed.data.paidAt : null,
-					invoiceIssued: parsed.data.invoiceIssued,
-					reason: parsed.data.reason
-				})
-			});
-			const json = await res.json();
-			if (!res.ok) throw new Error(json.error || "Falha ao salvar pagamento.");
-			return json.data;
-		},
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
-			queryClient.invalidateQueries({ queryKey: ["finance"] });
-			queryClient.invalidateQueries({ queryKey: ["records"] });
-			queryClient.invalidateQueries({ queryKey: ["patient"] });
-			toast.success("Dados financeiros salvos.");
-			setFinanceReason("");
-			setFinanceErrors({});
-		},
-		onError: (err: Error) => toast.error(err.message)
-	});
+		);
+	};
 
 	const canStart = s?.status === "scheduled";
 	const clinicalLocked = s?.status === "canceled" || s?.status === "no_show";
@@ -617,10 +570,10 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 									<Button
 										type="button"
 										className="min-h-11 flex-1 sm:min-h-10 sm:flex-none"
-										disabled={saveScheduleMutation.isPending}
-										onClick={() => saveScheduleMutation.mutate(false)}
+										disabled={updateMutation.isPending}
+										onClick={() => saveSchedule(false)}
 									>
-										{saveScheduleMutation.isPending
+										{updateMutation.isPending
 											? "Salvando…"
 											: "Salvar"}
 									</Button>
@@ -682,8 +635,8 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 												type="button"
 												variant="secondary"
 												className="min-h-11 flex-1 sm:min-h-10 sm:flex-none"
-												disabled={saveClinicalMutation.isPending}
-												onClick={() => saveClinicalMutation.mutate(false)}
+												disabled={updateMutation.isPending}
+												onClick={() => saveClinical(false)}
 											>
 												Salvar rascunho
 											</Button>
@@ -693,7 +646,7 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 														<Button
 															type="button"
 															className="min-h-11 flex-1 sm:min-h-10 sm:flex-none"
-															disabled={saveClinicalMutation.isPending}
+															disabled={updateMutation.isPending}
 														>
 															Concluir atendimento
 														</Button>
@@ -711,9 +664,7 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 														<AlertDialogFooter>
 															<AlertDialogCancel>Cancelar</AlertDialogCancel>
 															<AlertDialogAction
-																onClick={() =>
-																	saveClinicalMutation.mutate(true)
-																}
+																onClick={() => saveClinical(true)}
 															>
 																Concluir
 															</AlertDialogAction>
@@ -723,8 +674,8 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 											) : (
 												<Button
 													type="button"
-													disabled={saveClinicalMutation.isPending}
-													onClick={() => saveClinicalMutation.mutate(false)}
+													disabled={updateMutation.isPending}
+													onClick={() => saveClinical(false)}
 												>
 													Salvar alterações
 												</Button>
@@ -860,10 +811,10 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 								<div>
 									<Button
 										type="button"
-										disabled={saveFinanceMutation.isPending}
-										onClick={() => saveFinanceMutation.mutate()}
+										disabled={updateMutation.isPending}
+										onClick={() => saveFinance()}
 									>
-										{saveFinanceMutation.isPending
+										{updateMutation.isPending
 											? "Salvando…"
 											: "Salvar pagamento"}
 									</Button>
@@ -879,10 +830,10 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 			<OverlapConfirmDialog
 				open={pendingOverlap}
 				reason={overlapReason}
-				pending={saveScheduleMutation.isPending}
+				pending={updateMutation.isPending}
 				conflicts={overlapConflicts}
 				onReasonChange={setOverlapReason}
-				onConfirm={() => saveScheduleMutation.mutate(true)}
+				onConfirm={() => saveSchedule(true)}
 				onCancel={() => {
 					setPendingOverlap(false);
 					setOverlapReason("");

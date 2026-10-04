@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { AdminList, AdminListItem } from "@/components/admin/AdminList";
@@ -52,24 +51,13 @@ import {
 	type TeamMemberCreateInput,
 	type TeamMemberCreateParsed
 } from "@/lib/team/schema";
+import {
+	useCreateTeamMemberMutation,
+	useRemoveTeamMemberMutation,
+	useTeamQuery
+} from "@/queries/teamQuery";
 
 import type { FC, ReactNode } from "react";
-
-type TeamMember = {
-	userId: string;
-	fullName: string;
-	email: string;
-	role: "owner" | "staff";
-	createdAt: string;
-	isSelf: boolean;
-};
-
-const fetchTeam = async () => {
-	const res = await fetch("/api/admin/team");
-	const json = await res.json();
-	if (!res.ok) throw new Error(json.error || "Falha ao listar equipe.");
-	return json.data as TeamMember[];
-};
 
 const ROLE_LABEL = {
 	owner: "Responsável",
@@ -85,15 +73,11 @@ const emptyMember: TeamMemberCreateInput = {
 
 const TeamSettingsPage: FC = () => {
 	usePageTitle("Equipe");
-	const queryClient = useQueryClient();
 	const { isOwner, isLoading: roleLoading } = useClinicRole();
 	const [removingId, setRemovingId] = useState<string | null>(null);
 	const [createOpen, setCreateOpen] = useState(false);
 
-	const listQuery = useQuery({
-		queryKey: ["team"],
-		queryFn: fetchTeam
-	});
+	const listQuery = useTeamQuery();
 
 	const form = useForm<TeamMemberCreateInput, unknown, TeamMemberCreateParsed>({
 		resolver: zodResolver(teamMemberCreateSchema),
@@ -101,19 +85,8 @@ const TeamSettingsPage: FC = () => {
 		mode: "all"
 	});
 
-	const createMutation = useMutation({
-		mutationFn: async (values: TeamMemberCreateParsed) => {
-			const res = await fetch("/api/admin/team", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(values)
-			});
-			const json = await res.json();
-			if (!res.ok) throw new Error(json.error || "Falha ao adicionar.");
-			return json.data as TeamMember;
-		},
+	const createMutation = useCreateTeamMemberMutation({
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["team"] });
 			form.reset(emptyMember);
 			setCreateOpen(false);
 			toast.success("Membro adicionado. Informe o e-mail e a senha a ele.");
@@ -121,16 +94,8 @@ const TeamSettingsPage: FC = () => {
 		onError: (err: Error) => toast.error(err.message)
 	});
 
-	const removeMutation = useMutation({
-		mutationFn: async (userId: string) => {
-			const res = await fetch(`/api/admin/team/${userId}`, {
-				method: "DELETE"
-			});
-			const json = await res.json();
-			if (!res.ok) throw new Error(json.error || "Falha ao remover.");
-		},
+	const removeMutation = useRemoveTeamMemberMutation({
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["team"] });
 			toast.success("Membro removido.");
 			setRemovingId(null);
 		},

@@ -1,7 +1,6 @@
 ﻿"use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -38,24 +37,23 @@ import AgendaToolbar from "./components/AgendaToolbar";
 import RescheduleMoveDialog, {
 	type PendingMove
 } from "./components/RescheduleMoveDialog";
+import { useClinicQuery } from "@/queries/clinicQuery";
+import { useGoogleCalendarStatusQuery } from "@/queries/googleIntegrationsQuery";
+import { usePatientOptionsQuery } from "@/queries/patientQuery";
 import {
-	fetchClinic,
-	fetchGoogleStatus,
-	fetchPatients,
-	fetchServiceTypes,
-	fetchWeek,
-	notifyGoogleSync,
-	rescheduleSession
-} from "./components/agendaApi";
-import { sessionsToEvents } from "./components/agendaEvents";
+	useCreateSessionMutation,
+	useSessionsRangeQuery,
+	useUpdateSessionMutation
+} from "@/queries/sessionQuery";
+import { useServiceTypesQuery } from "@/queries/serviceTypeQuery";
 
-import type { GoogleSyncResult } from "./components/types";
+import { notifyGoogleSync } from "./components/agendaApi";
+import { sessionsToEvents } from "./components/agendaEvents";
 import type { FC, ReactNode } from "react";
 
 const AgendaClient: FC = () => {
 	usePageTitle("Agenda");
 	const searchParams = useSearchParams();
-	const queryClient = useQueryClient();
 
 	const initialPatientId = searchParams.get("patientId") ?? "";
 	const initialDate = searchParams.get("date") ?? "";
@@ -121,32 +119,22 @@ const AgendaClient: FC = () => {
 		return () => clearTimeout(t);
 	}, [patientFilter]);
 
-	const rangeQuery = useQuery({
-		queryKey: ["sessions-week", range.from, range.to],
-		queryFn: () => fetchWeek(range.from, range.to)
-	});
+	const rangeQuery = useSessionsRangeQuery(range.from, range.to);
 
-	const patientsQuery = useQuery({
-		queryKey: ["patients-options", debouncedPatientQ],
-		queryFn: () => fetchPatients(debouncedPatientQ),
+	const patientsQuery = usePatientOptionsQuery(debouncedPatientQ, {
 		enabled: composerOpen
 	});
 
-	const typesQuery = useQuery({
-		queryKey: ["service-types"],
-		queryFn: fetchServiceTypes
-	});
+	const typesQuery = useServiceTypesQuery();
 
-	const clinicQuery = useQuery({
-		queryKey: ["clinic"],
-		queryFn: fetchClinic
-	});
+	const clinicQuery = useClinicQuery();
 
-	const googleQuery = useQuery({
-		queryKey: ["google-calendar-status"],
-		queryFn: fetchGoogleStatus,
+	const googleQuery = useGoogleCalendarStatusQuery({
 		staleTime: 60_000
 	});
+
+	const moveSessionId = pendingMove?.session.id ?? "";
+	const moveMutation = useUpdateSessionMutation(moveSessionId);
 
 	const events = useMemo(
 		() => sessionsToEvents(rangeQuery.data ?? []),
@@ -239,37 +227,14 @@ const AgendaClient: FC = () => {
 		return () => sub.unsubscribe();
 	}, [form]);
 
-	const createMutation = useMutation({
-		mutationFn: async (payload: SessionCreateParsed) => {
-			const res = await fetch("/api/admin/sessions", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(payload)
-			});
-			const json = await res.json();
-			if (res.status === 409 && json.error === "overlap") {
-				return {
-					overlap: true as const,
-					conflicts: (json.conflicts ?? []) as OverlapConflict[]
-				};
-			}
-			if (!res.ok) {
-				throw new Error(json.error || json.message || "Falha ao agendar.");
-			}
-			return {
-				overlap: false as const,
-				data: json.data as { id: string },
-				googleSync: json.googleSync as GoogleSyncResult | undefined
-			};
-		},
+	const createMutation = useCreateSessionMutation({
 		onSuccess: (result) => {
-			if (result.overlap) {
+			if (result.kind === "overlap") {
 				setOverlapConflicts(result.conflicts);
 				setPendingOverlap(true);
 				toast.message("Há sobreposição de horário. Confirme o override.");
 				return;
 			}
-			queryClient.invalidateQueries({ queryKey: ["sessions-week"] });
 			notifyGoogleSync(result.googleSync);
 			toast.success("Agendamento criado.", {
 				action: {
@@ -280,33 +245,6 @@ const AgendaClient: FC = () => {
 				}
 			});
 			closeComposer();
-		},
-		onError: (err: Error) => toast.error(err.message)
-	});
-
-	const moveMutation = useMutation({
-		mutationFn: async (input: {
-			sessionId: string;
-			scheduledDate: string;
-			scheduledTime: string;
-			durationMinutes: number;
-			allowOverlap?: boolean;
-			overlapReason?: string;
-		}) => rescheduleSession(input),
-		onSuccess: (result) => {
-			if (result.overlap) {
-				setMoveOverlapConflicts(result.conflicts);
-				setMoveOverlapOpen(true);
-				toast.message("Há sobreposição no horário de destino. Confirme o override.");
-				return;
-			}
-			queryClient.invalidateQueries({ queryKey: ["sessions-week"] });
-			notifyGoogleSync(result.googleSync);
-			toast.success("Atendimento remarcado.");
-			setPendingMove(null);
-			setMoveOverlapOpen(false);
-			setMoveOverlapReason("");
-			setMoveOverlapConflicts([]);
 		},
 		onError: (err: Error) => toast.error(err.message)
 	});
@@ -327,14 +265,35 @@ const AgendaClient: FC = () => {
 
 	const confirmMove = (allowOverlap: boolean, overlapReasonValue?: string) => {
 		if (!pendingMove) return;
-		moveMutation.mutate({
-			sessionId: pendingMove.session.id,
-			scheduledDate: pendingMove.toDate,
-			scheduledTime: pendingMove.toTime,
-			durationMinutes: pendingMove.durationMinutes,
-			allowOverlap,
-			overlapReason: allowOverlap ? overlapReasonValue?.trim() : undefined
-		});
+		moveMutation.mutate(
+			{
+				scheduledDate: pendingMove.toDate,
+				scheduledTime: pendingMove.toTime,
+				durationMinutes: pendingMove.durationMinutes,
+				allowOverlap,
+				overlapReason: allowOverlap ? overlapReasonValue?.trim() : undefined,
+				reason: "Remarcado na agenda (calendário)."
+			},
+			{
+				onSuccess: (result) => {
+					if (result.kind === "overlap") {
+						setMoveOverlapConflicts(result.conflicts);
+						setMoveOverlapOpen(true);
+						toast.message(
+							"Há sobreposição no horário de destino. Confirme o override."
+						);
+						return;
+					}
+					notifyGoogleSync(result.googleSync);
+					toast.success("Atendimento remarcado.");
+					setPendingMove(null);
+					setMoveOverlapOpen(false);
+					setMoveOverlapReason("");
+					setMoveOverlapConflicts([]);
+				},
+				onError: (err: Error) => toast.error(err.message)
+			}
+		);
 	};
 
 	const selectedPatientId = form.watch("patientId");

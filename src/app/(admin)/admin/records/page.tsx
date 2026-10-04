@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
 
 import { AdminList, AdminListItem } from "@/components/admin/AdminList";
 import { ListSkeleton } from "@/components/admin/LoadingStates";
@@ -25,39 +24,9 @@ import { Input } from "@/components/ui/Input";
 import { useDebounce } from "@/hooks/useDebounce";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { normalizeTime } from "@/lib/sessions/agenda";
+import { useRecordsQuery } from "@/queries/recordsQuery";
 
-import type { PaginationMeta } from "@/lib/pagination";
 import type { FC, ReactNode } from "react";
-
-type RecordItem = {
-	id: string;
-	patientId: string;
-	patientName: string;
-	scheduledDate: string;
-	scheduledTime: string;
-	serviceTypeName: string;
-	valueBrl: string;
-	paid: boolean;
-	invoiceIssued: boolean;
-	evolution: string | null;
-};
-
-const fetchRecords = async (q: string, page: number) => {
-	const params = new URLSearchParams({
-		status: "completed",
-		page: String(page),
-		pageSize: "20"
-	});
-	const term = q.trim();
-	if (term) params.set("q", term);
-	const res = await fetch(`/api/admin/sessions?${params}`);
-	const json = await res.json();
-	if (!res.ok) throw new Error(json.error || "Falha ao listar atendimentos.");
-	return {
-		data: json.data as RecordItem[],
-		meta: json.meta as PaginationMeta
-	};
-};
 
 const formatBrl = (value: string) =>
 	Number(value).toLocaleString("pt-BR", {
@@ -81,10 +50,7 @@ const RecordsPage: FC = () => {
 		setPage(1);
 	}, [search]);
 
-	const listQuery = useQuery({
-		queryKey: ["records", search, page],
-		queryFn: () => fetchRecords(search, page)
-	});
+	const listQuery = useRecordsQuery({ q: search, page });
 
 	const rows = listQuery.data?.data ?? [];
 	const meta = listQuery.data?.meta;
