@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -20,6 +21,7 @@ import {
 } from "@/components/ui/AlertDialog";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { buttonVariants } from "@/components/ui/Button/variants";
 import {
 	Card,
 	CardContent,
@@ -27,6 +29,7 @@ import {
 	CardHeader,
 	CardTitle
 } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { downloadPatientHistoryPdf } from "@/lib/pdf/patient-history";
@@ -36,6 +39,7 @@ import {
 } from "@/lib/patients/schema";
 import {
 	useArchivePatientMutation,
+	useDeletePatientMutation,
 	usePatientPdfMutation,
 	usePatientQuery,
 	useUpdatePatientMutation
@@ -93,11 +97,26 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 		onError: (err: Error) => toast.error(err.message)
 	});
 
+	const [deleteConfirmName, setDeleteConfirmName] = useState("");
+	const [deleteOpen, setDeleteOpen] = useState(false);
+
 	const archiveMutation = useArchivePatientMutation(patientId, {
 		onSuccess: (data) => {
 			toast.success(
 				data.archivedAt ? "Paciente arquivado." : "Paciente restaurado."
 			);
+		},
+		onError: (err: Error) => toast.error(err.message)
+	});
+
+	const deleteMutation = useDeletePatientMutation(patientId, {
+		onSuccess: (data) => {
+			const extra =
+				data.deletedSessions > 0
+					? ` ${data.deletedSessions} atendimento(s) também foram excluídos.`
+					: "";
+			toast.success(`Paciente excluído.${extra}`);
+			router.replace("/admin/patients");
 		},
 		onError: (err: Error) => toast.error(err.message)
 	});
@@ -111,6 +130,10 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 	});
 
 	const archived = Boolean(patientQuery.data?.archivedAt);
+	const patientName = patientQuery.data?.fullName ?? "";
+	const sessionCount = patientQuery.data?.stats.sessionCount ?? 0;
+	const deleteNameMatches =
+		deleteConfirmName.trim().toLowerCase() === patientName.trim().toLowerCase();
 	const archiveDialogDescription = archived
 		? "O paciente voltará para a lista ativa e poderá ser agendado."
 		: "Ele sairá da lista ativa e não poderá ser agendado até ser restaurado.";
@@ -174,32 +197,114 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 					>
 						{pdfMutation.isPending ? "Gerando PDF…" : "Exportar PDF"}
 					</Button>
-					<AlertDialog>
+					{archived ? (
+						<Button
+							type="button"
+							variant="outline"
+							disabled={archiveMutation.isPending}
+							onClick={() => archiveMutation.mutate(false)}
+						>
+							Restaurar
+						</Button>
+					) : (
+						<AlertDialog>
+							<AlertDialogTrigger asChild>
+								<Button
+									type="button"
+									variant="ghost"
+									disabled={archiveMutation.isPending}
+								>
+									Arquivar
+								</Button>
+							</AlertDialogTrigger>
+							<AlertDialogContent>
+								<AlertDialogHeader>
+									<AlertDialogTitle>Arquivar paciente?</AlertDialogTitle>
+									<AlertDialogDescription>
+										{archiveDialogDescription}
+									</AlertDialogDescription>
+								</AlertDialogHeader>
+								<AlertDialogFooter>
+									<AlertDialogCancel>Cancelar</AlertDialogCancel>
+									<AlertDialogAction
+										onClick={() => archiveMutation.mutate(true)}
+									>
+										Arquivar
+									</AlertDialogAction>
+								</AlertDialogFooter>
+							</AlertDialogContent>
+						</AlertDialog>
+					)}
+					<AlertDialog
+						open={deleteOpen}
+						onOpenChange={(open) => {
+							setDeleteOpen(open);
+							if (!open) setDeleteConfirmName("");
+						}}
+					>
 						<AlertDialogTrigger asChild>
 							<Button
 								type="button"
 								variant="ghost"
 								color="destructive"
-								disabled={archiveMutation.isPending}
+								disabled={deleteMutation.isPending}
 							>
-								{archived ? "Restaurar" : "Arquivar"}
+								Excluir
 							</Button>
 						</AlertDialogTrigger>
 						<AlertDialogContent>
 							<AlertDialogHeader>
-								<AlertDialogTitle>
-									{archived ? "Restaurar paciente?" : "Arquivar paciente?"}
-								</AlertDialogTitle>
-								<AlertDialogDescription>
-									{archiveDialogDescription}
+								<AlertDialogTitle>Excluir paciente em definitivo?</AlertDialogTitle>
+								<AlertDialogDescription asChild>
+									<div className="text-muted-foreground space-y-2 text-sm">
+										<p>
+											Esta ação não pode ser desfeita. O cadastro de{" "}
+											<span className="text-foreground font-medium">
+												{patientName || "este paciente"}
+											</span>{" "}
+											será apagado.
+										</p>
+										{sessionCount > 0 && (
+											<p>
+												Também serão excluídos{" "}
+												<span className="text-foreground font-medium">
+													{sessionCount} atendimento(s)
+												</span>{" "}
+												vinculados (histórico clínico e financeiro).
+											</p>
+										)}
+										<p>
+											Para confirmar, digite o nome completo do paciente:
+										</p>
+									</div>
 								</AlertDialogDescription>
 							</AlertDialogHeader>
+							<Input
+								label={{ text: "Nome do paciente", required: true }}
+								value={deleteConfirmName}
+								onChange={(e) => setDeleteConfirmName(e.target.value)}
+								placeholder={patientName || "Nome completo"}
+								autoComplete="off"
+							/>
 							<AlertDialogFooter>
-								<AlertDialogCancel>Cancelar</AlertDialogCancel>
+								<AlertDialogCancel disabled={deleteMutation.isPending}>
+									Cancelar
+								</AlertDialogCancel>
 								<AlertDialogAction
-									onClick={() => archiveMutation.mutate(!archived)}
+									disabled={!deleteNameMatches || deleteMutation.isPending}
+									className={buttonVariants({
+										variant: "default",
+										color: "destructive"
+									})}
+									onClick={(e) => {
+										e.preventDefault();
+										if (!deleteNameMatches) return;
+										deleteMutation.mutate({ confirmName: deleteConfirmName });
+									}}
 								>
-									{archived ? "Restaurar" : "Arquivar"}
+									{deleteMutation.isPending
+										? "Excluindo…"
+										: "Excluir definitivamente"}
 								</AlertDialogAction>
 							</AlertDialogFooter>
 						</AlertDialogContent>

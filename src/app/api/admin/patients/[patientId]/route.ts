@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { and, desc, eq, sql } from "drizzle-orm";
+import { z } from "zod";
 
 import { getDb } from "@/db";
 import { patients, serviceTypes, sessions } from "@/db/schema";
@@ -7,6 +8,11 @@ import { getOrCreateClinicContext } from "@/lib/clinic/context";
 import { patientFormSchema } from "@/lib/patients/schema";
 
 type Params = { params: Promise<{ patientId: string }> };
+
+const deleteBodySchema = z.object({
+	/** Confirmação: deve coincidir com o nome do paciente (trim, case-insensitive). */
+	confirmName: z.string().trim().min(1, "Informe o nome do paciente.")
+});
 
 export const GET = async (_request: Request, { params }: Params) => {
 	try {
@@ -41,6 +47,7 @@ export const GET = async (_request: Request, { params }: Params) => {
 
 		const [stats] = await db
 			.select({
+				sessionCount: sql<number>`count(*)::int`,
 				completedCount: sql<number>`count(*) filter (where ${sessions.status} = 'completed')::int`,
 				pendingValueBrl: sql<string>`coalesce(sum(${sessions.valueBrl}) filter (where ${sessions.status} = 'completed' and ${sessions.paid} = false), 0)`
 			})
@@ -78,6 +85,7 @@ export const GET = async (_request: Request, { params }: Params) => {
 				...row.patient,
 				preferredServiceTypeName: row.preferredServiceTypeName,
 				stats: {
+					sessionCount: stats?.sessionCount ?? 0,
 					completedCount: stats?.completedCount ?? 0,
 					pendingValueBrl: String(stats?.pendingValueBrl ?? "0")
 				},
@@ -202,4 +210,86 @@ export const PUT = async (request: Request, { params }: Params) => {
 			{ status: 500 }
 		);
 	}
-}
+};
+
+/**
+ * Exclui paciente em definitivo (e sessões vinculadas).
+ * Exige confirmName igual ao nome cadastrado.
+ */
+export const DELETE = async (request: Request, { params }: Params) => {
+	try {
+		const { patientId } = await params;
+		const ctx = await getOrCreateClinicContext();
+		const body = await request.json().catch(() => ({}));
+		const parsed = deleteBodySchema.safeParse(body);
+
+		if (!parsed.success) {
+			return NextResponse.json(
+				{
+					error: "Confirme o nome do paciente para excluir.",
+					issues: parsed.error.flatten().fieldErrors
+				},
+				{ status: 400 }
+			);
+		}
+
+		const db = getDb();
+		const [existing] = await db
+			.select({
+				id: patients.id,
+				fullName: patients.fullName
+			})
+			.from(patients)
+			.where(
+				and(
+					eq(patients.id, patientId),
+					eq(patients.clinicId, ctx.clinic.id)
+				)
+			)
+			.limit(1);
+
+		if (!existing) {
+			return NextResponse.json(
+				{ error: "Paciente não encontrado." },
+				{ status: 404 }
+			);
+		}
+
+		const expected = existing.fullName.trim().toLowerCase();
+		const got = parsed.data.confirmName.trim().toLowerCase();
+		if (expected !== got) {
+			return NextResponse.json(
+				{ error: "O nome informado não confere com o cadastro." },
+				{ status: 400 }
+			);
+		}
+
+		const [sessionCountRow] = await db
+			.select({
+				count: sql<number>`count(*)::int`
+			})
+			.from(sessions)
+			.where(eq(sessions.patientId, patientId));
+
+		const sessionCount = sessionCountRow?.count ?? 0;
+
+		await db.transaction(async (tx) => {
+			// session_audits cascateiam via FK; sessões não têm onDelete no patient
+			if (sessionCount > 0) {
+				await tx.delete(sessions).where(eq(sessions.patientId, patientId));
+			}
+			await tx.delete(patients).where(eq(patients.id, patientId));
+		});
+
+		return NextResponse.json({
+			data: { id: patientId, deletedSessions: sessionCount }
+		});
+	} catch (err) {
+		if (err instanceof Response) return err;
+		console.error(err);
+		return NextResponse.json(
+			{ error: "Falha ao excluir paciente." },
+			{ status: 500 }
+		);
+	}
+};

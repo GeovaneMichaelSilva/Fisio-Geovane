@@ -36,6 +36,7 @@ export type PatientDetail = {
 	notes: string | null;
 	archivedAt: string | null;
 	stats: {
+		sessionCount: number;
 		completedCount: number;
 		pendingValueBrl: string;
 	};
@@ -227,7 +228,11 @@ export const useUpdatePatientMutation = (
 					updated.preferredServiceTypeName ||
 					prev?.preferredServiceTypeName ||
 					"",
-				stats: prev?.stats ?? { completedCount: 0, pendingValueBrl: "0" },
+				stats: prev?.stats ?? {
+					sessionCount: 0,
+					completedCount: 0,
+					pendingValueBrl: "0"
+				},
 				sessions: prev?.sessions ?? []
 			};
 			queryClient.setQueryData(patientQueryKeys.detail(patientId), nextDetail);
@@ -338,6 +343,58 @@ export const usePatientPdfMutation = (
 		mutationFn: () =>
 			fetchApiData<PatientPdfInput>(`/api/admin/patients/${patientId}/pdf`),
 		onSuccess: async (data, vars, onMutateResult, context) => {
+			await onSuccess?.(data, vars, onMutateResult, context);
+		},
+		...rest
+	});
+};
+
+export type DeletePatientResult = {
+	id: string;
+	deletedSessions: number;
+};
+
+/**
+ * Hard-delete do paciente (exige confirmName = nome cadastrado).
+ */
+export const useDeletePatientMutation = (
+	patientId: string,
+	options?: Omit<
+		UseMutationOptions<DeletePatientResult, Error, { confirmName: string }>,
+		"mutationFn"
+	>
+) => {
+	const queryClient = useQueryClient();
+	const { onSuccess, ...rest } = options ?? {};
+
+	return useMutation({
+		mutationKey: [...patientQueryKeys.root(), "delete", patientId],
+		mutationFn: async ({ confirmName }) => {
+			const res = await fetch(`/api/admin/patients/${patientId}`, {
+				method: "DELETE",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ confirmName })
+			});
+			const json = (await res.json().catch(() => ({}))) as {
+				data?: DeletePatientResult;
+				error?: string;
+			};
+			if (!res.ok) {
+				throw new Error(json.error || "Falha ao excluir paciente.");
+			}
+			return (json.data ?? { id: patientId, deletedSessions: 0 }) as DeletePatientResult;
+		},
+		onSuccess: async (data, vars, onMutateResult, context) => {
+			removePatientFromLists(queryClient, patientId);
+			queryClient.removeQueries({
+				queryKey: patientQueryKeys.detail(patientId)
+			});
+			await queryClient.invalidateQueries({
+				queryKey: patientQueryKeys.lists()
+			});
+			await queryClient.invalidateQueries({
+				queryKey: [...patientQueryKeys.root(), "options"]
+			});
 			await onSuccess?.(data, vars, onMutateResult, context);
 		},
 		...rest
