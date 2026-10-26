@@ -193,11 +193,10 @@ export const sessionClinicalFormSchema = z
 	});
 
 /**
- * Formulário financeiro da sessão.
+ * Formulário financeiro da sessão (valor é somente leitura — edita no agendamento).
  */
 export const sessionFinanceFormSchema = z
 	.object({
-		valueBrl,
 		paid: z.boolean(),
 		paidAt: z
 			.union([z.string(), z.null(), z.undefined()])

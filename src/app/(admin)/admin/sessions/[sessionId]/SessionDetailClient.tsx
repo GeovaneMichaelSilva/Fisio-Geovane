@@ -119,7 +119,6 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 	const [paidAt, setPaidAt] = useState<string | null>(null);
 	const [invoiceIssued, setInvoiceIssued] = useState<boolean | null>(null);
 	const [financeReason, setFinanceReason] = useState("");
-	const [financeValue, setFinanceValue] = useState<number | null>(null);
 	const [pdfPending, setPdfPending] = useState(false);
 
 	const s = sessionQuery.data;
@@ -155,7 +154,6 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 	const formPaid = paid ?? s?.paid ?? false;
 	const formPaidAt = paidAt ?? s?.paidAt ?? "";
 	const formInvoice = invoiceIssued ?? s?.invoiceIssued ?? false;
-	const formFinanceValue = financeValue ?? (s ? Number(s.valueBrl) : 0);
 
 	useEffect(() => {
 		if (modeParam === "clinical") setMode("clinical");
@@ -272,7 +270,6 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 
 	const saveFinance = () => {
 		const parsed = sessionFinanceFormSchema.safeParse({
-			valueBrl: formFinanceValue,
 			paid: formPaid,
 			paidAt: formPaidAt,
 			invoiceIssued: formInvoice,
@@ -286,7 +283,6 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 		setFinanceErrors({});
 		updateMutation.mutate(
 			{
-				valueBrl: parsed.data.valueBrl,
 				paid: parsed.data.paid,
 				paidAt: parsed.data.paid ? parsed.data.paidAt : null,
 				invoiceIssued: parsed.data.invoiceIssued,
@@ -741,7 +737,8 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 					<CardHeader>
 						<CardTitle>Pagamento</CardTitle>
 						<CardDescription>
-							Valor, pago, data de pagamento e flag de NFS-e. Motivo obrigatório.
+							Marque como pago, data e NFS-e. Motivo obrigatório. O valor
+							só pode ser alterado no agendamento.
 						</CardDescription>
 					</CardHeader>
 					<CardContent className="grid max-w-xl gap-4">
@@ -749,15 +746,15 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 							<Skeleton className="h-24 w-full" />
 						) : (
 							<>
-								<Input
-									label={{ text: "Valor (R$)", required: true }}
-									type="number"
-									min={0}
-									step="0.01"
-									value={formFinanceValue}
-									error={financeErrors.valueBrl}
-									onChange={(e) => setFinanceValue(Number(e.target.value))}
-								/>
+								<div className="space-y-1.5">
+									<p className="text-sm font-medium">Valor</p>
+									<p className="text-sm">
+										{(s ? Number(s.valueBrl) : 0).toLocaleString("pt-BR", {
+											style: "currency",
+											currency: "BRL"
+										})}
+									</p>
+								</div>
 								<label className="flex items-center gap-2 text-sm">
 									<input
 										type="checkbox"
