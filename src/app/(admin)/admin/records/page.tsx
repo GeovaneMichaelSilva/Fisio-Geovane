@@ -130,9 +130,14 @@ const RecordsPage: FC = () => {
 											</p>
 											<div className="flex flex-wrap gap-2">
 												{row.paid && <Badge>Pago</Badge>}
-												{!row.paid && (
-													<Badge variant="secondary">Em aberto</Badge>
-												)}
+												{!row.paid &&
+													Number(row.amountPaidBrl ?? 0) > 0 && (
+														<Badge variant="outline">Parcial</Badge>
+													)}
+												{!row.paid &&
+													Number(row.amountPaidBrl ?? 0) <= 0 && (
+														<Badge variant="secondary">Em aberto</Badge>
+													)}
 												{row.invoiceIssued && (
 													<Badge variant="outline">NFS-e</Badge>
 												)}

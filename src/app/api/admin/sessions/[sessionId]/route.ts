@@ -2,15 +2,9 @@ import { NextResponse } from "next/server";
 import { and, desc, eq, ne } from "drizzle-orm";
 
 import { getDb } from "@/db";
-import {
-	patients,
-	serviceTypes,
-	sessionAudits,
-	sessions
-} from "@/db/schema";
+import { patients, serviceTypes, sessions } from "@/db/schema";
 import { getOrCreateClinicContext } from "@/lib/clinic/context";
 import { normalizeTime } from "@/lib/sessions/agenda";
-import { writeSessionAudit } from "@/lib/sessions/audit";
 import { getOverlappingSessions } from "@/lib/sessions/overlap";
 import { sessionUpdateSchema } from "@/lib/sessions/schema";
 
@@ -46,17 +40,6 @@ export const GET = async (_request: Request, { params }: Params) => {
 			);
 		}
 
-		const audits = await db
-			.select({
-				id: sessionAudits.id,
-				editedAt: sessionAudits.editedAt,
-				reason: sessionAudits.reason
-			})
-			.from(sessionAudits)
-			.where(eq(sessionAudits.sessionId, sessionId))
-			.orderBy(desc(sessionAudits.editedAt))
-			.limit(20);
-
 		const previousClinical = await db
 			.select({
 				id: sessions.id,
@@ -85,7 +68,6 @@ export const GET = async (_request: Request, { params }: Params) => {
 				...row.session,
 				patientName: row.patientName,
 				serviceTypeName: row.serviceTypeName,
-				audits,
 				previousClinical
 			}
 		});
@@ -149,9 +131,49 @@ export const PUT = async (request: Request, { params }: Params) => {
 			data.valueBrl !== undefined
 				? data.valueBrl.toFixed(2)
 				: current.valueBrl;
-		const nextPaid = data.paid ?? current.paid;
-		const nextPaidAt =
+		const currentAmountPaid = Number(current.amountPaidBrl ?? 0);
+		if (data.valueBrl !== undefined && data.valueBrl < currentAmountPaid) {
+			return NextResponse.json(
+				{
+					error: `Valor não pode ser menor que o já pago (R$ ${currentAmountPaid.toFixed(2)}).`
+				},
+				{ status: 400 }
+			);
+		}
+		// paid/paidAt via PUT só para NFS-e/legado; baixas usam /payments
+		let nextPaid = data.paid ?? current.paid;
+		let nextPaidAt =
 			data.paidAt !== undefined ? data.paidAt : current.paidAt;
+		let nextAmountPaid = current.amountPaidBrl ?? "0";
+		if (data.paid === true && !current.paid) {
+			nextAmountPaid = nextValue;
+			nextPaid = true;
+			if (!nextPaidAt) {
+				return NextResponse.json(
+					{ error: "Informe a data de pagamento." },
+					{ status: 400 }
+				);
+			}
+		} else if (data.paid === false && current.paid) {
+			return NextResponse.json(
+				{
+					error:
+						"Não é possível desfazer quitação por este formulário. Registre apenas novas baixas."
+				},
+				{ status: 400 }
+			);
+		} else if (Number(nextValue) > currentAmountPaid && current.paid) {
+			// aumentou o valor de sessão já quitada → volta a ter saldo
+			nextPaid = false;
+			nextPaidAt = null;
+			nextAmountPaid = current.amountPaidBrl ?? "0";
+		} else if (
+			Number(nextValue) === currentAmountPaid &&
+			currentAmountPaid > 0
+		) {
+			nextPaid = true;
+			nextPaidAt = nextPaidAt ?? current.paidAt;
+		}
 		const nextInvoice = data.invoiceIssued ?? current.invoiceIssued;
 		const nextAssessment =
 			data.assessment !== undefined ? data.assessment : current.assessment;
@@ -267,6 +289,7 @@ export const PUT = async (request: Request, { params }: Params) => {
 				serviceTypeId: nextServiceTypeId,
 				status: nextStatus,
 				valueBrl: nextValue,
+				amountPaidBrl: nextAmountPaid,
 				paid: nextPaid,
 				paidAt: nextPaid ? nextPaidAt : null,
 				invoiceIssued: nextInvoice,
@@ -278,20 +301,6 @@ export const PUT = async (request: Request, { params }: Params) => {
 			})
 			.where(eq(sessions.id, sessionId))
 			.returning();
-
-		let auditReason = data.reason;
-		if (data.allowOverlap && data.overlapReason?.trim()) {
-			auditReason = `${data.reason} | Override overlap: ${data.overlapReason.trim()}`;
-		}
-
-		await writeSessionAudit(db, {
-			clinicId: ctx.clinic.id,
-			sessionId,
-			editedBy: ctx.userId,
-			reason: auditReason,
-			beforeState: current,
-			afterState: updated
-		});
 
 		const scheduleOrStatusChanged =
 			scheduleChanged ||

@@ -7,7 +7,6 @@ import {
 	googleDriveConnections,
 	patients,
 	serviceTypes,
-	sessionAudits,
 	sessions
 } from "@/db/schema";
 import { getValidDriveAccessToken } from "@/lib/google-drive/client";
@@ -42,7 +41,6 @@ export type ClinicBackupPayload = {
 	serviceTypes: unknown[];
 	patients: unknown[];
 	sessions: unknown[];
-	sessionAudits: unknown[];
 };
 
 /**
@@ -69,11 +67,10 @@ export const buildClinicBackupPayload = async (
 		throw new Error("Clínica não encontrada.");
 	}
 
-	const [types, patientRows, sessionRows, auditRows] = await Promise.all([
+	const [types, patientRows, sessionRows] = await Promise.all([
 		db.select().from(serviceTypes).where(eq(serviceTypes.clinicId, clinicId)),
 		db.select().from(patients).where(eq(patients.clinicId, clinicId)),
-		db.select().from(sessions).where(eq(sessions.clinicId, clinicId)),
-		db.select().from(sessionAudits).where(eq(sessionAudits.clinicId, clinicId))
+		db.select().from(sessions).where(eq(sessions.clinicId, clinicId))
 	]);
 
 	return {
@@ -83,8 +80,7 @@ export const buildClinicBackupPayload = async (
 		clinic,
 		serviceTypes: types,
 		patients: patientRows,
-		sessions: sessionRows,
-		sessionAudits: auditRows
+		sessions: sessionRows
 	};
 }
 

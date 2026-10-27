@@ -43,8 +43,24 @@ export const GET = async (request: Request) => {
 		const [stats] = await db
 			.select({
 				completedCount: sql<number>`count(*)::int`,
-				receivedTotal: sql<string>`coalesce(sum(${sessions.valueBrl}) filter (where ${sessions.paid} = true), 0)`,
-				pendingTotal: sql<string>`coalesce(sum(${sessions.valueBrl}) filter (where ${sessions.paid} = false), 0)`,
+				// Rede de segurança pré-backfill: se paid=true e amount_paid ainda 0, usa value_brl
+				receivedTotal: sql<string>`coalesce(sum(
+					case
+						when ${sessions.paid} = true
+							and ${sessions.amountPaidBrl}::numeric = 0
+						then ${sessions.valueBrl}
+						else ${sessions.amountPaidBrl}
+					end
+				), 0)`,
+				pendingTotal: sql<string>`coalesce(sum(
+					case
+						when ${sessions.paid} = true then 0
+						else greatest(
+							${sessions.valueBrl}::numeric - ${sessions.amountPaidBrl}::numeric,
+							0
+						)
+					end
+				), 0)`,
 				pendingCount: sql<number>`count(*) filter (where ${sessions.paid} = false)::int`
 			})
 			.from(sessions)
@@ -62,6 +78,7 @@ export const GET = async (request: Request) => {
 				scheduledTime: sessions.scheduledTime,
 				serviceTypeName: serviceTypes.name,
 				valueBrl: sessions.valueBrl,
+				amountPaidBrl: sessions.amountPaidBrl,
 				paid: sessions.paid,
 				paidAt: sessions.paidAt,
 				invoiceIssued: sessions.invoiceIssued

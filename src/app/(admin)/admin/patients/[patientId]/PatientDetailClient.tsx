@@ -29,8 +29,17 @@ import {
 	CardHeader,
 	CardTitle
 } from "@/components/ui/Card";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle
+} from "@/components/ui/Dialog";
 import { Input } from "@/components/ui/Input";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { Textarea } from "@/components/ui/Textarea";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { downloadPatientHistoryPdf } from "@/lib/pdf/patient-history";
 import {
@@ -38,8 +47,21 @@ import {
 	type PatientFormParsed
 } from "@/lib/patients/schema";
 import {
+	formatBrl,
+	sessionPaymentStatus,
+	SESSION_PAYMENT_STATUS_LABEL
+} from "@/lib/payments/money";
+import {
+	patientPaymentSchema,
+	paymentRefundSchema
+} from "@/lib/payments/schema";
+import { zodFieldErrors } from "@/lib/zod-utils";
+import {
 	useArchivePatientMutation,
 	useDeletePatientMutation,
+	usePatientPaymentMutation,
+	usePatientPaymentRefundMutation,
+	usePatientPaymentsQuery,
 	usePatientPdfMutation,
 	usePatientQuery,
 	useUpdatePatientMutation
@@ -59,11 +81,6 @@ const STATUS_LABEL: Record<string, string> = {
 	no_show: "Faltou"
 };
 
-const formatBrl = (value: string | number) => {
-	const n = typeof value === "string" ? Number(value) : value;
-	return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-};
-
 const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 	const { patientId } = props;
 	const router = useRouter();
@@ -80,8 +97,36 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 	};
 
 	const patientQuery = usePatientQuery(patientId);
+	const paymentsQuery = usePatientPaymentsQuery(patientId, {
+		enabled: !isEditing
+	});
 
 	const typesQuery = useServiceTypesQuery({ enabled: isEditing });
+
+	const [paymentOpen, setPaymentOpen] = useState(false);
+	const [paymentAmount, setPaymentAmount] = useState("");
+	const [paymentPaidAt, setPaymentPaidAt] = useState(
+		() => new Date().toISOString().slice(0, 10)
+	);
+	const [paymentNote, setPaymentNote] = useState("");
+	const [paymentErrors, setPaymentErrors] = useState<
+		Record<string, string | undefined>
+	>({});
+
+	const [refundOpen, setRefundOpen] = useState(false);
+	const [refundAmount, setRefundAmount] = useState("");
+	const [refundNote, setRefundNote] = useState("");
+	const [refundErrors, setRefundErrors] = useState<
+		Record<string, string | undefined>
+	>({});
+
+	const pendingValue = Number(
+		patientQuery.data?.stats.pendingValueBrl ?? 0
+	);
+	const totalRefundable = Number(
+		paymentsQuery.data?.totalRefundableBrl ?? 0
+	);
+	const ledgerEntries = paymentsQuery.data?.entries ?? [];
 
 	usePageTitle(
 		isEditing
@@ -128,6 +173,86 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 		},
 		onError: (err: Error) => toast.error(err.message)
 	});
+
+	const paymentMutation = usePatientPaymentMutation(patientId, {
+		onSuccess: (data) => {
+			toast.success(
+				`Pagamento de ${formatBrl(data.amountBrl)} registrado.`
+			);
+			setPaymentOpen(false);
+			setPaymentAmount("");
+			setPaymentNote("");
+			setPaymentPaidAt(new Date().toISOString().slice(0, 10));
+			setPaymentErrors({});
+		},
+		onError: (err: Error) => toast.error(err.message)
+	});
+
+	const refundMutation = usePatientPaymentRefundMutation(patientId, {
+		onSuccess: (data) => {
+			toast.success(`Estorno de ${formatBrl(data.amountBrl)} registrado.`);
+			setRefundOpen(false);
+			setRefundAmount("");
+			setRefundNote("");
+			setRefundErrors({});
+		},
+		onError: (err: Error) => toast.error(err.message)
+	});
+
+	const openRefund = () => {
+		if (totalRefundable <= 0) return;
+		setRefundAmount(
+			totalRefundable % 1 === 0
+				? String(totalRefundable)
+				: totalRefundable.toFixed(2)
+		);
+		setRefundNote("");
+		setRefundErrors({});
+		setRefundOpen(true);
+	};
+
+	const submitPatientPayment = () => {
+		const parsed = patientPaymentSchema.safeParse({
+			amountBrl: paymentAmount,
+			paidAt: paymentPaidAt,
+			note: paymentNote || undefined
+		});
+		if (!parsed.success) {
+			setPaymentErrors(zodFieldErrors(parsed.error));
+			toast.error("Corrija os campos destacados.");
+			return;
+		}
+		if (parsed.data.amountBrl > pendingValue + 0.001) {
+			setPaymentErrors({
+				amountBrl: "Valor maior que o saldo a receber."
+			});
+			toast.error("Valor maior que o saldo a receber.");
+			return;
+		}
+		setPaymentErrors({});
+		paymentMutation.mutate(parsed.data);
+	};
+
+	const submitRefund = () => {
+		const parsed = paymentRefundSchema.safeParse({
+			amountBrl: refundAmount,
+			note: refundNote || undefined
+		});
+		if (!parsed.success) {
+			setRefundErrors(zodFieldErrors(parsed.error));
+			toast.error("Corrija os campos destacados.");
+			return;
+		}
+		if (parsed.data.amountBrl > totalRefundable + 0.001) {
+			setRefundErrors({
+				amountBrl: "Valor maior que o total que ainda pode ser estornado."
+			});
+			toast.error("Valor maior que o total que ainda pode ser estornado.");
+			return;
+		}
+		setRefundErrors({});
+		refundMutation.mutate(parsed.data);
+	};
 
 	const archived = Boolean(patientQuery.data?.archivedAt);
 	const patientName = patientQuery.data?.fullName ?? "";
@@ -352,18 +477,164 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 					<Card>
 						<CardHeader>
 							<CardTitle>A receber</CardTitle>
-							<CardDescription>Realizados sem pagamento</CardDescription>
+							<CardDescription>
+								Saldo pendente dos atendimentos realizados
+							</CardDescription>
 						</CardHeader>
-						<CardContent>
+						<CardContent className="space-y-3">
 							<p className="text-2xl font-medium">
 								{patientQuery.data
 									? formatBrl(patientQuery.data.stats.pendingValueBrl)
 									: "—"}
 							</p>
+							{(pendingValue > 0 || totalRefundable > 0) && (
+								<div className="flex flex-wrap gap-2">
+									{pendingValue > 0 ? (
+										<Button
+											type="button"
+											size="sm"
+											onClick={() => setPaymentOpen(true)}
+										>
+											Registrar pagamento
+										</Button>
+									) : null}
+									{totalRefundable > 0 ? (
+										<Button
+											type="button"
+											size="sm"
+											variant="outline"
+											onClick={() => openRefund()}
+										>
+											Estornar
+										</Button>
+									) : null}
+								</div>
+							)}
 						</CardContent>
 					</Card>
 				</div>
 			)}
+
+			<Dialog
+				open={paymentOpen}
+				onOpenChange={(open) => {
+					setPaymentOpen(open);
+					if (!open) setPaymentErrors({});
+				}}
+			>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Registrar pagamento</DialogTitle>
+						<DialogDescription>
+							O valor será distribuído automaticamente nos atendimentos
+							pendentes (do mais antigo para o mais recente). Saldo atual:{" "}
+							{formatBrl(pendingValue)}.
+						</DialogDescription>
+					</DialogHeader>
+					<div className="grid gap-4">
+						<Input
+							label={{ text: "Valor recebido", required: true }}
+							type="number"
+							min={0.01}
+							step="0.01"
+							max={pendingValue}
+							value={paymentAmount}
+							error={paymentErrors.amountBrl}
+							onChange={(e) => setPaymentAmount(e.target.value)}
+							placeholder={String(pendingValue)}
+						/>
+						<Input
+							label={{ text: "Data do pagamento", required: true }}
+							type="date"
+							value={paymentPaidAt}
+							error={paymentErrors.paidAt}
+							onChange={(e) => setPaymentPaidAt(e.target.value)}
+						/>
+						<Textarea
+							label={{ text: "Observação (opcional)" }}
+							rows={2}
+							value={paymentNote}
+							error={paymentErrors.note}
+							onChange={(e) => setPaymentNote(e.target.value)}
+						/>
+					</div>
+					<DialogFooter>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => setPaymentOpen(false)}
+							disabled={paymentMutation.isPending}
+						>
+							Cancelar
+						</Button>
+						<Button
+							type="button"
+							disabled={paymentMutation.isPending}
+							onClick={() => submitPatientPayment()}
+						>
+							{paymentMutation.isPending ? "Registrando…" : "Confirmar"}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			<Dialog
+				open={refundOpen}
+				onOpenChange={(open) => {
+					setRefundOpen(open);
+					if (!open) setRefundErrors({});
+				}}
+			>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Estornar pagamento</DialogTitle>
+						<DialogDescription>
+							O valor volta ao saldo a receber e é desfeito automaticamente
+							nas baixas mais recentes. Máximo: {formatBrl(totalRefundable)}.
+						</DialogDescription>
+					</DialogHeader>
+					<div className="grid gap-4">
+						<Input
+							label={{ text: "Valor do estorno", required: true }}
+							type="number"
+							min={0.01}
+							step="0.01"
+							max={totalRefundable || undefined}
+							value={refundAmount}
+							error={refundErrors.amountBrl}
+							onChange={(e) => setRefundAmount(e.target.value)}
+							placeholder={
+								totalRefundable ? String(totalRefundable) : undefined
+							}
+						/>
+						<Textarea
+							label={{ text: "Motivo / observação (opcional)" }}
+							rows={2}
+							value={refundNote}
+							error={refundErrors.note}
+							onChange={(e) => setRefundNote(e.target.value)}
+						/>
+					</div>
+					<DialogFooter>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => setRefundOpen(false)}
+							disabled={refundMutation.isPending}
+						>
+							Cancelar
+						</Button>
+						<Button
+							type="button"
+							color="destructive"
+							disabled={refundMutation.isPending || totalRefundable <= 0}
+							onClick={() => submitRefund()}
+						>
+							{refundMutation.isPending ? "Estornando…" : "Confirmar estorno"}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 
 			<Card>
 				<CardHeader>
@@ -452,11 +723,21 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 												{s.serviceTypeName} ·{" "}
 												{STATUS_LABEL[s.status] ?? s.status} ·{" "}
 												{formatBrl(s.valueBrl)}
-												{s.paid ? " · pago" : ""}
+												{s.status === "completed"
+													? ` · ${SESSION_PAYMENT_STATUS_LABEL[sessionPaymentStatus({ valueBrl: s.valueBrl, amountPaidBrl: s.amountPaidBrl ?? "0", paid: s.paid })]}`
+													: ""}
 											</p>
 										</div>
 										<Button asChild variant="outline" size="sm">
-											<Link href={`/admin/sessions/${s.id}`}>Ver</Link>
+											<Link
+												href={
+													s.status === "completed" && !s.paid
+														? `/admin/sessions/${s.id}?mode=finance`
+														: `/admin/sessions/${s.id}`
+												}
+											>
+												Ver
+											</Link>
 										</Button>
 									</AdminListItem>
 								))}
@@ -472,6 +753,51 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 								Ir para agenda
 							</Button>
 						</div>
+					</CardContent>
+				</Card>
+			)}
+
+			{!isEditing && (
+				<Card>
+					<CardHeader>
+						<CardTitle>Histórico financeiro</CardTitle>
+						<CardDescription>
+							Recebimentos e estornos deste paciente.
+						</CardDescription>
+					</CardHeader>
+					<CardContent>
+						{paymentsQuery.isLoading && (
+							<Skeleton className="h-16 w-full" />
+						)}
+						{paymentsQuery.isError && (
+							<p className="text-destructive text-sm" role="alert">
+								{(paymentsQuery.error as Error).message}
+							</p>
+						)}
+						{!paymentsQuery.isLoading &&
+							!paymentsQuery.isError &&
+							ledgerEntries.length === 0 && (
+								<p className="text-muted-foreground text-sm">
+									Nenhum movimento registrado ainda.
+								</p>
+							)}
+						{ledgerEntries.length > 0 && (
+							<AdminList>
+								{ledgerEntries.map((entry) => (
+									<AdminListItem key={`${entry.kind}-${entry.id}`}>
+										<div className="min-w-0 flex-1">
+											<p className="font-medium">
+												{entry.kind === "received" ? "Recebido" : "Estornado"}{" "}
+												· {formatBrl(entry.amountBrl)}
+											</p>
+											<p className="text-muted-foreground text-sm">
+												{entry.date}
+											</p>
+										</div>
+									</AdminListItem>
+								))}
+							</AdminList>
+						)}
 					</CardContent>
 				</Card>
 			)}

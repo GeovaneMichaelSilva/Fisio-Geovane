@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 
 import { getDb } from "@/db";
-import { patients, serviceTypes, sessionAudits, sessions } from "@/db/schema";
+import { patients, serviceTypes, sessions } from "@/db/schema";
 import { getOrCreateClinicContext } from "@/lib/clinic/context";
 
 type Params = { params: Promise<{ patientId: string }> };
@@ -58,46 +58,6 @@ export const GET = async (_request: Request, { params }: Params) => {
 			)
 			.orderBy(desc(sessions.scheduledDate), desc(sessions.scheduledTime));
 
-		const sessionIds = completed.map((s) => s.id);
-		const lastAuditBySession = new Map<
-			string,
-			{ editedAt: Date; reason: string }
-		>();
-
-		if (sessionIds.length > 0) {
-			const audits = await db
-				.select({
-					sessionId: sessionAudits.sessionId,
-					editedAt: sessionAudits.editedAt,
-					reason: sessionAudits.reason
-				})
-				.from(sessionAudits)
-				.where(inArray(sessionAudits.sessionId, sessionIds))
-				.orderBy(desc(sessionAudits.editedAt));
-
-			for (const audit of audits) {
-				if (!lastAuditBySession.has(audit.sessionId)) {
-					lastAuditBySession.set(audit.sessionId, {
-						editedAt: audit.editedAt,
-						reason: audit.reason
-					});
-				}
-			}
-		}
-
-		const withAudits = completed.map((session) => {
-			const lastAudit = lastAuditBySession.get(session.id);
-			return {
-				...session,
-				lastAudit: lastAudit
-					? {
-							editedAt: lastAudit.editedAt.toISOString(),
-							reason: lastAudit.reason
-						}
-					: null
-			};
-		});
-
 		return NextResponse.json({
 			data: {
 				clinic: {
@@ -110,7 +70,7 @@ export const GET = async (_request: Request, { params }: Params) => {
 					phone: patient.phone,
 					cpf: patient.cpf
 				},
-				sessions: withAudits
+				sessions: completed
 			}
 		});
 	} catch (err) {

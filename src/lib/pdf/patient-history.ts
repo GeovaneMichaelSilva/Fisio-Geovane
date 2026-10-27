@@ -20,7 +20,6 @@ export type PatientPdfSession = {
 	assessment: string | null;
 	evolution: string | null;
 	activities: string | null;
-	lastAudit?: { editedAt: string; reason: string } | null;
 };
 
 export type PatientPdfInput = {
@@ -195,18 +194,6 @@ export const downloadPatientHistoryPdf = (input: PatientPdfInput) => {
 				y += 4.2;
 			}
 			y += 2;
-		}
-
-		if (session.lastAudit) {
-			ensureSpace(8);
-			doc.setFontSize(8);
-			doc.setTextColor(110);
-			doc.text(
-				`Ultima edicao: ${new Date(session.lastAudit.editedAt).toLocaleString("pt-BR")} — ${session.lastAudit.reason}`,
-				margin,
-				y
-			);
-			y += 6;
 		}
 
 		y += 2;

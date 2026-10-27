@@ -62,7 +62,6 @@ export type RescheduleSessionInput = {
 	durationMinutes: number;
 	allowOverlap?: boolean;
 	overlapReason?: string;
-	reason?: string;
 };
 
 export const rescheduleSession = async (input: RescheduleSessionInput) => {
@@ -74,8 +73,7 @@ export const rescheduleSession = async (input: RescheduleSessionInput) => {
 			scheduledTime: input.scheduledTime,
 			durationMinutes: input.durationMinutes,
 			allowOverlap: input.allowOverlap ?? false,
-			overlapReason: input.overlapReason,
-			reason: input.reason ?? "Remarcado na agenda (calendário)."
+			overlapReason: input.overlapReason
 		})
 	});
 	const json = await res.json();

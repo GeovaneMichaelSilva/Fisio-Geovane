@@ -40,7 +40,6 @@ export type SessionDetail = {
 	evolution: string | null;
 	activities: string | null;
 	googleEventId?: string | null;
-	audits: Array<{ id: string; editedAt: string; reason: string }>;
 	previousClinical: PreviousClinical[];
 };
 

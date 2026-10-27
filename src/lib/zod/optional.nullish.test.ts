@@ -55,7 +55,6 @@ describe("optional null inputs across API schemas", () => {
 
 	it("session update: clinical null limpa; omitido não vira null", () => {
 		const withNull = sessionUpdateSchema.safeParse({
-			reason: "Ajuste",
 			assessment: null,
 			evolution: null,
 			activities: null,
@@ -69,7 +68,7 @@ describe("optional null inputs across API schemas", () => {
 		}
 
 		const omitted = sessionUpdateSchema.safeParse({
-			reason: "Só motivo"
+			invoiceIssued: true
 		});
 		expect(omitted.success).toBe(true);
 		if (omitted.success) {

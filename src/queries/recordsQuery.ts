@@ -13,6 +13,7 @@ export type RecordItem = {
 	scheduledTime: string;
 	serviceTypeName: string;
 	valueBrl: string;
+	amountPaidBrl: string;
 	paid: boolean;
 	invoiceIssued: boolean;
 };

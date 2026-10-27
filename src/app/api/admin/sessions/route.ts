@@ -6,7 +6,6 @@ import { patients, serviceTypes, sessions } from "@/db/schema";
 import { getOrCreateClinicContext } from "@/lib/clinic/context";
 import { paginationMeta, parsePagination } from "@/lib/pagination";
 import { normalizeTime } from "@/lib/sessions/agenda";
-import { writeSessionAudit } from "@/lib/sessions/audit";
 import { getOverlappingSessions } from "@/lib/sessions/overlap";
 import { sessionCreateSchema } from "@/lib/sessions/schema";
 
@@ -111,6 +110,7 @@ export const GET = async (request: Request) => {
 				serviceTypeName: serviceTypes.name,
 				status: sessions.status,
 				valueBrl: sessions.valueBrl,
+				amountPaidBrl: sessions.amountPaidBrl,
 				paid: sessions.paid,
 				invoiceIssued: sessions.invoiceIssued,
 				evolution: sessions.evolution,
@@ -243,17 +243,6 @@ export const POST = async (request: Request) => {
 				updatedBy: ctx.userId
 			})
 			.returning();
-
-		if (overlaps.length > 0 && data.allowOverlap) {
-			await writeSessionAudit(db, {
-				clinicId: ctx.clinic.id,
-				sessionId: created.id,
-				editedBy: ctx.userId,
-				reason: `Override de sobreposição: ${data.overlapReason!.trim()}`,
-				beforeState: { conflicts: overlaps },
-				afterState: created
-			});
-		}
 
 		const { syncSessionToGoogleCalendar } = await import(
 			"@/lib/google-calendar/sync"

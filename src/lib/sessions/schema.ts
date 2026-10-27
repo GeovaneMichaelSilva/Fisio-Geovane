@@ -89,11 +89,6 @@ export const sessionUpdateSchema = z
 		paid: z.boolean().optional(),
 		paidAt: optionalDatePatch("Data de pagamento"),
 		invoiceIssued: z.boolean().optional(),
-		reason: z
-			.string()
-			.trim()
-			.min(1, "Motivo obrigatório.")
-			.max(1000, "Máximo 1000 caracteres."),
 		allowOverlap: z.boolean().optional().default(false),
 		overlapReason: overlapReasonPatch
 	})
@@ -137,12 +132,7 @@ export const sessionScheduleFormSchema = z.object({
 	valueBrl,
 	status: z.enum(["scheduled", "completed", "canceled", "no_show"], {
 		error: "Status inválido."
-	}),
-	reason: z
-		.string()
-		.trim()
-		.min(1, "Motivo obrigatório.")
-		.max(1000, "Máximo 1000 caracteres.")
+	})
 });
 
 /**
@@ -193,38 +183,11 @@ export const sessionClinicalFormSchema = z
 	});
 
 /**
- * Formulário financeiro da sessão (valor é somente leitura — edita no agendamento).
+ * Atualização só de NFS-e na tela financeira (baixas vão em /payments).
  */
-export const sessionFinanceFormSchema = z
-	.object({
-		paid: z.boolean(),
-		paidAt: z
-			.union([z.string(), z.null(), z.undefined()])
-			.transform((v) => emptyToNull(v) ?? ""),
-		invoiceIssued: z.boolean(),
-		reason: z
-			.string()
-			.trim()
-			.min(1, "Informe o motivo da alteração financeira.")
-			.max(1000, "Máximo 1000 caracteres.")
-	})
-	.superRefine((data, ctx) => {
-		if (data.paid) {
-			if (!data.paidAt) {
-				ctx.addIssue({
-					code: "custom",
-					message: "Informe a data de pagamento.",
-					path: ["paidAt"]
-				});
-			} else if (!/^\d{4}-\d{2}-\d{2}$/.test(data.paidAt)) {
-				ctx.addIssue({
-					code: "custom",
-					message: "Data inválida.",
-					path: ["paidAt"]
-				});
-			}
-		}
-	});
+export const sessionFinanceFormSchema = z.object({
+	invoiceIssued: z.boolean()
+});
 
 export type SessionCreateInput = z.input<typeof sessionCreateSchema>;
 export type SessionCreateParsed = z.output<typeof sessionCreateSchema>;

@@ -194,6 +194,10 @@ export const sessions = pgTable(
 		valueBrl: numeric("value_brl", { precision: 10, scale: 2 })
 			.notNull()
 			.default("0"),
+		/** Soma das baixas alocadas a esta sessão (≤ valueBrl). */
+		amountPaidBrl: numeric("amount_paid_brl", { precision: 10, scale: 2 })
+			.notNull()
+			.default("0"),
 		paid: boolean("paid").notNull().default(false),
 		paidAt: date("paid_at"),
 		invoiceIssued: boolean("invoice_issued").notNull().default(false),
@@ -228,6 +232,11 @@ export const sessions = pgTable(
 			sql`${t.durationMinutes} between 5 and 480`
 		),
 		check("sessions_value_check", sql`${t.valueBrl} >= 0`),
+		// paid_matches_amount fica só no SQL pós-backfill — senão db:push quebra em paid=true com amount=0
+		check(
+			"sessions_amount_paid_check",
+			sql`${t.amountPaidBrl} >= 0 and ${t.amountPaidBrl} <= ${t.valueBrl}`
+		),
 		check(
 			"sessions_paid_requires_date",
 			sql`${t.paid} = false or ${t.paidAt} is not null`
@@ -239,30 +248,119 @@ export const sessions = pgTable(
 	]
 );
 
-export const sessionAudits = pgTable(
-	"session_audits",
+export const paymentOriginEnum = pgEnum("payment_origin", [
+	"session",
+	"patient"
+]);
+
+/**
+ * Baixa financeira registrada (parcial ou total).
+ * Histórico só a partir da feature — sessões já pagas antes não geram linha aqui.
+ */
+export const payments = pgTable(
+	"payments",
 	{
 		id: uuid("id").primaryKey().defaultRandom(),
 		clinicId: uuid("clinic_id")
 			.notNull()
 			.references(() => clinics.id, { onDelete: "cascade" }),
+		patientId: uuid("patient_id")
+			.notNull()
+			.references(() => patients.id, { onDelete: "cascade" }),
+		amountBrl: numeric("amount_brl", { precision: 10, scale: 2 }).notNull(),
+		paidAt: date("paid_at").notNull(),
+		origin: paymentOriginEnum("origin").notNull(),
+		note: text("note"),
+		createdBy: uuid("created_by").references(() => users.id),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.notNull()
+			.defaultNow()
+	},
+	(t) => [
+		index("payments_patient_created_idx").on(t.patientId, t.createdAt),
+		index("payments_clinic_created_idx").on(t.clinicId, t.createdAt),
+		check("payments_amount_check", sql`${t.amountBrl} > 0`)
+	]
+);
+
+/**
+ * Quanto de cada baixa foi alocado em cada sessão (FIFO ou sessão explícita).
+ */
+export const paymentAllocations = pgTable(
+	"payment_allocations",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		paymentId: uuid("payment_id")
+			.notNull()
+			.references(() => payments.id, { onDelete: "cascade" }),
 		sessionId: uuid("session_id")
 			.notNull()
 			.references(() => sessions.id, { onDelete: "cascade" }),
-		editedAt: timestamp("edited_at", { withTimezone: true })
+		amountBrl: numeric("amount_brl", { precision: 10, scale: 2 }).notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true })
 			.notNull()
-			.defaultNow(),
-		editedBy: uuid("edited_by").references(() => users.id),
-		reason: text("reason").notNull(),
-		beforeState: jsonb("before_state").notNull(),
-		afterState: jsonb("after_state")
+			.defaultNow()
 	},
 	(t) => [
-		index("session_audits_session_idx").on(t.sessionId, t.editedAt),
-		check(
-			"session_audits_reason_check",
-			sql`char_length(trim(${t.reason})) > 0`
-		)
+		index("payment_allocations_payment_idx").on(t.paymentId),
+		index("payment_allocations_session_idx").on(t.sessionId),
+		check("payment_allocations_amount_check", sql`${t.amountBrl} > 0`)
+	]
+);
+
+/**
+ * Estorno (total ou parcial) de uma baixa. Não apaga o pagamento — gera histórico.
+ * Soma dos estornos de um pagamento ≤ amount_brl do pagamento.
+ */
+export const paymentRefunds = pgTable(
+	"payment_refunds",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		paymentId: uuid("payment_id")
+			.notNull()
+			.references(() => payments.id, { onDelete: "cascade" }),
+		clinicId: uuid("clinic_id")
+			.notNull()
+			.references(() => clinics.id, { onDelete: "cascade" }),
+		patientId: uuid("patient_id")
+			.notNull()
+			.references(() => patients.id, { onDelete: "cascade" }),
+		amountBrl: numeric("amount_brl", { precision: 10, scale: 2 }).notNull(),
+		note: text("note"),
+		createdBy: uuid("created_by").references(() => users.id),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.notNull()
+			.defaultNow()
+	},
+	(t) => [
+		index("payment_refunds_payment_idx").on(t.paymentId),
+		index("payment_refunds_patient_created_idx").on(t.patientId, t.createdAt),
+		check("payment_refunds_amount_check", sql`${t.amountBrl} > 0`)
+	]
+);
+
+/**
+ * Quanto de cada estorno desfez em cada sessão (LIFO sobre as alocações do pagamento).
+ */
+export const paymentRefundAllocations = pgTable(
+	"payment_refund_allocations",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		refundId: uuid("refund_id")
+			.notNull()
+			.references(() => paymentRefunds.id, { onDelete: "cascade" }),
+		sessionId: uuid("session_id")
+			.notNull()
+			.references(() => sessions.id, { onDelete: "cascade" }),
+		amountBrl: numeric("amount_brl", { precision: 10, scale: 2 }).notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.notNull()
+			.defaultNow()
+	},
+	(t) => [
+		index("payment_refund_allocations_refund_idx").on(t.refundId),
+		index("payment_refund_allocations_session_idx").on(t.sessionId),
+		check("payment_refund_allocations_amount_check", sql`${t.amountBrl} > 0`)
 	]
 );
 

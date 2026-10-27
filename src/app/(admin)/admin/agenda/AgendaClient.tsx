@@ -271,8 +271,7 @@ const AgendaClient: FC = () => {
 				scheduledTime: pendingMove.toTime,
 				durationMinutes: pendingMove.durationMinutes,
 				allowOverlap,
-				overlapReason: allowOverlap ? overlapReasonValue?.trim() : undefined,
-				reason: "Remarcado na agenda (calendário)."
+				overlapReason: allowOverlap ? overlapReasonValue?.trim() : undefined
 			},
 			{
 				onSuccess: (result) => {

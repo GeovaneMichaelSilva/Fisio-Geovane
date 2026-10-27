@@ -3,6 +3,7 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { getDb } from "@/db";
+import { withTransaction } from "@/db/transaction";
 import { patients, serviceTypes, sessions } from "@/db/schema";
 import { getOrCreateClinicContext } from "@/lib/clinic/context";
 import { patientFormSchema } from "@/lib/patients/schema";
@@ -49,7 +50,11 @@ export const GET = async (_request: Request, { params }: Params) => {
 			.select({
 				sessionCount: sql<number>`count(*)::int`,
 				completedCount: sql<number>`count(*) filter (where ${sessions.status} = 'completed')::int`,
-				pendingValueBrl: sql<string>`coalesce(sum(${sessions.valueBrl}) filter (where ${sessions.status} = 'completed' and ${sessions.paid} = false), 0)`
+				pendingValueBrl: sql<string>`coalesce(sum(
+					greatest(${sessions.valueBrl}::numeric - ${sessions.amountPaidBrl}::numeric, 0)
+				) filter (
+					where ${sessions.status} = 'completed' and ${sessions.paid} = false
+				), 0)`
 			})
 			.from(sessions)
 			.where(
@@ -66,6 +71,7 @@ export const GET = async (_request: Request, { params }: Params) => {
 				scheduledTime: sessions.scheduledTime,
 				status: sessions.status,
 				valueBrl: sessions.valueBrl,
+				amountPaidBrl: sessions.amountPaidBrl,
 				paid: sessions.paid,
 				serviceTypeName: serviceTypes.name
 			})
@@ -273,8 +279,8 @@ export const DELETE = async (request: Request, { params }: Params) => {
 
 		const sessionCount = sessionCountRow?.count ?? 0;
 
-		await db.transaction(async (tx) => {
-			// session_audits cascateiam via FK; sessões não têm onDelete no patient
+		await withTransaction(async (tx) => {
+			// sessões não têm onDelete no patient
 			if (sessionCount > 0) {
 				await tx.delete(sessions).where(eq(sessions.patientId, patientId));
 			}

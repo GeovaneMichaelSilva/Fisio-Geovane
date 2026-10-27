@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import OverlapConfirmDialog, {
@@ -34,6 +34,13 @@ import { Select } from "@/components/ui/Select";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Textarea } from "@/components/ui/Textarea";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import {
+	formatBrl,
+	remainingCents,
+	SESSION_PAYMENT_STATUS_LABEL,
+	sessionPaymentStatus
+} from "@/lib/payments/money";
+import { sessionPaymentSchema } from "@/lib/payments/schema";
 import { normalizeTime, STATUS_LABEL } from "@/lib/sessions/agenda";
 import {
 	sessionClinicalFormSchema,
@@ -42,15 +49,15 @@ import {
 } from "@/lib/sessions/schema";
 import { zodFieldErrors } from "@/lib/zod-utils";
 
-import SessionAuditCard from "./components/SessionAuditCard";
 import { usePatientOptionsQuery } from "@/queries/patientQuery";
+import { useServiceTypesQuery } from "@/queries/serviceTypeQuery";
 import {
+	useSessionPaymentMutation,
 	useSessionQuery,
 	useUpdateSessionMutation
 } from "@/queries/sessionQuery";
-import { useServiceTypesQuery } from "@/queries/serviceTypeQuery";
 
-import type { FC, ReactNode } from "react";
+import type { FC } from "react";
 import type { SessionDetail, SessionMode } from "./types";
 
 type SessionDetailClientProps = {
@@ -72,6 +79,7 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 
 	const sessionQuery = useSessionQuery(sessionId);
 	const updateMutation = useUpdateSessionMutation(sessionId);
+	const paymentMutation = useSessionPaymentMutation(sessionId);
 	const [patientFilter, setPatientFilter] = useState("");
 	const [debouncedPatientQ, setDebouncedPatientQ] = useState("");
 
@@ -84,9 +92,7 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 	const typesQuery = useServiceTypesQuery();
 
 	usePageTitle(
-		sessionQuery.data
-			? `${sessionQuery.data.patientName} · sessão`
-			: "Sessão"
+		sessionQuery.data ? `${sessionQuery.data.patientName} · sessão` : "Sessão"
 	);
 
 	const [patientId, setPatientId] = useState<string | null>(null);
@@ -96,7 +102,6 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 	const [serviceTypeId, setServiceTypeId] = useState<string | null>(null);
 	const [valueBrl, setValueBrl] = useState<number | null>(null);
 	const [status, setStatus] = useState<SessionDetail["status"] | null>(null);
-	const [reason, setReason] = useState("");
 	const [overlapReason, setOverlapReason] = useState("");
 	const [pendingOverlap, setPendingOverlap] = useState(false);
 	const [overlapConflicts, setOverlapConflicts] = useState<OverlapConflict[]>(
@@ -108,17 +113,18 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 	const [clinicalErrors, setClinicalErrors] = useState<
 		Record<string, string | undefined>
 	>({});
-	const [financeErrors, setFinanceErrors] = useState<
-		Record<string, string | undefined>
-	>({});
-
 	const [assessment, setAssessment] = useState<string | null>(null);
 	const [evolution, setEvolution] = useState<string | null>(null);
 	const [activities, setActivities] = useState<string | null>(null);
-	const [paid, setPaid] = useState<boolean | null>(null);
-	const [paidAt, setPaidAt] = useState<string | null>(null);
 	const [invoiceIssued, setInvoiceIssued] = useState<boolean | null>(null);
-	const [financeReason, setFinanceReason] = useState("");
+	const [paymentAmount, setPaymentAmount] = useState("");
+	const [paymentPaidAt, setPaymentPaidAt] = useState(() =>
+		new Date().toISOString().slice(0, 10)
+	);
+	const [paymentNote, setPaymentNote] = useState("");
+	const [paymentErrors, setPaymentErrors] = useState<
+		Record<string, string | undefined>
+	>({});
 	const [pdfPending, setPdfPending] = useState(false);
 
 	const s = sessionQuery.data;
@@ -151,9 +157,23 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 	const formAssessment = assessment ?? s?.assessment ?? "";
 	const formEvolution = evolution ?? s?.evolution ?? "";
 	const formActivities = activities ?? s?.activities ?? "";
-	const formPaid = paid ?? s?.paid ?? false;
-	const formPaidAt = paidAt ?? s?.paidAt ?? "";
 	const formInvoice = invoiceIssued ?? s?.invoiceIssued ?? false;
+	const sessionValue = s ? Number(s.valueBrl) : 0;
+	const sessionAmountPaid = s ? Number(s.amountPaidBrl ?? 0) : 0;
+	const sessionRemaining = s
+		? remainingCents({
+				valueBrl: s.valueBrl,
+				amountPaidBrl: s.amountPaidBrl ?? "0",
+				paid: s.paid
+			}) / 100
+		: 0;
+	const payStatus = s
+		? sessionPaymentStatus({
+				valueBrl: s.valueBrl,
+				amountPaidBrl: s.amountPaidBrl ?? "0",
+				paid: s.paid
+			})
+		: "open";
 
 	useEffect(() => {
 		if (modeParam === "clinical") setMode("clinical");
@@ -178,8 +198,7 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 			durationMinutes: formDuration,
 			serviceTypeId: formServiceTypeId,
 			valueBrl: formValue,
-			status: formStatus,
-			reason
+			status: formStatus
 		});
 		if (!parsed.success) {
 			setScheduleErrors(zodFieldErrors(parsed.error));
@@ -220,7 +239,6 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 					} else {
 						toast.success("Agendamento atualizado.");
 					}
-					setReason("");
 					setPendingOverlap(false);
 					setOverlapReason("");
 					setOverlapConflicts([]);
@@ -250,7 +268,6 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 				evolution: parsed.data.evolution || null,
 				activities: parsed.data.activities || null,
 				status: complete ? "completed" : undefined,
-				reason: complete ? "Conclusão do atendimento" : "Registro clínico",
 				allowOverlap: false
 			},
 			{
@@ -268,37 +285,58 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 		);
 	};
 
-	const saveFinance = () => {
+	const saveInvoice = () => {
 		const parsed = sessionFinanceFormSchema.safeParse({
-			paid: formPaid,
-			paidAt: formPaidAt,
-			invoiceIssued: formInvoice,
-			reason: financeReason
+			invoiceIssued: formInvoice
 		});
 		if (!parsed.success) {
-			setFinanceErrors(zodFieldErrors(parsed.error));
 			toast.error("Corrija os campos destacados.");
 			return;
 		}
-		setFinanceErrors({});
 		updateMutation.mutate(
 			{
-				paid: parsed.data.paid,
-				paidAt: parsed.data.paid ? parsed.data.paidAt : null,
 				invoiceIssued: parsed.data.invoiceIssued,
-				reason: parsed.data.reason,
 				allowOverlap: false
 			},
 			{
 				onSuccess: (result) => {
 					if (result.kind === "overlap") return;
-					toast.success("Dados financeiros salvos.");
-					setFinanceReason("");
-					setFinanceErrors({});
+					toast.success("NFS-e atualizada.");
 				},
 				onError: (err: Error) => toast.error(err.message)
 			}
 		);
+	};
+
+	const registerSessionPayment = () => {
+		const parsed = sessionPaymentSchema.safeParse({
+			amountBrl: paymentAmount,
+			paidAt: paymentPaidAt,
+			note: paymentNote || undefined,
+			invoiceIssued: formInvoice
+		});
+		if (!parsed.success) {
+			setPaymentErrors(zodFieldErrors(parsed.error));
+			toast.error("Corrija os campos destacados.");
+			return;
+		}
+		if (parsed.data.amountBrl > sessionRemaining + 0.001) {
+			setPaymentErrors({
+				amountBrl: "Valor maior que o pendente deste atendimento."
+			});
+			toast.error("Valor maior que o pendente deste atendimento.");
+			return;
+		}
+		setPaymentErrors({});
+		paymentMutation.mutate(parsed.data, {
+			onSuccess: () => {
+				toast.success("Pagamento registrado.");
+				setPaymentAmount("");
+				setPaymentNote("");
+				setPaymentPaidAt(new Date().toISOString().slice(0, 10));
+			},
+			onError: (err: Error) => toast.error(err.message)
+		});
 	};
 
 	const canStart = s?.status === "scheduled";
@@ -325,13 +363,9 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 		<span className="inline-flex flex-wrap items-center gap-2">
 			{s?.patientName ?? "Sessão"}
 			{s && (
-				<Badge variant="outline">
-					{STATUS_LABEL[s.status] ?? s.status}
-				</Badge>
+				<Badge variant="outline">{STATUS_LABEL[s.status] ?? s.status}</Badge>
 			)}
-			{s?.googleEventId && (
-				<Badge variant="secondary">No Google Agenda</Badge>
-			)}
+			{s?.googleEventId && <Badge variant="secondary">No Google Agenda</Badge>}
 		</span>
 	);
 
@@ -363,20 +397,15 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 					onClick={async () => {
 						setPdfPending(true);
 						try {
-							const res = await fetch(
-								`/api/admin/patients/${s.patientId}/pdf`
-							);
+							const res = await fetch(`/api/admin/patients/${s.patientId}/pdf`);
 							const json = await res.json();
 							if (!res.ok) throw new Error(json.error || "Falha no PDF.");
-							const { downloadPatientHistoryPdf } = await import(
-								"@/lib/pdf/patient-history"
-							);
+							const { downloadPatientHistoryPdf } =
+								await import("@/lib/pdf/patient-history");
 							downloadPatientHistoryPdf(json.data);
 							toast.success("PDF gerado.");
 						} catch (err) {
-							toast.error(
-								err instanceof Error ? err.message : "Falha no PDF."
-							);
+							toast.error(err instanceof Error ? err.message : "Falha no PDF.");
 						} finally {
 							setPdfPending(false);
 						}
@@ -541,16 +570,6 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 										}
 									]}
 								/>
-								<div className="sm:col-span-2">
-									<Textarea
-										label={{ text: "Motivo da edição", required: true }}
-										rows={2}
-										value={reason}
-										error={scheduleErrors.reason}
-										onChange={(e) => setReason(e.target.value)}
-									/>
-								</div>
-
 								<div className="bg-background/95 sticky bottom-16 z-10 -mx-4 flex flex-wrap gap-2 border-t px-4 py-3 sm:static sm:bottom-0 sm:col-span-2 sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 md:bottom-0">
 									<Button
 										type="button"
@@ -558,9 +577,7 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 										disabled={updateMutation.isPending}
 										onClick={() => saveSchedule(false)}
 									>
-										{updateMutation.isPending
-											? "Salvando…"
-											: "Salvar"}
+										{updateMutation.isPending ? "Salvando…" : "Salvar"}
 									</Button>
 								</div>
 							</div>
@@ -642,8 +659,8 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 																Concluir atendimento?
 															</AlertDialogTitle>
 															<AlertDialogDescription>
-																O status passará para Realizado. A evolução
-																já preenchida será salva.
+																O status passará para Realizado. A evolução já
+																preenchida será salva.
 															</AlertDialogDescription>
 														</AlertDialogHeader>
 														<AlertDialogFooter>
@@ -737,8 +754,7 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 					<CardHeader>
 						<CardTitle>Pagamento</CardTitle>
 						<CardDescription>
-							Marque como pago, data e NFS-e. Motivo obrigatório. O valor
-							só pode ser alterado no agendamento.
+							Registre baixas parciais ou totais.
 						</CardDescription>
 					</CardHeader>
 					<CardContent className="grid max-w-xl gap-4">
@@ -746,63 +762,122 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 							<Skeleton className="h-24 w-full" />
 						) : (
 							<>
-								<div className="space-y-1.5">
-									<p className="text-sm font-medium">Valor</p>
-									<p className="text-sm">
-										{(s ? Number(s.valueBrl) : 0).toLocaleString("pt-BR", {
-											style: "currency",
-											currency: "BRL"
-										})}
-									</p>
+								<div className="grid gap-3 sm:grid-cols-3">
+									<div className="space-y-1">
+										<p className="text-muted-foreground text-xs">Valor</p>
+										<p className="text-sm font-medium">
+											{formatBrl(sessionValue)}
+										</p>
+									</div>
+									<div className="space-y-1">
+										<p className="text-muted-foreground text-xs">Já pago</p>
+										<p className="text-sm font-medium">
+											{formatBrl(sessionAmountPaid)}
+										</p>
+									</div>
+									<div className="space-y-1">
+										<p className="text-muted-foreground text-xs">Pendente</p>
+										<p className="text-sm font-medium">
+											{formatBrl(sessionRemaining)}
+										</p>
+									</div>
 								</div>
-								<label className="flex items-center gap-2 text-sm">
-									<input
-										type="checkbox"
-										className="border-input size-4 rounded"
-										checked={formPaid}
-										onChange={(e) => {
-											setPaid(e.target.checked);
-											if (e.target.checked && !formPaidAt) {
-												setPaidAt(new Date().toISOString().slice(0, 10));
-											}
-										}}
-									/>
-									Pago
-								</label>
-								{formPaid ? (
-									<Input
-										label={{ text: "Data do pagamento", required: true }}
-										type="date"
-										value={formPaidAt}
-										error={financeErrors.paidAt}
-										onChange={(e) => setPaidAt(e.target.value)}
-									/>
-								) : null}
-								<label className="flex items-center gap-2 text-sm">
-									<input
-										type="checkbox"
-										className="border-input size-4 rounded"
-										checked={formInvoice}
-										onChange={(e) => setInvoiceIssued(e.target.checked)}
-									/>
-									NFS-e emitida
-								</label>
-								<Textarea
-									label={{ text: "Motivo da alteração", required: true }}
-									rows={2}
-									value={financeReason}
-									error={financeErrors.reason}
-									onChange={(e) => setFinanceReason(e.target.value)}
-								/>
 								<div>
+									<Badge
+										variant={
+											payStatus === "paid"
+												? "default"
+												: payStatus === "partial"
+													? "outline"
+													: "secondary"
+										}
+									>
+										{SESSION_PAYMENT_STATUS_LABEL[payStatus]}
+									</Badge>
+								</div>
+
+								{s?.status === "completed" && sessionRemaining > 0 ? (
+									<>
+										<Input
+											label={{ text: "Valor recebido agora", required: true }}
+											type="number"
+											min={0.01}
+											step="0.01"
+											max={sessionRemaining}
+											value={paymentAmount}
+											error={paymentErrors.amountBrl}
+											onChange={(e) => setPaymentAmount(e.target.value)}
+											placeholder={String(sessionRemaining)}
+										/>
+										<Input
+											label={{ text: "Data do pagamento", required: true }}
+											type="date"
+											value={paymentPaidAt}
+											error={paymentErrors.paidAt}
+											onChange={(e) => setPaymentPaidAt(e.target.value)}
+										/>
+										<Textarea
+											label={{ text: "Observação (opcional)" }}
+											rows={2}
+											value={paymentNote}
+											error={paymentErrors.note}
+											onChange={(e) => setPaymentNote(e.target.value)}
+										/>
+										<label className="flex items-center gap-2 text-sm">
+											<input
+												type="checkbox"
+												className="border-input size-4 rounded"
+												checked={formInvoice}
+												onChange={(e) => setInvoiceIssued(e.target.checked)}
+											/>
+											NFS-e emitida
+										</label>
+										<div>
+											<Button
+												type="button"
+												disabled={paymentMutation.isPending}
+												onClick={() => registerSessionPayment()}
+											>
+												{paymentMutation.isPending
+													? "Registrando…"
+													: "Registrar pagamento"}
+											</Button>
+										</div>
+									</>
+								) : null}
+
+								{s?.status === "completed" && sessionRemaining <= 0 ? (
+									<p className="text-muted-foreground text-sm">
+										Atendimento quitado
+										{s.paidAt ? ` em ${s.paidAt}` : ""}.
+									</p>
+								) : null}
+
+								{s?.status !== "completed" ? (
+									<p className="text-muted-foreground text-sm">
+										Só é possível registrar pagamento em atendimentos
+										realizados.
+									</p>
+								) : null}
+
+								<div className="border-border space-y-3 border-t pt-4">
+									<p className="text-sm font-medium">NFS-e</p>
+									<label className="flex items-center gap-2 text-sm">
+										<input
+											type="checkbox"
+											className="border-input size-4 rounded"
+											checked={formInvoice}
+											onChange={(e) => setInvoiceIssued(e.target.checked)}
+										/>
+										NFS-e emitida
+									</label>
 									<Button
 										type="button"
+										variant="outline"
 										disabled={updateMutation.isPending}
-										onClick={() => saveFinance()}
+										onClick={() => saveInvoice()}
 									>
-										{updateMutation.isPending
-											? "Salvando…"
-											: "Salvar pagamento"}
+										{updateMutation.isPending ? "Salvando…" : "Salvar NFS-e"}
 									</Button>
 								</div>
 							</>
@@ -810,8 +885,6 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 					</CardContent>
 				</Card>
 			)}
-
-			<SessionAuditCard session={s} />
 
 			<OverlapConfirmDialog
 				open={pendingOverlap}

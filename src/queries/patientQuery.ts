@@ -3,6 +3,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchApiData, fetchApiList } from "@/lib/api/fetchJson";
 import type { PatientPdfInput } from "@/lib/pdf/patient-history";
 import { type PatientFormParsed } from "@/lib/patients/schema";
+import type {
+	PatientPaymentInput,
+	PaymentRefundInput
+} from "@/lib/payments/schema";
+import { financeQueryKeys } from "@/queries/financeQuery";
 
 import type { PaginationMeta } from "@/lib/pagination";
 import type { UseMutationOptions, UseQueryOptions } from "@tanstack/react-query";
@@ -46,9 +51,23 @@ export type PatientDetail = {
 		scheduledTime: string;
 		status: string;
 		valueBrl: string;
+		amountPaidBrl: string;
 		paid: boolean;
 		serviceTypeName: string;
 	}>;
+};
+
+export type PatientPaymentLedgerEntry = {
+	id: string;
+	kind: "received" | "refunded";
+	amountBrl: string;
+	date: string;
+	createdAt: string;
+};
+
+export type PatientPaymentLedger = {
+	entries: PatientPaymentLedgerEntry[];
+	totalRefundableBrl: string;
 };
 
 export type PatientListResult = {
@@ -64,7 +83,9 @@ export const patientQueryKeys = {
 	options: (q: string) =>
 		[...patientQueryKeys.root(), "options", { q }] as const,
 	details: () => [...patientQueryKeys.root(), "detail"] as const,
-	detail: (id: string) => [...patientQueryKeys.details(), id] as const
+	detail: (id: string) => [...patientQueryKeys.details(), id] as const,
+	payments: (id: string) =>
+		[...patientQueryKeys.detail(id), "payments"] as const
 };
 
 const patchPatientInLists = (
@@ -395,6 +416,119 @@ export const useDeletePatientMutation = (
 			await queryClient.invalidateQueries({
 				queryKey: [...patientQueryKeys.root(), "options"]
 			});
+			await onSuccess?.(data, vars, onMutateResult, context);
+		},
+		...rest
+	});
+};
+
+export const usePatientPaymentsQuery = (
+	patientId: string,
+	options?: Omit<
+		UseQueryOptions<PatientPaymentLedger, Error>,
+		"queryKey" | "queryFn"
+	>
+) => {
+	const { enabled, ...rest } = options ?? {};
+	return useQuery({
+		queryKey: patientQueryKeys.payments(patientId),
+		queryFn: () =>
+			fetchApiData<PatientPaymentLedger>(
+				`/api/admin/patients/${patientId}/payments`
+			),
+		enabled: Boolean(patientId) && (enabled ?? true),
+		...rest
+	});
+};
+
+export const usePatientPaymentMutation = (
+	patientId: string,
+	options?: Omit<
+		UseMutationOptions<
+			{
+				paymentId: string;
+				amountBrl: string;
+				pendingValueBrl: string;
+			},
+			Error,
+			PatientPaymentInput
+		>,
+		"mutationFn"
+	>
+) => {
+	const queryClient = useQueryClient();
+	const { onSuccess, ...rest } = options ?? {};
+
+	return useMutation({
+		mutationKey: [...patientQueryKeys.root(), "payment", patientId],
+		mutationFn: (values) =>
+			fetchApiData(`/api/admin/patients/${patientId}/payments`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(values)
+			}),
+		onSuccess: async (data, vars, onMutateResult, context) => {
+			await Promise.all([
+				queryClient.invalidateQueries({
+					queryKey: patientQueryKeys.detail(patientId)
+				}),
+				queryClient.invalidateQueries({
+					queryKey: patientQueryKeys.payments(patientId)
+				}),
+				queryClient.invalidateQueries({ queryKey: financeQueryKeys.root() })
+			]);
+			await onSuccess?.(data, vars, onMutateResult, context);
+		},
+		...rest
+	});
+};
+
+export const usePatientPaymentRefundMutation = (
+	patientId: string,
+	options?: Omit<
+		UseMutationOptions<
+			{
+				amountBrl: string;
+				pendingValueBrl: string;
+			},
+			Error,
+			PaymentRefundInput
+		>,
+		"mutationFn"
+	>
+) => {
+	const queryClient = useQueryClient();
+	const { onSuccess, ...rest } = options ?? {};
+
+	return useMutation({
+		mutationKey: [...patientQueryKeys.root(), "refund", patientId],
+		mutationFn: async (values) => {
+			const data = await fetchApiData<{
+				amountBrl: string;
+				pendingValueBrl: string;
+				refunds?: unknown;
+			}>(`/api/admin/patients/${patientId}/refunds`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(values)
+			});
+			return {
+				amountBrl: data.amountBrl,
+				pendingValueBrl: data.pendingValueBrl
+			};
+		},
+		onSuccess: async (data, vars, onMutateResult, context) => {
+			await Promise.all([
+				queryClient.invalidateQueries({
+					queryKey: patientQueryKeys.detail(patientId)
+				}),
+				queryClient.invalidateQueries({
+					queryKey: patientQueryKeys.payments(patientId)
+				}),
+				queryClient.invalidateQueries({ queryKey: financeQueryKeys.root() }),
+				// chave de sessionQueryKeys.root() — evita import circular
+				queryClient.invalidateQueries({ queryKey: ["sessions"] })
+			]);
 			await onSuccess?.(data, vars, onMutateResult, context);
 		},
 		...rest

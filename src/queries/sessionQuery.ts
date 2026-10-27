@@ -4,6 +4,7 @@ import { patientQueryKeys } from "@/queries/patientQuery";
 import { recordsQueryKeys } from "@/queries/recordsQuery";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import type { SessionPaymentInput } from "@/lib/payments/schema";
 import type {
 	SessionCreateInput,
 	SessionUpdateInput
@@ -58,6 +59,8 @@ export type SessionDetail = {
 
 	valueBrl: string;
 
+	amountPaidBrl: string;
+
 	paid: boolean;
 
 	paidAt: string | null;
@@ -71,8 +74,6 @@ export type SessionDetail = {
 	activities: string | null;
 
 	googleEventId?: string | null;
-
-	audits: Array<{ id: string; editedAt: string; reason: string }>;
 
 	previousClinical: Array<{
 		id: string;
@@ -244,8 +245,6 @@ const applySessionWriteSuccess = (
 
 			...updated,
 
-			audits: updated.audits ?? prev?.audits ?? [],
-
 			previousClinical: updated.previousClinical ?? prev?.previousClinical ?? []
 		});
 	}
@@ -370,6 +369,44 @@ export const useUpdateSessionMutation = (
 			await onSuccess?.(result, vars, onMutateResult, context);
 		},
 
+		...rest
+	});
+};
+
+export const useSessionPaymentMutation = (
+	sessionId: string,
+	options?: Omit<
+		UseMutationOptions<
+			{
+				paymentId: string;
+				amountBrl: string;
+				pendingValueBrl: string;
+				allocations: Array<{ sessionId: string; amountBrl: string }>;
+			},
+			Error,
+			SessionPaymentInput
+		>,
+		"mutationFn"
+	>
+) => {
+	const queryClient = useQueryClient();
+	const { onSuccess, ...rest } = options ?? {};
+
+	return useMutation({
+		mutationKey: [...sessionQueryKeys.root(), "payment", sessionId],
+		mutationFn: (values) =>
+			fetchApiData(`/api/admin/sessions/${sessionId}/payments`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(values)
+			}),
+		onSuccess: async (data, vars, onMutateResult, context) => {
+			await queryClient.invalidateQueries({
+				queryKey: sessionQueryKeys.detail(sessionId)
+			});
+			await invalidateSessionCollections(queryClient);
+			await onSuccess?.(data, vars, onMutateResult, context);
+		},
 		...rest
 	});
 };
