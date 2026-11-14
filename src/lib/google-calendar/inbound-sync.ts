@@ -11,6 +11,10 @@ import { withTransaction } from "@/db/transaction";
 import { parseCivilDate } from "@/lib/google-calendar/allDayBounds";
 import { getValidAccessToken } from "@/lib/google-calendar/client";
 import {
+	appendCalendarSyncLog,
+	type CalendarSyncLogSource
+} from "@/lib/google-calendar/sync-log";
+import {
 	createChannelToken,
 	startCalendarWatch,
 	stopCalendarWatch
@@ -233,7 +237,7 @@ const ownSessionEventIds = async (
  */
 export const syncSubscriptionEvents = async (
 	subscriptionId: string,
-	options: { forceFull?: boolean } = {}
+	options: { forceFull?: boolean; source?: CalendarSyncLogSource } = {}
 ) => {
 	const db = getDb();
 	const [sub] = await db
@@ -242,41 +246,62 @@ export const syncSubscriptionEvents = async (
 		.where(eq(googleCalendarSubscriptions.id, subscriptionId))
 		.limit(1);
 
-	if (!sub) return { status: "missing" as const };
+	if (!sub) {
+		return { status: "missing" as const };
+	}
+
+	const logSource = options.source;
+	const log = async (
+		status: "ok" | "error" | "ignored",
+		detail?: string
+	) => {
+		if (!logSource) return;
+		await appendCalendarSyncLog({
+			clinicId: sub.clinicId,
+			subscriptionId: sub.id,
+			source: logSource,
+			status,
+			detail
+		});
+	};
 
 	const auth = await getValidAccessToken(sub.clinicId, db);
-	if (!auth) return { status: "no_connection" as const };
+	if (!auth) {
+		await log("error", "Sem conexão Google");
+		return { status: "no_connection" as const };
+	}
 
 	let forceFull = Boolean(options.forceFull) || !sub.syncToken;
 	let collected: { items: GoogleEventItem[]; nextSyncToken?: string };
 
 	try {
-		collected = await collectEvents({
-			accessToken: auth.accessToken,
-			calendarId: sub.googleCalendarId,
-			syncToken: sub.syncToken,
-			full: forceFull
-		});
-	} catch (err) {
-		const code = (err as Error & { code?: number }).code;
-		if (code === 410 && !forceFull) {
-			forceFull = true;
+		try {
 			collected = await collectEvents({
 				accessToken: auth.accessToken,
 				calendarId: sub.googleCalendarId,
-				full: true
+				syncToken: sub.syncToken,
+				full: forceFull
 			});
-		} else {
-			throw err;
+		} catch (err) {
+			const code = (err as Error & { code?: number }).code;
+			if (code === 410 && !forceFull) {
+				forceFull = true;
+				collected = await collectEvents({
+					accessToken: auth.accessToken,
+					calendarId: sub.googleCalendarId,
+					full: true
+				});
+			} else {
+				throw err;
+			}
 		}
-	}
 
-	const eventIds = collected.items
-		.map((i) => i.id)
-		.filter((id): id is string => Boolean(id));
-	const owned = await ownSessionEventIds(db, sub.clinicId, eventIds);
+		const eventIds = collected.items
+			.map((i) => i.id)
+			.filter((id): id is string => Boolean(id));
+		const owned = await ownSessionEventIds(db, sub.clinicId, eventIds);
 
-	await withTransaction(async (tx) => {
+		await withTransaction(async (tx) => {
 		const toDelete: string[] = [];
 
 		for (const item of collected.items) {
@@ -391,23 +416,41 @@ export const syncSubscriptionEvents = async (
 			);
 		}
 
-		await tx
-			.update(googleCalendarSubscriptions)
-			.set({
-				syncToken,
-				lastSyncedAt: new Date(),
-				updatedAt: new Date()
-			})
-			.where(eq(googleCalendarSubscriptions.id, sub.id));
-	});
+			await tx
+				.update(googleCalendarSubscriptions)
+				.set({
+					syncToken,
+					lastSyncedAt: new Date(),
+					updatedAt: new Date()
+				})
+				.where(eq(googleCalendarSubscriptions.id, sub.id));
+		});
 
-	return { status: "synced" as const, full: forceFull, count: collected.items.length };
+		await log(
+			"ok",
+			`${forceFull ? "full" : "incremental"}; items=${collected.items.length}`
+		);
+		return {
+			status: "synced" as const,
+			full: forceFull,
+			count: collected.items.length
+		};
+	} catch (err) {
+		await log(
+			"error",
+			err instanceof Error ? err.message : "Falha ao sincronizar"
+		);
+		throw err;
+	}
 };
 
 /**
  * Garante watch ativo para a subscription (cria ou renova).
  */
-export const ensureSubscriptionWatch = async (subscriptionId: string) => {
+export const ensureSubscriptionWatch = async (
+	subscriptionId: string,
+	options: { source?: CalendarSyncLogSource } = {}
+) => {
 	const db = getDb();
 	const [sub] = await db
 		.select()
@@ -416,36 +459,68 @@ export const ensureSubscriptionWatch = async (subscriptionId: string) => {
 		.limit(1);
 	if (!sub) return;
 
-	const auth = await getValidAccessToken(sub.clinicId, db);
-	if (!auth) return;
+	const source = options.source ?? "watch_renew";
 
-	if (sub.watchChannelId && sub.watchResourceId) {
-		await stopCalendarWatch({
+	try {
+		const auth = await getValidAccessToken(sub.clinicId, db);
+		if (!auth) {
+			await appendCalendarSyncLog({
+				clinicId: sub.clinicId,
+				subscriptionId: sub.id,
+				source,
+				status: "error",
+				detail: "Sem conexão Google (watch)"
+			});
+			return;
+		}
+
+		if (sub.watchChannelId && sub.watchResourceId) {
+			await stopCalendarWatch({
+				accessToken: auth.accessToken,
+				channelId: sub.watchChannelId,
+				resourceId: sub.watchResourceId
+			});
+		}
+
+		const channelId = randomUUID();
+		const channelToken = sub.channelToken || createChannelToken();
+		const watch = await startCalendarWatch({
 			accessToken: auth.accessToken,
-			channelId: sub.watchChannelId,
-			resourceId: sub.watchResourceId
+			calendarId: sub.googleCalendarId,
+			channelId,
+			channelToken
 		});
+
+		await db
+			.update(googleCalendarSubscriptions)
+			.set({
+				channelToken,
+				watchChannelId: watch.channelId,
+				watchResourceId: watch.resourceId,
+				watchExpiration: watch.expiration,
+				updatedAt: new Date()
+			})
+			.where(eq(googleCalendarSubscriptions.id, sub.id));
+
+		await appendCalendarSyncLog({
+			clinicId: sub.clinicId,
+			subscriptionId: sub.id,
+			source,
+			status: "ok",
+			detail: watch.expiration
+				? `expira ${watch.expiration.toISOString()}`
+				: "watch ativo"
+		});
+	} catch (err) {
+		await appendCalendarSyncLog({
+			clinicId: sub.clinicId,
+			subscriptionId: sub.id,
+			source,
+			status: "error",
+			detail: err instanceof Error ? err.message : "Falha no watch"
+		});
+		throw err;
 	}
-
-	const channelId = randomUUID();
-	const channelToken = sub.channelToken || createChannelToken();
-	const watch = await startCalendarWatch({
-		accessToken: auth.accessToken,
-		calendarId: sub.googleCalendarId,
-		channelId,
-		channelToken
-	});
-
-	await db
-		.update(googleCalendarSubscriptions)
-		.set({
-			channelToken,
-			watchChannelId: watch.channelId,
-			watchResourceId: watch.resourceId,
-			watchExpiration: watch.expiration,
-			updatedAt: new Date()
-		})
-		.where(eq(googleCalendarSubscriptions.id, sub.id));
 };
 
 /**
@@ -512,12 +587,15 @@ export const renewAllCalendarWatches = async () => {
 				row.watchExpiration && row.watchExpiration.getTime() < soon;
 
 			if (expired || !row.syncToken) {
-				await syncSubscriptionEvents(row.id, { forceFull: true });
+				await syncSubscriptionEvents(row.id, {
+					forceFull: true,
+					source: "cron"
+				});
 				resynced += 1;
 			}
 
 			if (expired || expiringSoon || !row.watchChannelId) {
-				await ensureSubscriptionWatch(row.id);
+				await ensureSubscriptionWatch(row.id, { source: "cron" });
 				renewed += 1;
 			}
 		} catch (err) {

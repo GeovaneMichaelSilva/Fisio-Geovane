@@ -12,6 +12,8 @@ import {
 	CardTitle
 } from "@/components/ui/Card";
 
+import BackupRunsDialog from "./BackupRunsDialog";
+
 import type { FC } from "react";
 import type { DriveStatus } from "./integrationsApi";
 
@@ -107,6 +109,7 @@ const GoogleDriveSection: FC<GoogleDriveSectionProps> = (props) => {
 							>
 								{backupPending ? "Gerando backup…" : "Fazer backup agora"}
 							</Button>
+							<BackupRunsDialog />
 							<Button
 								type="button"
 								variant="outline"
@@ -136,11 +139,14 @@ const GoogleDriveSection: FC<GoogleDriveSectionProps> = (props) => {
 							autorizada. O cron diário (Vercel) e o botão “Fazer backup agora”
 							usam a mesma lógica. Dados clínicos ficam nessa conta Google.
 						</p>
-						<Button type="button" className="min-h-11 sm:min-h-10" asChild>
-							<a href="/api/admin/integrations/google-drive/connect">
-								Conectar Google Drive
-							</a>
-						</Button>
+						<div className="flex flex-wrap gap-2">
+							<Button type="button" className="min-h-11 sm:min-h-10" asChild>
+								<a href="/api/admin/integrations/google-drive/connect">
+									Conectar Google Drive
+								</a>
+							</Button>
+							<BackupRunsDialog />
+						</div>
 					</div>
 				)}
 			</CardContent>

@@ -399,6 +399,11 @@ export const backupRunStatusEnum = pgEnum("backup_run_status", [
 	"error"
 ]);
 
+export const googleCalendarSyncLogStatusEnum = pgEnum(
+	"google_calendar_sync_log_status",
+	["ok", "error", "ignored"]
+);
+
 /**
  * Agendas Google observadas em modo somente-leitura (overlay / conflito de espaço).
  * Uma linha por (clínica, agenda). sync_token e watch* sustentam o fluxo inverso.
@@ -543,6 +548,37 @@ export const backupRuns = pgTable(
 			.defaultNow()
 	},
 	(t) => [index("backup_runs_clinic_created_idx").on(t.clinicId, t.createdAt)]
+);
+
+/**
+ * Histórico operacional do overlay Google Calendar (webhook, sync, watch).
+ * Não espelha cada evento — só runs/avisos.
+ */
+export const googleCalendarSyncLogs = pgTable(
+	"google_calendar_sync_logs",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		clinicId: uuid("clinic_id")
+			.notNull()
+			.references(() => clinics.id, { onDelete: "cascade" }),
+		subscriptionId: uuid("subscription_id").references(
+			() => googleCalendarSubscriptions.id,
+			{ onDelete: "set null" }
+		),
+		/** webhook | catch_up | subscribe | watch_renew | cron | handshake */
+		source: text("source").notNull(),
+		status: googleCalendarSyncLogStatusEnum("status").notNull(),
+		detail: text("detail"),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.notNull()
+			.defaultNow()
+	},
+	(t) => [
+		index("google_calendar_sync_logs_clinic_created_idx").on(
+			t.clinicId,
+			t.createdAt
+		)
+	]
 );
 
 export type User = typeof users.$inferSelect;

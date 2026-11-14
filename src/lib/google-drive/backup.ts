@@ -211,25 +211,44 @@ export const runAllClinicDriveBackups = async (
 	};
 }
 
+const backupRunSelect = {
+	id: backupRuns.id,
+	status: backupRuns.status,
+	trigger: backupRuns.trigger,
+	fileName: backupRuns.fileName,
+	bytes: backupRuns.bytes,
+	errorMessage: backupRuns.errorMessage,
+	deletedOldFiles: backupRuns.deletedOldFiles,
+	createdAt: backupRuns.createdAt
+} as const;
+
 /**
  * Última execução de backup da clínica.
  */
 export const getLatestBackupRun = async (clinicId: string, db: Db = getDb()) => {
 	const [run] = await db
-		.select({
-			id: backupRuns.id,
-			status: backupRuns.status,
-			trigger: backupRuns.trigger,
-			fileName: backupRuns.fileName,
-			bytes: backupRuns.bytes,
-			errorMessage: backupRuns.errorMessage,
-			deletedOldFiles: backupRuns.deletedOldFiles,
-			createdAt: backupRuns.createdAt
-		})
+		.select(backupRunSelect)
 		.from(backupRuns)
 		.where(eq(backupRuns.clinicId, clinicId))
 		.orderBy(desc(backupRuns.createdAt))
 		.limit(1);
 
 	return run ?? null;
-}
+};
+
+/**
+ * Histórico recente de backups da clínica.
+ */
+export const listBackupRuns = async (
+	clinicId: string,
+	limit = 50,
+	db: Db = getDb()
+) => {
+	const safeLimit = Math.min(Math.max(limit, 1), 100);
+	return db
+		.select(backupRunSelect)
+		.from(backupRuns)
+		.where(eq(backupRuns.clinicId, clinicId))
+		.orderBy(desc(backupRuns.createdAt))
+		.limit(safeLimit);
+};

@@ -14,11 +14,13 @@ import {
 } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 
-import type { FC } from "react";
+import OverlaySyncLogsDialog from "./OverlaySyncLogsDialog";
+
 import type {
 	GoogleCalendarOption,
 	GoogleCalendarSubscription
 } from "@/queries/googleIntegrationsQuery";
+import type { FC } from "react";
 
 type OverlayCalendarsSectionProps = {
 	calendars: GoogleCalendarOption[] | undefined;
@@ -94,8 +96,7 @@ const OverlayCalendarsSection: FC<OverlayCalendarsSectionProps> = (props) => {
 				<CardTitle>Agendas para visualizar</CardTitle>
 				<CardDescription>
 					Agendas compartilhadas (ex.: consultório) aparecem na agenda do
-					sistema só para leitura — ajudam a evitar conflito de salas/horários.
-					Não viram atendimentos.
+					sistema só para leitura.
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-4">
@@ -195,6 +196,9 @@ const OverlayCalendarsSection: FC<OverlayCalendarsSectionProps> = (props) => {
 						</p>
 					</div>
 				)}
+				<div className="pt-1">
+					<OverlaySyncLogsDialog />
+				</div>
 			</CardContent>
 		</Card>
 	);

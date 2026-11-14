@@ -56,7 +56,7 @@ export const GET = async (request: Request) => {
 						!s.lastSyncedAt || now - s.lastSyncedAt.getTime() > STALE_MS
 				)
 				.map((s) =>
-					syncSubscriptionEvents(s.id).catch((err) => {
+					syncSubscriptionEvents(s.id, { source: "catch_up" }).catch((err) => {
 						console.error("[google-calendar] catch-up failed", s.id, err);
 					})
 				)

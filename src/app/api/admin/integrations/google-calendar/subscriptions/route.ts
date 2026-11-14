@@ -141,9 +141,14 @@ export const PUT = async (request: Request) => {
 
 				// Se a 1ª tentativa falhou depois do INSERT (sem syncToken), completa agora.
 				if (!current.syncToken || !current.lastSyncedAt) {
-					await syncSubscriptionEvents(subscriptionId, { forceFull: true });
+					await syncSubscriptionEvents(subscriptionId, {
+						forceFull: true,
+						source: "subscribe"
+					});
 					try {
-						await ensureSubscriptionWatch(subscriptionId);
+						await ensureSubscriptionWatch(subscriptionId, {
+							source: "subscribe"
+						});
 					} catch (err) {
 						console.error(
 							"[google-calendar] watch failed",
@@ -166,9 +171,14 @@ export const PUT = async (request: Request) => {
 				subscriptionId = created.id;
 
 				try {
-					await syncSubscriptionEvents(subscriptionId, { forceFull: true });
+					await syncSubscriptionEvents(subscriptionId, {
+						forceFull: true,
+						source: "subscribe"
+					});
 					try {
-						await ensureSubscriptionWatch(subscriptionId);
+						await ensureSubscriptionWatch(subscriptionId, {
+							source: "subscribe"
+						});
 					} catch (err) {
 						console.error(
 							"[google-calendar] watch failed",

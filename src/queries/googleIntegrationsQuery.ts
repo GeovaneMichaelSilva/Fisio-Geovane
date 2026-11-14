@@ -138,8 +138,19 @@ export const googleCalendarQueryKeys = {
 		[...googleCalendarQueryKeys.root(), "subscriptions"] as const,
 
 	externalEvents: (from: string, to: string) =>
-		[...googleCalendarQueryKeys.root(), "external-events", from, to] as const
+		[...googleCalendarQueryKeys.root(), "external-events", from, to] as const,
 
+	syncLogs: () => [...googleCalendarQueryKeys.root(), "sync-logs"] as const
+
+};
+
+export type GoogleCalendarSyncLog = {
+	id: string;
+	subscriptionId: string | null;
+	source: string;
+	status: "ok" | "error" | "ignored";
+	detail: string | null;
+	createdAt: string;
 };
 
 
@@ -148,8 +159,21 @@ export const googleDriveQueryKeys = {
 
 	root: () => ["google-drive"] as const,
 
-	status: () => [...googleDriveQueryKeys.root(), "status"] as const
+	status: () => [...googleDriveQueryKeys.root(), "status"] as const,
 
+	runs: () => [...googleDriveQueryKeys.root(), "runs"] as const
+
+};
+
+export type GoogleDriveBackupRun = {
+	id: string;
+	status: "success" | "error";
+	trigger: string;
+	fileName: string | null;
+	bytes: number | null;
+	errorMessage: string | null;
+	deletedOldFiles: number;
+	createdAt: string;
 };
 
 
@@ -246,6 +270,25 @@ export const useGoogleDriveStatusQuery = (
 
 	});
 
+};
+
+export const useGoogleDriveBackupRunsQuery = (
+	options?: Omit<
+		UseQueryOptions<GoogleDriveBackupRun[], Error>,
+		"queryKey" | "queryFn"
+	>
+) => {
+	const { enabled, ...rest } = options ?? {};
+	return useQuery({
+		queryKey: googleDriveQueryKeys.runs(),
+		queryFn: () =>
+			fetchApiData<GoogleDriveBackupRun[]>(
+				"/api/admin/integrations/google-drive/runs?limit=50"
+			),
+		enabled: enabled ?? true,
+		staleTime: 10_000,
+		...rest
+	});
 };
 
 
@@ -368,7 +411,7 @@ export const useRunGoogleDriveBackupMutation = (
 
 			await queryClient.invalidateQueries({
 
-				queryKey: googleDriveQueryKeys.status()
+				queryKey: googleDriveQueryKeys.root()
 
 			});
 
@@ -615,6 +658,25 @@ export const useExternalCalendarEventsQuery = (
 			),
 		enabled: enabled ?? Boolean(from && to),
 		staleTime: 30_000,
+		...rest
+	});
+};
+
+export const useGoogleCalendarSyncLogsQuery = (
+	options?: Omit<
+		UseQueryOptions<GoogleCalendarSyncLog[], Error>,
+		"queryKey" | "queryFn"
+	>
+) => {
+	const { enabled, ...rest } = options ?? {};
+	return useQuery({
+		queryKey: googleCalendarQueryKeys.syncLogs(),
+		queryFn: () =>
+			fetchApiData<GoogleCalendarSyncLog[]>(
+				"/api/admin/integrations/google-calendar/sync-logs?limit=50"
+			),
+		enabled: enabled ?? true,
+		staleTime: 10_000,
 		...rest
 	});
 };
