@@ -57,8 +57,10 @@ export type ExternalCalendarEventDto = {
 	summary: string;
 	status: string;
 	allDay: boolean;
-	startAt: string;
-	endAt: string;
+	startDate: string | null;
+	endDate: string | null;
+	startAt: string | null;
+	endAt: string | null;
 	calendarLabel: string;
 };
 

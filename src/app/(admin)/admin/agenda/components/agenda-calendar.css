@@ -16,17 +16,6 @@
 	display: none;
 }
 
-/* Sem eventos all-day — some a faixa vazia sob os títulos dos dias */
-.agenda-calendar .rbc-allday-cell,
-.agenda-calendar .rbc-time-header-content > .rbc-row.rbc-row-resource {
-	display: none;
-}
-
-/* Em week/day, a 2ª row do header é o gutter all-day */
-.agenda-calendar .rbc-time-header-content > .rbc-row:nth-child(2) {
-	display: none;
-}
-
 .agenda-calendar .rbc-time-header-gutter {
 	border-bottom: 1px solid hsl(var(--border));
 }
@@ -35,13 +24,9 @@
 	margin-right: 0 !important;
 }
 
-/* View Dia: o título já está no PageHeader — some o header vazio do RBC */
-.agenda-calendar--day .rbc-time-header {
+/* View Dia: some só o rótulo do dia (já está no PageHeader); mantém faixa all-day */
+.agenda-calendar--day .rbc-time-header .rbc-header {
 	display: none;
-}
-
-.agenda-calendar--day .rbc-time-content {
-	border-top: none;
 }
 
 .agenda-calendar .rbc-header {

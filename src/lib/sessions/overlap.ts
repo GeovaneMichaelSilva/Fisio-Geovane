@@ -1,4 +1,4 @@
-import { and, eq, gt, lt, ne, notInArray } from "drizzle-orm";
+import { and, eq, gt, lt, lte, ne, notInArray, or, sql } from "drizzle-orm";
 
 import { clinics, externalCalendarEvents, patients, sessions } from "@/db/schema";
 import { findOverlaps, normalizeTime, type SessionInterval } from "./agenda";
@@ -107,7 +107,6 @@ export const getOverlappingSessions = async (
 
 	const timeZone = clinic?.timezone || "America/Sao_Paulo";
 
-	// Janela do dia no fuso da clínica (aproximação via Instant bounds amplos ±14h).
 	const dayStartApprox = new Date(`${input.scheduledDate}T00:00:00.000Z`);
 	dayStartApprox.setUTCHours(dayStartApprox.getUTCHours() - 14);
 	const dayEndApprox = new Date(`${input.scheduledDate}T23:59:59.999Z`);
@@ -119,24 +118,58 @@ export const getOverlappingSessions = async (
 			summary: externalCalendarEvents.summary,
 			startAt: externalCalendarEvents.startAt,
 			endAt: externalCalendarEvents.endAt,
-			status: externalCalendarEvents.status
+			startDate: externalCalendarEvents.startDate,
+			endDate: externalCalendarEvents.endDate,
+			status: externalCalendarEvents.status,
+			allDay: externalCalendarEvents.allDay
 		})
 		.from(externalCalendarEvents)
 		.where(
 			and(
 				eq(externalCalendarEvents.clinicId, input.clinicId),
 				ne(externalCalendarEvents.status, "cancelled"),
-				lt(externalCalendarEvents.startAt, dayEndApprox),
-				gt(externalCalendarEvents.endAt, dayStartApprox)
+				or(
+					and(
+						eq(externalCalendarEvents.allDay, false),
+						lt(externalCalendarEvents.startAt, dayEndApprox),
+						sql`${externalCalendarEvents.endAt} > ${dayStartApprox}`
+					),
+					and(
+						eq(externalCalendarEvents.allDay, true),
+						lte(externalCalendarEvents.startDate, input.scheduledDate),
+						gt(externalCalendarEvents.endDate, input.scheduledDate)
+					)
+				)
 			)
 		);
 
 	const externalIntervals: OverlapConflict[] = [];
 	for (const row of externalRows) {
+		if (row.allDay) {
+			if (!row.startDate || !row.endDate) continue;
+			if (
+				input.scheduledDate < row.startDate ||
+				input.scheduledDate >= row.endDate
+			) {
+				continue;
+			}
+			externalIntervals.push({
+				id: row.id,
+				scheduledDate: input.scheduledDate,
+				scheduledTime: "00:00:00",
+				durationMinutes: 24 * 60,
+				status: "scheduled",
+				patientName: row.summary?.trim() || "Agenda externa",
+				kind: "external"
+			});
+			continue;
+		}
+
+		if (!row.startAt || !row.endAt) continue;
+
 		const start = wallClockInTimeZone(row.startAt, timeZone);
 		const end = wallClockInTimeZone(row.endAt, timeZone);
 		if (start.date !== input.scheduledDate && end.date !== input.scheduledDate) {
-			// Evento multi-dia: ainda pode cobrir o dia alvo.
 			if (start.date > input.scheduledDate || end.date < input.scheduledDate) {
 				continue;
 			}
@@ -174,7 +207,8 @@ export const getOverlappingSessions = async (
 
 	const externalConflicts: OverlapConflict[] = externalOverlaps.map((o) => ({
 		...o,
-		patientName: (o.id && externalById.get(o.id)?.patientName) || "Agenda externa",
+		patientName:
+			(o.id && externalById.get(o.id)?.patientName) || "Agenda externa",
 		kind: "external"
 	}));
 

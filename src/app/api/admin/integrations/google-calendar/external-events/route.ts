@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { and, eq, lt, gt, ne } from "drizzle-orm";
+import { and, eq, gt, lt, ne, or, sql } from "drizzle-orm";
 
 import { getDb } from "@/db";
 import {
@@ -13,8 +13,7 @@ const STALE_MS = 15 * 60_000;
 
 /**
  * Eventos externos (overlay) no intervalo da agenda.
- * Query: from / to em ISO ou YYYY-MM-DD.
- * Se o último sync estiver velho, dispara catch-up best-effort (útil sem webhook).
+ * Query: from / to em YYYY-MM-DD (ou ISO).
  */
 export const GET = async (request: Request) => {
 	try {
@@ -30,12 +29,10 @@ export const GET = async (request: Request) => {
 			);
 		}
 
-		const rangeStart = new Date(
-			from.includes("T") ? from : `${from}T00:00:00.000Z`
-		);
-		const rangeEnd = new Date(
-			to.includes("T") ? to : `${to}T23:59:59.999Z`
-		);
+		const fromDate = from.includes("T") ? from.slice(0, 10) : from;
+		const toDate = to.includes("T") ? to.slice(0, 10) : to;
+		const rangeStart = new Date(`${fromDate}T00:00:00.000Z`);
+		const rangeEnd = new Date(`${toDate}T23:59:59.999Z`);
 
 		if (Number.isNaN(rangeStart.getTime()) || Number.isNaN(rangeEnd.getTime())) {
 			return NextResponse.json({ error: "Intervalo inválido." }, { status: 400 });
@@ -73,6 +70,8 @@ export const GET = async (request: Request) => {
 				summary: externalCalendarEvents.summary,
 				status: externalCalendarEvents.status,
 				allDay: externalCalendarEvents.allDay,
+				startDate: externalCalendarEvents.startDate,
+				endDate: externalCalendarEvents.endDate,
 				startAt: externalCalendarEvents.startAt,
 				endAt: externalCalendarEvents.endAt,
 				calendarLabel: googleCalendarSubscriptions.label
@@ -89,8 +88,18 @@ export const GET = async (request: Request) => {
 				and(
 					eq(externalCalendarEvents.clinicId, ctx.clinic.id),
 					ne(externalCalendarEvents.status, "cancelled"),
-					lt(externalCalendarEvents.startAt, rangeEnd),
-					gt(externalCalendarEvents.endAt, rangeStart)
+					or(
+						and(
+							eq(externalCalendarEvents.allDay, false),
+							lt(externalCalendarEvents.startAt, rangeEnd),
+							sql`${externalCalendarEvents.endAt} > ${rangeStart}`
+						),
+						and(
+							eq(externalCalendarEvents.allDay, true),
+							lt(externalCalendarEvents.startDate, toDate),
+							gt(externalCalendarEvents.endDate, fromDate)
+						)
+					)
 				)
 			);
 
@@ -102,8 +111,10 @@ export const GET = async (request: Request) => {
 				summary: r.summary || "(sem título)",
 				status: r.status,
 				allDay: r.allDay,
-				startAt: r.startAt.toISOString(),
-				endAt: r.endAt.toISOString(),
+				startDate: r.startDate,
+				endDate: r.endDate,
+				startAt: r.startAt?.toISOString() ?? null,
+				endAt: r.endAt?.toISOString() ?? null,
 				calendarLabel: r.calendarLabel
 			}))
 		});

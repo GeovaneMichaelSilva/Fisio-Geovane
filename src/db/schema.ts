@@ -435,6 +435,8 @@ export const googleCalendarSubscriptions = pgTable(
 
 /**
  * Eventos externos espelhados do Google (não são sessões clínicas).
+ * All-day: start_date/end_date (end exclusivo, como no Google).
+ * Com horário: start_at/end_at (timestamptz).
  */
 export const externalCalendarEvents = pgTable(
 	"external_calendar_events",
@@ -451,8 +453,14 @@ export const externalCalendarEvents = pgTable(
 		summary: text("summary"),
 		status: text("status").notNull().default("confirmed"),
 		allDay: boolean("all_day").notNull().default(false),
-		startAt: timestamp("start_at", { withTimezone: true }).notNull(),
-		endAt: timestamp("end_at", { withTimezone: true }).notNull(),
+		/** Data civil inclusiva (só all-day). */
+		startDate: date("start_date"),
+		/** Data civil exclusiva (só all-day), igual ao Google. */
+		endDate: date("end_date"),
+		/** Início com fuso (só eventos timed). */
+		startAt: timestamp("start_at", { withTimezone: true }),
+		/** Fim com fuso (só eventos timed). */
+		endAt: timestamp("end_at", { withTimezone: true }),
 		etag: text("etag"),
 		updatedAt: timestamp("updated_at", { withTimezone: true })
 			.notNull()
@@ -468,7 +476,20 @@ export const externalCalendarEvents = pgTable(
 			t.startAt,
 			t.endAt
 		),
-		index("external_calendar_events_subscription_idx").on(t.subscriptionId)
+		index("external_calendar_events_clinic_date_range_idx").on(
+			t.clinicId,
+			t.startDate,
+			t.endDate
+		),
+		index("external_calendar_events_subscription_idx").on(t.subscriptionId),
+		check(
+			"external_calendar_events_bounds_check",
+			sql`(
+				(${t.allDay} = true AND ${t.startDate} IS NOT NULL AND ${t.endDate} IS NOT NULL AND ${t.startAt} IS NULL AND ${t.endAt} IS NULL)
+				OR
+				(${t.allDay} = false AND ${t.startAt} IS NOT NULL AND ${t.endAt} IS NOT NULL AND ${t.startDate} IS NULL AND ${t.endDate} IS NULL)
+			)`
+		)
 	]
 );
 

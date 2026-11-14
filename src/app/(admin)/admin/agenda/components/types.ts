@@ -24,6 +24,7 @@ export type AgendaExternalEvent = {
 	durationMinutes: number;
 	status: "external";
 	googleCalendarId: string;
+	allDay?: boolean;
 };
 
 export type AgendaEventResource = AgendaSession | AgendaExternalEvent;

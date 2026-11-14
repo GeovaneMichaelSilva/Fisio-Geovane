@@ -68,10 +68,13 @@ const AgendaCalendar: FC<AgendaCalendarProps> = (props) => {
 			toolbar: () => null,
 			event: ({ event }: { event: AgendaCalendarEvent }) => {
 				if (isExternalAgendaEvent(event.resource)) {
+					const prefix = event.allDay
+						? "Dia todo"
+						: formatTimeHHMM(event.start);
 					return (
 						<div className="overflow-hidden text-[11px] leading-tight">
 							<p className="truncate font-medium">
-								{formatTimeHHMM(event.start)} · {event.resource.patientName}
+								{prefix} · {event.resource.patientName}
 							</p>
 							<p className="truncate opacity-80">
 								{event.resource.serviceTypeName}
@@ -191,7 +194,7 @@ const AgendaCalendar: FC<AgendaCalendarProps> = (props) => {
 				selectable
 				resizable={view !== Views.MONTH}
 				popup
-				allDayAccessor={() => false}
+				allDayAccessor={(event) => Boolean(event.allDay)}
 				step={15}
 				timeslots={4}
 				min={min}

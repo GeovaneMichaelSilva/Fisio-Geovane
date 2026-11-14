@@ -1,4 +1,4 @@
-import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, lt, notInArray, or, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 
 import { getDb } from "@/db";
@@ -8,12 +8,14 @@ import {
 	sessions
 } from "@/db/schema";
 import { withTransaction } from "@/db/transaction";
+import { parseCivilDate } from "@/lib/google-calendar/allDayBounds";
 import { getValidAccessToken } from "@/lib/google-calendar/client";
 import {
 	createChannelToken,
 	startCalendarWatch,
 	stopCalendarWatch
 } from "@/lib/google-calendar/watch";
+import { toDateString } from "@/lib/sessions/agenda";
 
 import type { Db } from "@/db";
 import type { Tx } from "@/db/transaction";
@@ -34,23 +36,53 @@ type EventsListResponse = {
 	error?: { message?: string; code?: number };
 };
 
+export type ParsedEventBounds =
+	| { allDay: true; startDate: string; endDate: string }
+	| { allDay: false; startAt: Date; endAt: Date };
+
 const FULL_SYNC_PAST_DAYS = 7;
 const FULL_SYNC_FUTURE_DAYS = 90;
 
-const parseEventBounds = (
+export const parseEventBounds = (
 	item: GoogleEventItem
-): { startAt: Date; endAt: Date; allDay: boolean } | null => {
+): ParsedEventBounds | null => {
 	const startRaw = item.start?.dateTime || item.start?.date;
 	const endRaw = item.end?.dateTime || item.end?.date;
 	if (!startRaw || !endRaw) return null;
 
 	const allDay = Boolean(item.start?.date && !item.start?.dateTime);
-	const startAt = new Date(allDay ? `${startRaw}T00:00:00.000Z` : startRaw);
-	const endAt = new Date(allDay ? `${endRaw}T00:00:00.000Z` : endRaw);
+	if (allDay) {
+		const startDate = parseCivilDate(startRaw);
+		const endDate = parseCivilDate(endRaw);
+		if (!startDate || !endDate) return null;
+		return { allDay: true, startDate, endDate };
+	}
+
+	const startAt = new Date(startRaw);
+	const endAt = new Date(endRaw);
 	if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
 		return null;
 	}
-	return { startAt, endAt, allDay };
+	return { allDay: false, startAt, endAt };
+};
+
+const boundsToRowValues = (bounds: ParsedEventBounds) => {
+	if (bounds.allDay) {
+		return {
+			allDay: true as const,
+			startDate: bounds.startDate,
+			endDate: bounds.endDate,
+			startAt: null,
+			endAt: null
+		};
+	}
+	return {
+		allDay: false as const,
+		startDate: null,
+		endDate: null,
+		startAt: bounds.startAt,
+		endAt: bounds.endAt
+	};
 };
 
 const fetchEventsPage = async (input: {
@@ -151,11 +183,17 @@ const collectEvents = async (input: {
 	// Fallback raro: alguns calendários só devolvem syncToken sem timeMin/timeMax.
 	if (!full.token) {
 		const unfiltered = await runPages({});
+		const windowStartDate = timeMin.slice(0, 10);
+		const windowEndDate = timeMax.slice(0, 10);
 		full = {
 			pageItems: unfiltered.pageItems.filter((item) => {
-				const start =
-					item.start?.dateTime ||
-					(item.start?.date ? `${item.start.date}T00:00:00.000Z` : null);
+				if (item.start?.date && !item.start.dateTime) {
+					const startDate = parseCivilDate(item.start.date);
+					const endDate = parseCivilDate(item.end?.date || item.start.date);
+					if (!startDate || !endDate) return false;
+					return startDate < windowEndDate && endDate > windowStartDate;
+				}
+				const start = item.start?.dateTime;
 				if (!start) return false;
 				const t = Date.parse(start);
 				if (Number.isNaN(t)) return false;
@@ -253,6 +291,7 @@ export const syncSubscriptionEvents = async (
 
 			const bounds = parseEventBounds(item);
 			if (!bounds) continue;
+			const rowBounds = boundsToRowValues(bounds);
 
 			await tx
 				.insert(externalCalendarEvents)
@@ -263,9 +302,7 @@ export const syncSubscriptionEvents = async (
 					googleEventId: item.id,
 					summary: item.summary ?? null,
 					status,
-					allDay: bounds.allDay,
-					startAt: bounds.startAt,
-					endAt: bounds.endAt,
+					...rowBounds,
 					etag: item.etag ?? null,
 					updatedAt: new Date()
 				})
@@ -278,9 +315,7 @@ export const syncSubscriptionEvents = async (
 					set: {
 						summary: item.summary ?? null,
 						status,
-						allDay: bounds.allDay,
-						startAt: bounds.startAt,
-						endAt: bounds.endAt,
+						...rowBounds,
 						etag: item.etag ?? null,
 						updatedAt: new Date(),
 						subscriptionId: sub.id
@@ -313,12 +348,26 @@ export const syncSubscriptionEvents = async (
 			const windowEnd = new Date(
 				now + FULL_SYNC_FUTURE_DAYS * 24 * 60 * 60 * 1000
 			);
+			const windowStartDate = toDateString(windowStart);
+			const windowEndDate = toDateString(windowEnd);
+
+			const inWindow = or(
+				and(
+					eq(externalCalendarEvents.allDay, false),
+					lt(externalCalendarEvents.startAt, windowEnd),
+					sql`${externalCalendarEvents.endAt} > ${windowStart}`
+				),
+				and(
+					eq(externalCalendarEvents.allDay, true),
+					lt(externalCalendarEvents.startDate, windowEndDate),
+					gt(externalCalendarEvents.endDate, windowStartDate)
+				)
+			);
 
 			const windowCond = and(
 				eq(externalCalendarEvents.clinicId, sub.clinicId),
 				eq(externalCalendarEvents.googleCalendarId, sub.googleCalendarId),
-				sql`${externalCalendarEvents.startAt} < ${windowEnd}`,
-				sql`${externalCalendarEvents.endAt} > ${windowStart}`
+				inWindow
 			);
 
 			if (keepIds.length === 0) {
