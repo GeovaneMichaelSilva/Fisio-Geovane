@@ -38,7 +38,10 @@ import RescheduleMoveDialog, {
 	type PendingMove
 } from "./components/RescheduleMoveDialog";
 import { useClinicQuery } from "@/queries/clinicQuery";
-import { useGoogleCalendarStatusQuery } from "@/queries/googleIntegrationsQuery";
+import {
+	useExternalCalendarEventsQuery,
+	useGoogleCalendarStatusQuery
+} from "@/queries/googleIntegrationsQuery";
 import { usePatientOptionsQuery } from "@/queries/patientQuery";
 import {
 	useCreateSessionMutation,
@@ -48,7 +51,7 @@ import {
 import { useServiceTypesQuery } from "@/queries/serviceTypeQuery";
 
 import { notifyGoogleSync } from "./components/agendaApi";
-import { sessionsToEvents } from "./components/agendaEvents";
+import { externalsToEvents, sessionsToEvents } from "./components/agendaEvents";
 import type { FC } from "react";
 
 const AgendaClient: FC = () => {
@@ -121,6 +124,8 @@ const AgendaClient: FC = () => {
 
 	const rangeQuery = useSessionsRangeQuery(range.from, range.to);
 
+	const externalQuery = useExternalCalendarEventsQuery(range.from, range.to);
+
 	const patientsQuery = usePatientOptionsQuery(debouncedPatientQ, {
 		enabled: composerOpen
 	});
@@ -137,8 +142,11 @@ const AgendaClient: FC = () => {
 	const moveMutation = useUpdateSessionMutation(moveSessionId);
 
 	const events = useMemo(
-		() => sessionsToEvents(rangeQuery.data ?? []),
-		[rangeQuery.data]
+		() => [
+			...sessionsToEvents(rangeQuery.data ?? []),
+			...externalsToEvents(externalQuery.data ?? [])
+		],
+		[rangeQuery.data, externalQuery.data]
 	);
 
 	const applyServiceType = (typeId: string) => {

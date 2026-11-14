@@ -16,6 +16,7 @@ import {
 	toLocalDateString,
 	type AgendaCalendarEvent
 } from "./agendaEvents";
+import { isExternalAgendaEvent } from "./types";
 
 import type { AgendaSession } from "./types";
 import type { FC, HTMLAttributes } from "react";
@@ -39,7 +40,11 @@ type AgendaCalendarProps = HTMLAttributes<HTMLDivElement> & {
 	events: AgendaCalendarEvent[];
 	onNavigate: (date: Date) => void;
 	onView: (view: View) => void;
-	onSelectSlot: (slot: { date: string; time: string; durationMinutes: number }) => void;
+	onSelectSlot: (slot: {
+		date: string;
+		time: string;
+		durationMinutes: number;
+	}) => void;
 	onRequestReschedule: (target: AgendaRescheduleTarget) => void;
 };
 
@@ -61,9 +66,20 @@ const AgendaCalendar: FC<AgendaCalendarProps> = (props) => {
 	const components = useMemo(
 		() => ({
 			toolbar: () => null,
-			// Eventos curtos (< 90min) só cabe uma linha: hora inicial + nome.
-			// Detalhe (hora final + tipo) só em blocos mais altos.
 			event: ({ event }: { event: AgendaCalendarEvent }) => {
+				if (isExternalAgendaEvent(event.resource)) {
+					return (
+						<div className="overflow-hidden text-[11px] leading-tight">
+							<p className="truncate font-medium">
+								{formatTimeHHMM(event.start)} · {event.resource.patientName}
+							</p>
+							<p className="truncate opacity-80">
+								{event.resource.serviceTypeName}
+							</p>
+						</div>
+					);
+				}
+
 				const showDetails = event.resource.durationMinutes >= 90;
 				return (
 					<div className="overflow-hidden text-[11px] leading-tight">
@@ -87,7 +103,6 @@ const AgendaCalendar: FC<AgendaCalendarProps> = (props) => {
 
 	const formats = useMemo(
 		() => ({
-			// Evita o label nativo "09:00 – 10:00" que compete com o nome
 			eventTimeRangeFormat: () => "",
 			eventTimeRangeStartFormat: () => "",
 			eventTimeRangeEndFormat: () => ""
@@ -96,6 +111,9 @@ const AgendaCalendar: FC<AgendaCalendarProps> = (props) => {
 	);
 
 	const eventPropGetter = useCallback((event: AgendaCalendarEvent) => {
+		if (isExternalAgendaEvent(event.resource)) {
+			return { className: "rbc-event--external" };
+		}
 		const status = event.resource.status;
 		let className = "rbc-event--scheduled";
 		if (status === "completed") className = "rbc-event--completed";
@@ -114,7 +132,10 @@ const AgendaCalendar: FC<AgendaCalendarProps> = (props) => {
 		});
 	};
 
-	const handleInteraction = (args: EventInteractionArgs<AgendaCalendarEvent>) => {
+	const handleInteraction = (
+		args: EventInteractionArgs<AgendaCalendarEvent>
+	) => {
+		if (isExternalAgendaEvent(args.event.resource)) return;
 		const session = args.event.resource;
 		if (session.status !== "scheduled") return;
 
@@ -168,7 +189,6 @@ const AgendaCalendar: FC<AgendaCalendarProps> = (props) => {
 				titleAccessor="title"
 				views={[Views.MONTH, Views.WEEK, Views.DAY]}
 				selectable
-				// No mês, o resize lateral vira evento multi-dia — desativado nessa view
 				resizable={view !== Views.MONTH}
 				popup
 				allDayAccessor={() => false}
@@ -180,12 +200,18 @@ const AgendaCalendar: FC<AgendaCalendarProps> = (props) => {
 				components={components}
 				formats={formats}
 				eventPropGetter={eventPropGetter}
-				draggableAccessor={(event) => event.resource.status === "scheduled"}
+				draggableAccessor={(event) =>
+					!isExternalAgendaEvent(event.resource) &&
+					event.resource.status === "scheduled"
+				}
 				resizableAccessor={(event) =>
-					view !== Views.MONTH && event.resource.status === "scheduled"
+					view !== Views.MONTH &&
+					!isExternalAgendaEvent(event.resource) &&
+					event.resource.status === "scheduled"
 				}
 				onSelectSlot={handleSelectSlot}
 				onSelectEvent={(event) => {
+					if (isExternalAgendaEvent(event.resource)) return;
 					router.push(`/admin/sessions/${event.resource.id}`);
 				}}
 				onEventDrop={handleInteraction}

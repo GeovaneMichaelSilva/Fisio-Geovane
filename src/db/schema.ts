@@ -400,6 +400,79 @@ export const backupRunStatusEnum = pgEnum("backup_run_status", [
 ]);
 
 /**
+ * Agendas Google observadas em modo somente-leitura (overlay / conflito de espaço).
+ * Uma linha por (clínica, agenda). sync_token e watch* sustentam o fluxo inverso.
+ */
+export const googleCalendarSubscriptions = pgTable(
+	"google_calendar_subscriptions",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		clinicId: uuid("clinic_id")
+			.notNull()
+			.references(() => clinics.id, { onDelete: "cascade" }),
+		googleCalendarId: text("google_calendar_id").notNull(),
+		label: text("label").notNull(),
+		/** Token CSRF do canal push (validado no webhook). */
+		channelToken: text("channel_token").notNull(),
+		syncToken: text("sync_token"),
+		watchChannelId: text("watch_channel_id"),
+		watchResourceId: text("watch_resource_id"),
+		watchExpiration: timestamp("watch_expiration", { withTimezone: true }),
+		lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true })
+			.notNull()
+			.defaultNow()
+	},
+	(t) => [
+		unique().on(t.clinicId, t.googleCalendarId),
+		index("google_calendar_subscriptions_clinic_idx").on(t.clinicId),
+		index("google_calendar_subscriptions_channel_idx").on(t.watchChannelId)
+	]
+);
+
+/**
+ * Eventos externos espelhados do Google (não são sessões clínicas).
+ */
+export const externalCalendarEvents = pgTable(
+	"external_calendar_events",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		clinicId: uuid("clinic_id")
+			.notNull()
+			.references(() => clinics.id, { onDelete: "cascade" }),
+		subscriptionId: uuid("subscription_id")
+			.notNull()
+			.references(() => googleCalendarSubscriptions.id, { onDelete: "cascade" }),
+		googleCalendarId: text("google_calendar_id").notNull(),
+		googleEventId: text("google_event_id").notNull(),
+		summary: text("summary"),
+		status: text("status").notNull().default("confirmed"),
+		allDay: boolean("all_day").notNull().default(false),
+		startAt: timestamp("start_at", { withTimezone: true }).notNull(),
+		endAt: timestamp("end_at", { withTimezone: true }).notNull(),
+		etag: text("etag"),
+		updatedAt: timestamp("updated_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.notNull()
+			.defaultNow()
+	},
+	(t) => [
+		unique().on(t.clinicId, t.googleCalendarId, t.googleEventId),
+		index("external_calendar_events_clinic_range_idx").on(
+			t.clinicId,
+			t.startAt,
+			t.endAt
+		),
+		index("external_calendar_events_subscription_idx").on(t.subscriptionId)
+	]
+);
+
+/**
  * Conexão OAuth da clínica com Google Drive (backup automático).
  */
 export const googleDriveConnections = pgTable("google_drive_connections", {

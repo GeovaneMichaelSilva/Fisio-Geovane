@@ -38,6 +38,28 @@ export type GoogleCalendarOption = {
 
 	primary: boolean;
 
+	accessRole?: string;
+
+};
+
+export type GoogleCalendarSubscription = {
+	id: string;
+	googleCalendarId: string;
+	label: string;
+	lastSyncedAt: string | null;
+	watchExpiration: string | null;
+};
+
+export type ExternalCalendarEventDto = {
+	id: string;
+	googleCalendarId: string;
+	googleEventId: string;
+	summary: string;
+	status: string;
+	allDay: boolean;
+	startAt: string;
+	endAt: string;
+	calendarLabel: string;
 };
 
 
@@ -108,7 +130,13 @@ export const googleCalendarQueryKeys = {
 
 	status: () => [...googleCalendarQueryKeys.root(), "status"] as const,
 
-	calendars: () => [...googleCalendarQueryKeys.root(), "calendars"] as const
+	calendars: () => [...googleCalendarQueryKeys.root(), "calendars"] as const,
+
+	subscriptions: () =>
+		[...googleCalendarQueryKeys.root(), "subscriptions"] as const,
+
+	externalEvents: (from: string, to: string) =>
+		[...googleCalendarQueryKeys.root(), "external-events", from, to] as const
 
 };
 
@@ -520,4 +548,72 @@ export const useSaveGoogleCalendarMappingsMutation = (
 
 };
 
+export const useGoogleCalendarSubscriptionsQuery = (
+	options?: Omit<
+		UseQueryOptions<GoogleCalendarSubscription[], Error>,
+		"queryKey" | "queryFn"
+	>
+) => {
+	const { enabled, ...rest } = options ?? {};
+	return useQuery({
+		queryKey: googleCalendarQueryKeys.subscriptions(),
+		queryFn: () =>
+			fetchApiData<GoogleCalendarSubscription[]>(
+				"/api/admin/integrations/google-calendar/subscriptions"
+			),
+		enabled: enabled ?? true,
+		...rest
+	});
+};
+
+export const useSaveGoogleCalendarSubscriptionsMutation = (
+	options?: Omit<
+		UseMutationOptions<
+			unknown,
+			Error,
+			Array<{ googleCalendarId: string; label: string }>
+		>,
+		"mutationFn"
+	>
+) => {
+	const queryClient = useQueryClient();
+	const { onSuccess, ...rest } = options ?? {};
+	return useMutation({
+		mutationKey: [...googleCalendarQueryKeys.root(), "save-subscriptions"],
+		mutationFn: (calendars) =>
+			fetchApiData("/api/admin/integrations/google-calendar/subscriptions", {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ calendars })
+			}),
+		onSuccess: async (data, vars, onMutateResult, context) => {
+			await queryClient.invalidateQueries({
+				queryKey: googleCalendarQueryKeys.root()
+			});
+			await onSuccess?.(data, vars, onMutateResult, context);
+		},
+		...rest
+	});
+};
+
+export const useExternalCalendarEventsQuery = (
+	from: string,
+	to: string,
+	options?: Omit<
+		UseQueryOptions<ExternalCalendarEventDto[], Error>,
+		"queryKey" | "queryFn"
+	>
+) => {
+	const { enabled, ...rest } = options ?? {};
+	return useQuery({
+		queryKey: googleCalendarQueryKeys.externalEvents(from, to),
+		queryFn: () =>
+			fetchApiData<ExternalCalendarEventDto[]>(
+				`/api/admin/integrations/google-calendar/external-events?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
+			),
+		enabled: enabled ?? Boolean(from && to),
+		staleTime: 30_000,
+		...rest
+	});
+};
 

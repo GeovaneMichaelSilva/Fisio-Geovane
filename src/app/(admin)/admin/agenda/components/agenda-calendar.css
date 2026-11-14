@@ -115,6 +115,14 @@
 	opacity: 0.85;
 }
 
+/* Overlay de agendas externas (consultório etc.) — só leitura */
+.agenda-calendar .rbc-event--external {
+	background: hsl(215 16% 47% / 0.85);
+	color: white;
+	border: 1px dashed hsl(215 20% 35%);
+	cursor: default;
+}
+
 .agenda-calendar .rbc-addons-dnd .rbc-addons-dnd-resize-ns-icon,
 .agenda-calendar .rbc-addons-dnd .rbc-addons-dnd-resize-ew-icon {
 	border-color: hsl(var(--primary-foreground) / 0.7);

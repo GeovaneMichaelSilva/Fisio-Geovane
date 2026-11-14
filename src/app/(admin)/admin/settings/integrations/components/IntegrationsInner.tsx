@@ -15,20 +15,24 @@ import {
 	useDisconnectGoogleCalendarMutation,
 	useDisconnectGoogleDriveMutation,
 	useGoogleCalendarStatusQuery,
+	useGoogleCalendarSubscriptionsQuery,
 	useGoogleCalendarsQuery,
 	useGoogleDriveStatusQuery,
 	usePatchGoogleCalendarDefaultMutation,
 	useRestoreGoogleCalendarMutation,
 	useRunGoogleDriveBackupMutation,
-	useSaveGoogleCalendarMappingsMutation
+	useSaveGoogleCalendarMappingsMutation,
+	useSaveGoogleCalendarSubscriptionsMutation
 } from "@/queries/googleIntegrationsQuery";
 import {
 	serviceTypeQueryKeys,
 	useServiceTypesQuery
 } from "@/queries/serviceTypeQuery";
+import { canWriteGoogleCalendar } from "@/lib/google-calendar/calendars";
 
 import GoogleCalendarSection from "./GoogleCalendarSection";
 import GoogleDriveSection from "./GoogleDriveSection";
+import OverlayCalendarsSection from "./OverlayCalendarsSection";
 import TypeMappingSection from "./TypeMappingSection";
 
 import type { FC } from "react";
@@ -49,6 +53,10 @@ const IntegrationsInner: FC = () => {
 	});
 
 	const calendarsQuery = useGoogleCalendarsQuery({
+		enabled: Boolean(isOwner && statusQuery.data?.connected)
+	});
+
+	const subscriptionsQuery = useGoogleCalendarSubscriptionsQuery({
 		enabled: Boolean(isOwner && statusQuery.data?.connected)
 	});
 
@@ -153,30 +161,41 @@ const IntegrationsInner: FC = () => {
 		onError: (err: Error) => toast.error(err.message)
 	});
 
+	const subscriptionsMutation = useSaveGoogleCalendarSubscriptionsMutation({
+		onSuccess: () => {
+			toast.success("Agendas de visualização atualizadas.");
+		},
+		onError: (err: Error) => toast.error(err.message)
+	});
+
 	const status = statusQuery.data;
 	const driveStatus = driveStatusQuery.data;
 
+	const writableCalendars = useMemo(() => {
+		return (calendarsQuery.data ?? []).filter((c) =>
+			canWriteGoogleCalendar(c.accessRole || "writer")
+		);
+	}, [calendarsQuery.data]);
+
 	const calendarOptions = useMemo(() => {
-		const list = calendarsQuery.data ?? [];
 		return [
 			{ value: "", label: "Agenda padrão da conexão" },
-			...list.map((c) => ({
+			...writableCalendars.map((c) => ({
 				value: c.id,
 				label: c.primary ? `${c.summary} (principal)` : c.summary
 			}))
 		];
-	}, [calendarsQuery.data]);
+	}, [writableCalendars]);
 
 	const defaultOptions = useMemo(() => {
-		const list = calendarsQuery.data ?? [];
-		if (list.length === 0) {
+		if (writableCalendars.length === 0) {
 			return [{ value: "primary", label: "Principal (primary)" }];
 		}
-		return list.map((c) => ({
+		return writableCalendars.map((c) => ({
 			value: c.id,
 			label: c.primary ? `${c.summary} (principal)` : c.summary
 		}));
-	}, [calendarsQuery.data]);
+	}, [writableCalendars]);
 
 	if (!roleLoading && !isOwner) {
 		return (
@@ -245,8 +264,8 @@ const IntegrationsInner: FC = () => {
 						Google Agenda
 					</h2>
 					<p className="text-muted-foreground text-sm">
-						Espelha agendamentos da clínica nas agendas Google e define qual
-						agenda usar por tipo de atendimento.
+						Espelha agendamentos da clínica nas agendas Google, define agenda por
+						tipo e exibe agendas compartilhadas (consultório) só para leitura.
 					</p>
 				</div>
 				<GoogleCalendarSection
@@ -272,6 +291,26 @@ const IntegrationsInner: FC = () => {
 					}
 				/>
 				{typeMappingNode}
+				{status?.connected && (
+					<OverlayCalendarsSection
+						calendars={calendarsQuery.data}
+						calendarsLoading={calendarsQuery.isLoading}
+						calendarsError={
+							calendarsQuery.isError ? (calendarsQuery.error as Error) : null
+						}
+						onCalendarsRetry={() => calendarsQuery.refetch()}
+						subscriptions={subscriptionsQuery.data}
+						subscriptionsLoading={subscriptionsQuery.isLoading}
+						subscriptionsError={
+							subscriptionsQuery.isError
+								? (subscriptionsQuery.error as Error)
+								: null
+						}
+						onSubscriptionsRetry={() => subscriptionsQuery.refetch()}
+						savePending={subscriptionsMutation.isPending}
+						onSave={(calendars) => subscriptionsMutation.mutate(calendars)}
+					/>
+				)}
 			</section>
 
 			<section

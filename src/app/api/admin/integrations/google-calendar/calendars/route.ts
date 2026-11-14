@@ -6,7 +6,7 @@ import { listGoogleCalendars } from "@/lib/google-calendar/calendars";
 import { getValidAccessToken } from "@/lib/google-calendar/client";
 
 /**
- * Lista agendas Google da conta conectada (com permissão de escrita).
+ * Lista agendas Google da conta conectada (reader+; UI filtra writer quando preciso).
  */
 export const GET = async () => {
 	try {
@@ -21,7 +21,9 @@ export const GET = async () => {
 			);
 		}
 
-		const calendars = await listGoogleCalendars(auth.accessToken);
+		const calendars = await listGoogleCalendars(auth.accessToken, {
+			minAccessRole: "reader"
+		});
 		return NextResponse.json({ data: calendars });
 	} catch (err) {
 		if (err instanceof Response) return err;

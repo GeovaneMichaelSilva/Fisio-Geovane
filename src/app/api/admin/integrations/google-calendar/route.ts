@@ -138,6 +138,11 @@ export const DELETE = async () => {
 
 		await clearClinicGoogleEventLinks(ctx.clinic.id, db);
 
+		const { teardownClinicSubscriptions } = await import(
+			"@/lib/google-calendar/inbound-sync"
+		);
+		await teardownClinicSubscriptions(ctx.clinic.id, db);
+
 		await db
 			.delete(googleCalendarConnections)
 			.where(eq(googleCalendarConnections.id, conn.id));

@@ -10,6 +10,28 @@ export type AgendaSession = {
 	status: string;
 	valueBrl: string;
 	googleEventId?: string | null;
+	kind?: "session";
+};
+
+/** Evento de agenda externa (overlay Google) — não é sessão clínica. */
+export type AgendaExternalEvent = {
+	kind: "external";
+	id: string;
+	patientName: string;
+	serviceTypeName: string;
+	scheduledDate: string;
+	scheduledTime: string;
+	durationMinutes: number;
+	status: "external";
+	googleCalendarId: string;
+};
+
+export type AgendaEventResource = AgendaSession | AgendaExternalEvent;
+
+export const isExternalAgendaEvent = (
+	resource: AgendaEventResource
+): resource is AgendaExternalEvent => {
+	return resource.kind === "external";
 };
 
 export type PatientOption = {

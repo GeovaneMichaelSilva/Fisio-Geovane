@@ -9,15 +9,22 @@ export type GoogleCalendarListItem = {
 	backgroundColor?: string;
 };
 
+export type ListGoogleCalendarsOptions = {
+	/** Default: reader (inclui agendas compartilhadas só para leitura). */
+	minAccessRole?: "freeBusyReader" | "reader" | "writer" | "owner";
+};
+
 export const listGoogleCalendars = async (
-	accessToken: string
+	accessToken: string,
+	options: ListGoogleCalendarsOptions = {}
 ): Promise<GoogleCalendarListItem[]> => {
+	const minAccessRole = options.minAccessRole ?? "reader";
 	const items: GoogleCalendarListItem[] = [];
 	let pageToken: string | undefined;
 
 	do {
 		const params = new URLSearchParams({
-			minAccessRole: "writer",
+			minAccessRole,
 			maxResults: "250"
 		});
 		if (pageToken) params.set("pageToken", pageToken);
@@ -48,7 +55,7 @@ export const listGoogleCalendars = async (
 				id: item.id,
 				summary: item.summary || item.id,
 				primary: Boolean(item.primary),
-				accessRole: item.accessRole || "writer",
+				accessRole: item.accessRole || minAccessRole,
 				backgroundColor: item.backgroundColor
 			});
 		}
@@ -61,7 +68,11 @@ export const listGoogleCalendars = async (
 	});
 
 	return items;
-}
+};
+
+export const canWriteGoogleCalendar = (accessRole: string) => {
+	return accessRole === "writer" || accessRole === "owner";
+};
 
 /**
  * Resolve agenda alvo: tipo → padrão da conexão → primary.
@@ -75,4 +86,4 @@ export const resolveTargetCalendarId = (input: {
 		input.connectionDefaultCalendarId?.trim() ||
 		"primary"
 	);
-}
+};

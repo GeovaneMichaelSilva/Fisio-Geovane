@@ -20,6 +20,7 @@ export type OverlapConflict = {
 	scheduledTime: string;
 	durationMinutes: number;
 	status?: string;
+	kind?: "session" | "external";
 };
 
 type OverlapConfirmDialogProps = {
@@ -72,6 +73,9 @@ const OverlapConfirmDialog: FC<OverlapConfirmDialogProps> = (props) => {
 								min
 							</span>
 							{patientSuffix}
+							{c.kind === "external" ? (
+								<span className="text-muted-foreground"> · agenda externa</span>
+							) : null}
 						</li>
 					);
 				})}
