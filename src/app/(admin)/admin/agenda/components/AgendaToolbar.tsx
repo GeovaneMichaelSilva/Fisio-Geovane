@@ -1,13 +1,13 @@
 "use client";
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
 import {
 	addDays,
 	addMonths,
 	startOfMonth,
-	startOfWeekMonday
+	startOfWeekSunday
 } from "@/lib/sessions/agenda";
 import { cn } from "@/utils";
 
@@ -19,6 +19,8 @@ type AgendaToolbarProps = HTMLAttributes<HTMLDivElement> & {
 	date: Date;
 	onViewChange: (view: View) => void;
 	onDateChange: (next: Date) => void;
+	onRefresh?: () => void;
+	refreshing?: boolean;
 };
 
 const viewButtons: Array<{ id: View; label: string }> = [
@@ -36,6 +38,8 @@ const AgendaToolbar: FC<AgendaToolbarProps> = (props) => {
 		date,
 		onViewChange,
 		onDateChange,
+		onRefresh,
+		refreshing = false,
 		className,
 		...restProps
 	} = props;
@@ -53,7 +57,7 @@ const AgendaToolbar: FC<AgendaToolbarProps> = (props) => {
 			onDateChange(addDays(date, -1));
 			return;
 		}
-		onDateChange(addDays(startOfWeekMonday(date), -7));
+		onDateChange(addDays(startOfWeekSunday(date), -7));
 	};
 
 	const goNext = () => {
@@ -65,7 +69,7 @@ const AgendaToolbar: FC<AgendaToolbarProps> = (props) => {
 			onDateChange(addDays(date, 1));
 			return;
 		}
-		onDateChange(addDays(startOfWeekMonday(date), 7));
+		onDateChange(addDays(startOfWeekSunday(date), 7));
 	};
 
 	return (
@@ -107,6 +111,20 @@ const AgendaToolbar: FC<AgendaToolbarProps> = (props) => {
 				role="group"
 				aria-label="Navegação do período"
 			>
+				{onRefresh && (
+					<Button
+						type="button"
+						variant="outline"
+						size="icon-sm"
+						className="min-h-11 min-w-11 sm:min-h-9 sm:min-w-9"
+						onClick={onRefresh}
+						disabled={refreshing}
+						aria-label="Atualizar agenda"
+						title="Atualizar agenda"
+					>
+						<RefreshCw className={cn(refreshing && "animate-spin")} />
+					</Button>
+				)}
 				<Button
 					type="button"
 					variant="outline"

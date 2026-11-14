@@ -21,7 +21,7 @@ import {
 	formatWeekLabel,
 	parseDateString,
 	startOfMonth,
-	startOfWeekMonday,
+	startOfWeekSunday,
 	toDateString
 } from "@/lib/sessions/agenda";
 import {
@@ -110,10 +110,10 @@ const AgendaClient: FC = () => {
 			const day = toDateString(date);
 			return { from: day, to: day };
 		}
-		const monday = startOfWeekMonday(date);
+		const sunday = startOfWeekSunday(date);
 		return {
-			from: toDateString(monday),
-			to: toDateString(addDays(monday, 6))
+			from: toDateString(sunday),
+			to: toDateString(addDays(sunday, 6))
 		};
 	}, [view, date]);
 
@@ -319,7 +319,7 @@ const AgendaClient: FC = () => {
 		return list;
 	}, [patientsQuery.data, selectedPatientId]);
 
-	let headerDescription = `Semana ${formatWeekLabel(startOfWeekMonday(date))}`;
+	let headerDescription = `Semana ${formatWeekLabel(startOfWeekSunday(date))}`;
 	if (view === Views.MONTH) {
 		headerDescription = formatMonthLabel(startOfMonth(date));
 	} else if (view === Views.DAY) {
@@ -352,6 +352,15 @@ const AgendaClient: FC = () => {
 				onDateChange={(next) => {
 					setDate(next);
 					setSelectedDay(toDateString(next));
+				}}
+				refreshing={
+					rangeQuery.isFetching || externalQuery.isFetching
+				}
+				onRefresh={() => {
+					void Promise.all([
+						rangeQuery.refetch(),
+						externalQuery.refetch()
+					]);
 				}}
 			/>
 

@@ -21,7 +21,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import {
 	normalizeTime,
-	startOfWeekMonday,
+	startOfWeekSunday,
 	STATUS_LABEL,
 	toDateString
 } from "@/lib/sessions/agenda";
@@ -42,7 +42,7 @@ const AdminHomePage: FC = () => {
 	const today = toDateString(new Date());
 	const todayQuery = useSessionsTodayQuery(today);
 	const financeQuery = useFinanceHomeQuery();
-	const monday = startOfWeekMonday(new Date());
+	const weekStart = startOfWeekSunday(new Date());
 	const upcoming =
 		todayQuery.data?.filter((s) => s.status === "scheduled").slice(0, 5) ?? [];
 
@@ -111,7 +111,9 @@ const AdminHomePage: FC = () => {
 											</Link>
 										</Button>
 										<Button asChild size="sm" variant="outline">
-											<Link href={`/admin/agenda?date=${toDateString(monday)}`}>
+											<Link
+												href={`/admin/agenda?date=${toDateString(weekStart)}`}
+											>
 												Ver semana
 											</Link>
 										</Button>

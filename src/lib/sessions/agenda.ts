@@ -10,6 +10,13 @@ export type SessionInterval = {
 	status: string;
 };
 
+/** Domingo da semana que contém `date` (local) — alinhado ao Google Agenda. */
+export const startOfWeekSunday = (date: Date): Date => {
+	const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+	d.setDate(d.getDate() - d.getDay());
+	return d;
+};
+
 /** Segunda-feira da semana que contém `date` (local). */
 export const startOfWeekMonday = (date: Date): Date => {
 	const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -17,7 +24,7 @@ export const startOfWeekMonday = (date: Date): Date => {
 	const diff = day === 0 ? -6 : 1 - day;
 	d.setDate(d.getDate() + diff);
 	return d;
-}
+};
 
 export const addDays = (date: Date, days: number): Date => {
 	const d = new Date(date);
@@ -37,11 +44,12 @@ export const parseDateString = (value: string): Date => {
 	return new Date(y, m - 1, d);
 }
 
-export const formatWeekLabel = (monday: Date): string => {
-	const sunday = addDays(monday, 6);
+/** Rótulo do intervalo de 7 dias a partir do início da semana (domingo). */
+export const formatWeekLabel = (weekStart: Date): string => {
+	const weekEnd = addDays(weekStart, 6);
 	const fmt = (d: Date) =>
 		d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
-	return `${fmt(monday)} – ${fmt(sunday)}`;
+	return `${fmt(weekStart)} – ${fmt(weekEnd)}`;
 };
 
 /** Primeiro dia do mês (local). */
@@ -59,11 +67,11 @@ export const formatMonthLabel = (date: Date): string => {
 };
 
 /**
- * Grade do mês (6 semanas × 7 dias), começando na segunda da semana do dia 1.
+ * Grade do mês (6 semanas × 7 dias), começando no domingo da semana do dia 1.
  */
 export const buildMonthGrid = (monthAnchor: Date): Date[] => {
 	const first = startOfMonth(monthAnchor);
-	const gridStart = startOfWeekMonday(first);
+	const gridStart = startOfWeekSunday(first);
 	return Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
 };
 
@@ -121,13 +129,13 @@ export const findOverlaps = (
 }
 
 export const WEEKDAY_LABELS = [
+	"Domingo",
 	"Segunda",
 	"Terça",
 	"Quarta",
 	"Quinta",
 	"Sexta",
-	"Sábado",
-	"Domingo"
+	"Sábado"
 ] as const;
 
 export const STATUS_LABEL: Record<string, string> = {

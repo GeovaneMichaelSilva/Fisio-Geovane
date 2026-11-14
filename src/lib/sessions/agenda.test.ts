@@ -8,6 +8,7 @@ import {
 	normalizeTime,
 	startOfMonth,
 	startOfWeekMonday,
+	startOfWeekSunday,
 	toDateString,
 	type SessionInterval
 } from "./agenda";
@@ -31,15 +32,22 @@ describe("normalizeTime", () => {
 	});
 });
 
-describe("startOfWeekMonday", () => {
-	it("volta para segunda da semana", () => {
-		// 2026-10-07 é quarta
-		const monday = startOfWeekMonday(new Date(2026, 9, 7));
-		expect(toDateString(monday)).toBe("2026-10-05");
+describe("startOfWeekSunday", () => {
+	it("volta para domingo da semana", () => {
+		// 2026-10-07 é quarta → domingo 04/10
+		const sunday = startOfWeekSunday(new Date(2026, 9, 7));
+		expect(toDateString(sunday)).toBe("2026-10-04");
 	});
 
-	it("domingo pertence à semana que começou na segunda anterior", () => {
-		const monday = startOfWeekMonday(new Date(2026, 9, 11)); // domingo
+	it("domingo é o próprio início da semana", () => {
+		const sunday = startOfWeekSunday(new Date(2026, 9, 11)); // domingo
+		expect(toDateString(sunday)).toBe("2026-10-11");
+	});
+});
+
+describe("startOfWeekMonday", () => {
+	it("volta para segunda da semana", () => {
+		const monday = startOfWeekMonday(new Date(2026, 9, 7));
 		expect(toDateString(monday)).toBe("2026-10-05");
 	});
 });
@@ -51,12 +59,12 @@ describe("month helpers", () => {
 		);
 	});
 
-	it("buildMonthGrid começa na segunda da semana do dia 1", () => {
-		// Out/2026 começa na quinta → grade inicia em 28/09
+	it("buildMonthGrid começa no domingo da semana do dia 1", () => {
+		// Out/2026 começa na quinta → grade inicia em 27/09 (domingo)
 		const grid = buildMonthGrid(new Date(2026, 9, 1));
 		expect(grid).toHaveLength(42);
-		expect(toDateString(grid[0]!)).toBe("2026-09-28");
-		expect(toDateString(grid[41]!)).toBe("2026-11-08");
+		expect(toDateString(grid[0]!)).toBe("2026-09-27");
+		expect(toDateString(grid[41]!)).toBe("2026-11-07");
 	});
 
 	it("formatMonthLabel capitaliza o mês", () => {
@@ -67,7 +75,10 @@ describe("month helpers", () => {
 describe("intervalsOverlap", () => {
 	it("detecta sobreposição parcial", () => {
 		expect(
-			intervalsOverlap(session({ scheduledTime: "09:00" }), session({ scheduledTime: "09:30" }))
+			intervalsOverlap(
+				session({ scheduledTime: "09:00" }),
+				session({ scheduledTime: "09:30" })
+			)
 		).toBe(true);
 	});
 

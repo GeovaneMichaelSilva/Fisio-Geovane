@@ -7,12 +7,12 @@ const locales = {
 };
 
 /**
- * Localizer pt-BR com semana começando na segunda.
+ * Localizer pt-BR com semana começando no domingo (como no Google Agenda).
  */
 export const agendaLocalizer = dateFnsLocalizer({
 	format,
 	parse,
-	startOfWeek: (date: Date) => startOfWeek(date, { weekStartsOn: 1 }),
+	startOfWeek: (date: Date) => startOfWeek(date, { weekStartsOn: 0 }),
 	getDay,
 	locales
 });
