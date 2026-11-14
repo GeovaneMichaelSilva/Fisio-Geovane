@@ -122,6 +122,9 @@ const OverlayCalendarsSection: FC<OverlayCalendarsSectionProps> = (props) => {
 					<ul className="space-y-3">
 						{calendars.map((cal) => {
 							const checked = Boolean(selected[cal.id]);
+							const sub = subscriptions?.find(
+								(s) => s.googleCalendarId === cal.id
+							);
 							return (
 								<li
 									key={cal.id}
@@ -147,6 +150,11 @@ const OverlayCalendarsSection: FC<OverlayCalendarsSectionProps> = (props) => {
 											<span className="text-muted-foreground block text-xs">
 												{cal.accessRole || "reader"}
 											</span>
+											{checked && sub?.watchAddress ? (
+												<span className="text-muted-foreground mt-1 block break-all text-[11px]">
+													Webhook: {sub.watchAddress}
+												</span>
+											) : null}
 										</span>
 									</label>
 									{checked && (

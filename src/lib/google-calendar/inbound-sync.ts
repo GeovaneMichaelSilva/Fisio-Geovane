@@ -498,6 +498,7 @@ export const ensureSubscriptionWatch = async (
 				watchChannelId: watch.channelId,
 				watchResourceId: watch.resourceId,
 				watchExpiration: watch.expiration,
+				watchAddress: watch.address,
 				updatedAt: new Date()
 			})
 			.where(eq(googleCalendarSubscriptions.id, sub.id));
@@ -507,9 +508,12 @@ export const ensureSubscriptionWatch = async (
 			subscriptionId: sub.id,
 			source,
 			status: "ok",
-			detail: watch.expiration
-				? `expira ${watch.expiration.toISOString()}`
-				: "watch ativo"
+			detail: [
+				watch.expiration ? `expira ${watch.expiration.toISOString()}` : null,
+				watch.address ? `url ${watch.address}` : null
+			]
+				.filter(Boolean)
+				.join("; ") || "watch ativo"
 		});
 	} catch (err) {
 		await appendCalendarSyncLog({

@@ -39,7 +39,8 @@ export const GET = async () => {
 				googleCalendarId: googleCalendarSubscriptions.googleCalendarId,
 				label: googleCalendarSubscriptions.label,
 				lastSyncedAt: googleCalendarSubscriptions.lastSyncedAt,
-				watchExpiration: googleCalendarSubscriptions.watchExpiration
+				watchExpiration: googleCalendarSubscriptions.watchExpiration,
+				watchAddress: googleCalendarSubscriptions.watchAddress
 			})
 			.from(googleCalendarSubscriptions)
 			.where(eq(googleCalendarSubscriptions.clinicId, ctx.clinic.id));
@@ -48,7 +49,8 @@ export const GET = async () => {
 			data: rows.map((r) => ({
 				...r,
 				lastSyncedAt: r.lastSyncedAt?.toISOString() ?? null,
-				watchExpiration: r.watchExpiration?.toISOString() ?? null
+				watchExpiration: r.watchExpiration?.toISOString() ?? null,
+				watchAddress: r.watchAddress ?? null
 			}))
 		});
 	} catch (err) {

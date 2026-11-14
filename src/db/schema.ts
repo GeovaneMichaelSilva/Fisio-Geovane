@@ -423,6 +423,8 @@ export const googleCalendarSubscriptions = pgTable(
 		watchChannelId: text("watch_channel_id"),
 		watchResourceId: text("watch_resource_id"),
 		watchExpiration: timestamp("watch_expiration", { withTimezone: true }),
+		/** URL informada ao Google no events.watch (diagnóstico). */
+		watchAddress: text("watch_address"),
 		lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.notNull()

@@ -30,6 +30,7 @@ export const startCalendarWatch = async (input: {
 	channelId: string;
 	channelToken: string;
 }) => {
+	const address = getGoogleCalendarWebhookUrl();
 	const encoded = encodeURIComponent(input.calendarId);
 	const res = await fetch(
 		`https://www.googleapis.com/calendar/v3/calendars/${encoded}/events/watch`,
@@ -42,7 +43,7 @@ export const startCalendarWatch = async (input: {
 			body: JSON.stringify({
 				id: input.channelId,
 				type: "web_hook",
-				address: getGoogleCalendarWebhookUrl(),
+				address,
 				token: input.channelToken
 			})
 		}
@@ -56,7 +57,8 @@ export const startCalendarWatch = async (input: {
 		resourceId: json.resourceId,
 		expiration: json.expiration
 			? new Date(Number(json.expiration))
-			: null
+			: null,
+		address
 	};
 };
 

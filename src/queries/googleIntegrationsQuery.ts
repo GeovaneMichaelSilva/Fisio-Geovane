@@ -48,6 +48,7 @@ export type GoogleCalendarSubscription = {
 	label: string;
 	lastSyncedAt: string | null;
 	watchExpiration: string | null;
+	watchAddress: string | null;
 };
 
 export type ExternalCalendarEventDto = {
