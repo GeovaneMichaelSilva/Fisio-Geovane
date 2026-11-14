@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/Card";
 import {
 	Dialog,
+	DialogBody,
 	DialogContent,
 	DialogDescription,
 	DialogFooter,
@@ -531,7 +532,7 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 							{formatBrl(pendingValue)}.
 						</DialogDescription>
 					</DialogHeader>
-					<div className="grid gap-4">
+					<DialogBody className="grid gap-4">
 						<Input
 							label={{ text: "Valor recebido", required: true }}
 							type="number"
@@ -557,7 +558,7 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 							error={paymentErrors.note}
 							onChange={(e) => setPaymentNote(e.target.value)}
 						/>
-					</div>
+					</DialogBody>
 					<DialogFooter>
 						<Button
 							type="button"
@@ -593,7 +594,7 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 							nas baixas mais recentes. Máximo: {formatBrl(totalRefundable)}.
 						</DialogDescription>
 					</DialogHeader>
-					<div className="grid gap-4">
+					<DialogBody className="grid gap-4">
 						<Input
 							label={{ text: "Valor do estorno", required: true }}
 							type="number"
@@ -614,7 +615,7 @@ const PatientDetailClient: FC<PatientDetailClientProps> = (props) => {
 							error={refundErrors.note}
 							onChange={(e) => setRefundNote(e.target.value)}
 						/>
-					</div>
+					</DialogBody>
 					<DialogFooter>
 						<Button
 							type="button"

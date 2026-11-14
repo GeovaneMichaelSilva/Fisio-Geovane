@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/Card";
 import {
 	Dialog,
+	DialogBody,
 	DialogContent,
 	DialogDescription,
 	DialogFooter,
@@ -232,42 +233,44 @@ const ServiceTypesPage: FC = () => {
 						<DialogDescription>{dialogDescription}</DialogDescription>
 					</DialogHeader>
 					<form
-						className="space-y-4"
+						className="contents"
 						onSubmit={form.handleSubmit((values) =>
 							saveMutation.mutate({ id: editingId, values })
 						)}
 					>
-						<Input
-							label={{ text: "Nome", required: true }}
-							error={form.formState.errors.name?.message}
-							{...form.register("name")}
-						/>
-						<Input
-							label={{ text: "Duração padrão (min)", required: true }}
-							type="number"
-							min={5}
-							max={480}
-							error={form.formState.errors.defaultDurationMinutes?.message}
-							{...form.register("defaultDurationMinutes", {
-								valueAsNumber: true
-							})}
-						/>
-						<Input
-							label={{ text: "Valor padrão (R$)", required: true }}
-							type="number"
-							min={0}
-							step="0.01"
-							error={form.formState.errors.defaultValueBrl?.message}
-							{...form.register("defaultValueBrl", { valueAsNumber: true })}
-						/>
-						<label className="flex items-center gap-2 text-sm">
-							<input
-								type="checkbox"
-								className="border-input size-4 rounded"
-								{...form.register("isActive")}
+						<DialogBody className="space-y-4">
+							<Input
+								label={{ text: "Nome", required: true }}
+								error={form.formState.errors.name?.message}
+								{...form.register("name")}
 							/>
-							Ativo
-						</label>
+							<Input
+								label={{ text: "Duração padrão (min)", required: true }}
+								type="number"
+								min={5}
+								max={480}
+								error={form.formState.errors.defaultDurationMinutes?.message}
+								{...form.register("defaultDurationMinutes", {
+									valueAsNumber: true
+								})}
+							/>
+							<Input
+								label={{ text: "Valor padrão (R$)", required: true }}
+								type="number"
+								min={0}
+								step="0.01"
+								error={form.formState.errors.defaultValueBrl?.message}
+								{...form.register("defaultValueBrl", { valueAsNumber: true })}
+							/>
+							<label className="flex items-center gap-2 text-sm">
+								<input
+									type="checkbox"
+									className="border-input size-4 rounded"
+									{...form.register("isActive")}
+								/>
+								Ativo
+							</label>
+						</DialogBody>
 						<DialogFooter>
 							<Button
 								type="button"

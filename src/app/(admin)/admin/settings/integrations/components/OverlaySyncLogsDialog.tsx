@@ -5,6 +5,7 @@ import { ErrorState } from "@/components/admin/PageStates";
 import { Button } from "@/components/ui/Button";
 import {
 	Dialog,
+	DialogBody,
 	DialogContent,
 	DialogDescription,
 	DialogHeader,
@@ -45,7 +46,9 @@ const OverlaySyncLogsDialog: FC = () => {
 						Avisos do Google, sync e renovação do watch das agendas de overlay.
 					</DialogDescription>
 				</DialogHeader>
-				<OverlaySyncLogsList />
+				<DialogBody>
+					<OverlaySyncLogsList />
+				</DialogBody>
 			</DialogContent>
 		</Dialog>
 	);
@@ -76,7 +79,7 @@ const OverlaySyncLogsList: FC = () => {
 	}
 
 	return (
-		<ul className="max-h-[55vh] space-y-2 overflow-y-auto text-sm">
+		<ul className="space-y-2 text-sm">
 			{rows.map((row) => (
 				<li
 					key={row.id}

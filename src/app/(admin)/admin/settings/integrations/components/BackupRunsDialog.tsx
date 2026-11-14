@@ -5,6 +5,7 @@ import { ErrorState } from "@/components/admin/PageStates";
 import { Button } from "@/components/ui/Button";
 import {
 	Dialog,
+	DialogBody,
 	DialogContent,
 	DialogDescription,
 	DialogHeader,
@@ -42,7 +43,9 @@ const BackupRunsDialog: FC = () => {
 						Execuções manuais e do cron diário no Google Drive.
 					</DialogDescription>
 				</DialogHeader>
-				<BackupRunsList />
+				<DialogBody>
+					<BackupRunsList />
+				</DialogBody>
 			</DialogContent>
 		</Dialog>
 	);
@@ -73,7 +76,7 @@ const BackupRunsList: FC = () => {
 	}
 
 	return (
-		<ul className="max-h-[55vh] space-y-2 overflow-y-auto text-sm">
+		<ul className="space-y-2 text-sm">
 			{rows.map((row) => {
 				const size = formatBytes(row.bytes);
 				const detailParts = [

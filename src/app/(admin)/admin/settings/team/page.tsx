@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/Card";
 import {
 	Dialog,
+	DialogBody,
 	DialogContent,
 	DialogDescription,
 	DialogFooter,
@@ -240,7 +241,7 @@ const TeamSettingsPage: FC = () => {
 					if (!open) form.reset(emptyMember);
 				}}
 			>
-				<DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+				<DialogContent className="max-h-[90vh] sm:max-w-lg">
 					<DialogHeader>
 						<DialogTitle>Adicionar membro</DialogTitle>
 						<DialogDescription>
@@ -248,51 +249,53 @@ const TeamSettingsPage: FC = () => {
 							Conta (menu no topo).
 						</DialogDescription>
 					</DialogHeader>
-					{roleLoading && <FormSkeleton />}
-					{!roleLoading && (
-						<form
-							id="team-create-form"
-							className="grid gap-4"
-							onSubmit={form.handleSubmit((values) =>
-								createMutation.mutate(values)
-							)}
-							noValidate
-						>
-							<Input
-								label={{ text: "Nome", required: true }}
-								error={form.formState.errors.fullName?.message}
-								{...form.register("fullName")}
-							/>
-							<Input
-								label={{ text: "E-mail", required: true }}
-								type="email"
-								autoComplete="off"
-								error={form.formState.errors.email?.message}
-								{...form.register("email")}
-							/>
-							<div className="space-y-2">
+					<DialogBody className="space-y-4">
+						{roleLoading && <FormSkeleton />}
+						{!roleLoading && (
+							<form
+								id="team-create-form"
+								className="grid gap-4"
+								onSubmit={form.handleSubmit((values) =>
+									createMutation.mutate(values)
+								)}
+								noValidate
+							>
 								<Input
-									label={{ text: "Senha temporária", required: true }}
-									type="password"
-									autoComplete="new-password"
-									error={form.formState.errors.password?.message}
-									{...form.register("password")}
+									label={{ text: "Nome", required: true }}
+									error={form.formState.errors.fullName?.message}
+									{...form.register("fullName")}
 								/>
-								<PasswordRequirements
-									password={form.watch("password") ?? ""}
+								<Input
+									label={{ text: "E-mail", required: true }}
+									type="email"
+									autoComplete="off"
+									error={form.formState.errors.email?.message}
+									{...form.register("email")}
 								/>
-							</div>
-							<Select
-								label={{ text: "Papel", required: true }}
-								error={form.formState.errors.role?.message}
-								options={[
-									{ value: "staff", label: "Equipe" },
-									{ value: "owner", label: "Responsável" }
-								]}
-								{...form.register("role")}
-							/>
-						</form>
-					)}
+								<div className="space-y-2">
+									<Input
+										label={{ text: "Senha temporária", required: true }}
+										type="password"
+										autoComplete="new-password"
+										error={form.formState.errors.password?.message}
+										{...form.register("password")}
+									/>
+									<PasswordRequirements
+										password={form.watch("password") ?? ""}
+									/>
+								</div>
+								<Select
+									label={{ text: "Papel", required: true }}
+									error={form.formState.errors.role?.message}
+									options={[
+										{ value: "staff", label: "Equipe" },
+										{ value: "owner", label: "Responsável" }
+									]}
+									{...form.register("role")}
+								/>
+							</form>
+						)}
+					</DialogBody>
 					<DialogFooter className="gap-2">
 						<Button
 							type="button"

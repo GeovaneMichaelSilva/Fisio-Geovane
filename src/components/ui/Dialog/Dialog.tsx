@@ -52,6 +52,10 @@ type DialogContentProps = React.ComponentProps<typeof DialogPrimitive.Content> &
 	showClose?: boolean;
 };
 
+/**
+ * Sem padding horizontal no Content: o scroll fica na borda do dialog.
+ * Padding lateral vive em Header / Body / Footer (Body é quem faz overflow-y).
+ */
 const DialogContent: FC<DialogContentProps> = (props) => {
 	const { className, children, showClose = true, ...restProps } = props;
 	return (
@@ -59,7 +63,7 @@ const DialogContent: FC<DialogContentProps> = (props) => {
 			<DialogOverlay />
 			<DialogPrimitive.Content
 				className={cn(
-					"bg-card text-card-foreground fixed top-1/2 left-1/2 z-50 grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border p-4 shadow-lg",
+					"bg-card text-card-foreground fixed top-1/2 left-1/2 z-50 flex w-[calc(100%-2rem)] max-h-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-xl border py-4 shadow-lg",
 					"data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
 					className
 				)}
@@ -82,7 +86,20 @@ const DialogContent: FC<DialogContentProps> = (props) => {
 const DialogHeader: FC<React.ComponentProps<"div">> = (props) => {
 	const { className, ...restProps } = props;
 	return (
-		<div className={cn("flex flex-col gap-1 pr-8", className)} {...restProps} />
+		<div
+			className={cn("flex flex-col gap-1 px-4 pr-10", className)}
+			{...restProps}
+		/>
+	);
+};
+
+const DialogBody: FC<React.ComponentProps<"div">> = (props) => {
+	const { className, ...restProps } = props;
+	return (
+		<div
+			className={cn("flex-1 overflow-y-auto px-4", className)}
+			{...restProps}
+		/>
 	);
 };
 
@@ -91,7 +108,7 @@ const DialogFooter: FC<React.ComponentProps<"div">> = (props) => {
 	return (
 		<div
 			className={cn(
-				"flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-2",
+				"flex flex-col-reverse gap-2 px-4 sm:flex-row sm:justify-end sm:gap-2",
 				className
 			)}
 			{...restProps}
@@ -125,6 +142,7 @@ const DialogDescription: FC<
 
 export {
 	Dialog,
+	DialogBody,
 	DialogClose,
 	DialogContent,
 	DialogDescription,
