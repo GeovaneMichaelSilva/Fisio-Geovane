@@ -13,6 +13,7 @@ import OverlapConfirmDialog, {
 import ErrorState from "@/components/admin/ErrorState";
 import PageHeader from "@/components/admin/PageHeader";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { useLocalStorageState } from "@/hooks/useLocalStorageState";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import {
 	addDays,
@@ -52,6 +53,10 @@ import { useServiceTypesQuery } from "@/queries/serviceTypeQuery";
 
 import { notifyGoogleSync } from "./components/agendaApi";
 import { externalsToEvents, sessionsToEvents } from "./components/agendaEvents";
+import {
+	AGENDA_VIEW_STORAGE_KEY,
+	parseAgendaView
+} from "./components/agendaViewStorage";
 import type { FC } from "react";
 
 const AgendaClient: FC = () => {
@@ -63,7 +68,11 @@ const AgendaClient: FC = () => {
 	const todayStr = toDateString(new Date());
 	const initialAnchor = initialDate ? parseDateString(initialDate) : new Date();
 
-	const [view, setView] = useState<View>(Views.WEEK);
+	const { value: view, setValue: setView } = useLocalStorageState<View>({
+		key: AGENDA_VIEW_STORAGE_KEY,
+		initialValue: Views.WEEK,
+		parse: parseAgendaView
+	});
 	const [date, setDate] = useState(initialAnchor);
 	const [composerOpen, setComposerOpen] = useState(
 		Boolean(initialPatientId || initialDate)
