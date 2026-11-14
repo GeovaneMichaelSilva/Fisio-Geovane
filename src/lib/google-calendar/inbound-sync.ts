@@ -72,7 +72,7 @@ const fetchEventsPage = async (input: {
 	} else {
 		if (input.timeMin) params.set("timeMin", input.timeMin);
 		if (input.timeMax) params.set("timeMax", input.timeMax);
-		params.set("orderBy", "startTime");
+		// NÃO usar orderBy no full sync: o Google omite nextSyncToken com orderBy.
 	}
 	if (input.pageToken) params.set("pageToken", input.pageToken);
 
@@ -112,21 +112,60 @@ const collectEvents = async (input: {
 		now + FULL_SYNC_FUTURE_DAYS * 24 * 60 * 60 * 1000
 	).toISOString();
 
-	do {
-		const page = await fetchEventsPage({
-			accessToken: input.accessToken,
-			calendarId: input.calendarId,
-			syncToken: input.full ? null : input.syncToken,
-			pageToken,
-			timeMin: input.full || !input.syncToken ? timeMin : undefined,
-			timeMax: input.full || !input.syncToken ? timeMax : undefined
-		});
-		items.push(...(page.items ?? []));
-		pageToken = page.nextPageToken;
-		if (page.nextSyncToken) nextSyncToken = page.nextSyncToken;
-	} while (pageToken);
+	const runPages = async (opts: {
+		syncToken?: string | null;
+		timeMin?: string;
+		timeMax?: string;
+	}) => {
+		const pageItems: GoogleEventItem[] = [];
+		let token: string | undefined;
+		let cursor: string | undefined;
+		do {
+			const page = await fetchEventsPage({
+				accessToken: input.accessToken,
+				calendarId: input.calendarId,
+				syncToken: opts.syncToken,
+				pageToken: cursor,
+				timeMin: opts.timeMin,
+				timeMax: opts.timeMax
+			});
+			pageItems.push(...(page.items ?? []));
+			cursor = page.nextPageToken;
+			if (page.nextSyncToken) token = page.nextSyncToken;
+		} while (cursor);
+		return { pageItems, token };
+	};
 
-	return { items, nextSyncToken };
+	const needsFull = input.full || !input.syncToken;
+	if (!needsFull) {
+		const incremental = await runPages({ syncToken: input.syncToken });
+		return {
+			items: incremental.pageItems,
+			nextSyncToken: incremental.token
+		};
+	}
+
+	// Full sync com janela (sem orderBy — senão o Google omite nextSyncToken).
+	let full = await runPages({ timeMin, timeMax });
+
+	// Fallback raro: alguns calendários só devolvem syncToken sem timeMin/timeMax.
+	if (!full.token) {
+		const unfiltered = await runPages({});
+		full = {
+			pageItems: unfiltered.pageItems.filter((item) => {
+				const start =
+					item.start?.dateTime ||
+					(item.start?.date ? `${item.start.date}T00:00:00.000Z` : null);
+				if (!start) return false;
+				const t = Date.parse(start);
+				if (Number.isNaN(t)) return false;
+				return t >= Date.parse(timeMin) && t <= Date.parse(timeMax);
+			}),
+			token: unfiltered.token
+		};
+	}
+
+	return { items: full.pageItems, nextSyncToken: full.token };
 };
 
 const ownSessionEventIds = async (
@@ -296,14 +335,17 @@ export const syncSubscriptionEvents = async (
 			}
 		}
 
-		if (!collected.nextSyncToken) {
-			throw new Error("Google não retornou nextSyncToken.");
+		const syncToken = collected.nextSyncToken ?? sub.syncToken;
+		if (!syncToken) {
+			throw new Error(
+				"Google não retornou nextSyncToken. Tente salvar de novo; se persistir, remova filtros inválidos na listagem."
+			);
 		}
 
 		await tx
 			.update(googleCalendarSubscriptions)
 			.set({
-				syncToken: collected.nextSyncToken,
+				syncToken,
 				lastSyncedAt: new Date(),
 				updatedAt: new Date()
 			})

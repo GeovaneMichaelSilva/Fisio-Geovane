@@ -127,6 +127,8 @@ export const PUT = async (request: Request) => {
 
 		for (const cal of parsed.data.calendars) {
 			const current = remainingByCal.get(cal.googleCalendarId);
+			let subscriptionId: string;
+
 			if (current) {
 				await db
 					.update(googleCalendarSubscriptions)
@@ -135,33 +137,54 @@ export const PUT = async (request: Request) => {
 						updatedAt: new Date()
 					})
 					.where(eq(googleCalendarSubscriptions.id, current.id));
-				results.push({
-					googleCalendarId: cal.googleCalendarId,
-					id: current.id
-				});
-				continue;
-			}
+				subscriptionId = current.id;
 
-			const [created] = await db
-				.insert(googleCalendarSubscriptions)
-				.values({
-					clinicId: ctx.clinic.id,
-					googleCalendarId: cal.googleCalendarId,
-					label: cal.label,
-					channelToken: createChannelToken()
-				})
-				.returning({ id: googleCalendarSubscriptions.id });
+				// Se a 1ª tentativa falhou depois do INSERT (sem syncToken), completa agora.
+				if (!current.syncToken || !current.lastSyncedAt) {
+					await syncSubscriptionEvents(subscriptionId, { forceFull: true });
+					try {
+						await ensureSubscriptionWatch(subscriptionId);
+					} catch (err) {
+						console.error(
+							"[google-calendar] watch failed",
+							subscriptionId,
+							err
+						);
+					}
+				}
+			} else {
+				const [created] = await db
+					.insert(googleCalendarSubscriptions)
+					.values({
+						clinicId: ctx.clinic.id,
+						googleCalendarId: cal.googleCalendarId,
+						label: cal.label,
+						channelToken: createChannelToken()
+					})
+					.returning({ id: googleCalendarSubscriptions.id });
 
-			await syncSubscriptionEvents(created.id, { forceFull: true });
-			try {
-				await ensureSubscriptionWatch(created.id);
-			} catch (err) {
-				console.error("[google-calendar] watch failed", created.id, err);
+				subscriptionId = created.id;
+
+				try {
+					await syncSubscriptionEvents(subscriptionId, { forceFull: true });
+					try {
+						await ensureSubscriptionWatch(subscriptionId);
+					} catch (err) {
+						console.error(
+							"[google-calendar] watch failed",
+							subscriptionId,
+							err
+						);
+					}
+				} catch (err) {
+					await teardownSubscription(subscriptionId, db);
+					throw err;
+				}
 			}
 
 			results.push({
 				googleCalendarId: cal.googleCalendarId,
-				id: created.id
+				id: subscriptionId
 			});
 		}
 
