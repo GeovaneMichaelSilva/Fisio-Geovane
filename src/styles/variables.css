@@ -39,6 +39,12 @@
 		--success: 142 70% 35%;
 		--success-foreground: 0 0% 98%;
 
+		--warning: 38 92% 40%;
+		--warning-foreground: 0 0% 98%;
+
+		--info: 210 80% 42%;
+		--info-foreground: 0 0% 98%;
+
 		--sidebar: 158 60% 16%;
 		--sidebar-foreground: 36 45% 78%;
 		--sidebar-accent: 158 52% 22%;
