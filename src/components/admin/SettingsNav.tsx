@@ -54,7 +54,7 @@ const SettingsNav: FC<SettingsNavProps> = (props) => {
 						key={item.href}
 						href={item.href}
 						className={cn(
-							"rounded-md px-3 py-1.5 text-sm transition-colors",
+							"inline-flex min-h-11 items-center rounded-md px-3 py-1.5 text-sm transition-colors sm:min-h-0",
 							activeClass
 						)}
 					>

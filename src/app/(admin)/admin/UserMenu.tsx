@@ -57,7 +57,9 @@ const UserMenu: FC<UserMenuProps> = (props) => {
 					size="sm"
 					className="bg-background/15 text-primary-foreground hover:bg-background/25 border-0"
 				>
-					<span className="max-w-[140px] truncate">{label}</span>
+					<span className="max-w-[88px] truncate sm:max-w-[140px]">
+						{label}
+					</span>
 					<ChevronDown className="size-4 opacity-80" aria-hidden />
 				</Button>
 			</DropdownMenuTrigger>

@@ -13,8 +13,11 @@ type AdminNavProps = {
 	items: NavItem[];
 } & ComponentPropsWithoutRef<"nav">;
 
+const isActivePath = (pathname: string, href: string) =>
+	href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
+
 /**
- * Nav inline do header (logo · nav · conta).
+ * Nav em linha do header — só desktop (md+).
  */
 const AdminNav: FC<AdminNavProps> = (props) => {
 	const { items, className, ...restProps } = props;
@@ -23,29 +26,24 @@ const AdminNav: FC<AdminNavProps> = (props) => {
 	return (
 		<nav
 			aria-label="Navegação principal"
-			className={cn("min-w-0 flex-1 overflow-x-auto", className)}
+			className={cn("hidden min-w-0 flex-1 md:block", className)}
 			{...restProps}
 		>
-			<ul className="flex items-center gap-0.5 sm:gap-1">
+			<ul className="flex flex-wrap items-center gap-1">
 				{items.map((item) => {
-					const active =
-						item.href === "/admin"
-							? pathname === "/admin"
-							: pathname.startsWith(item.href);
-
+					const active = isActivePath(pathname, item.href);
 					return (
-						<li key={item.href} className="shrink-0">
+						<li key={item.href}>
 							<Link
 								href={item.href}
 								className={cn(
-									"block rounded-md px-2 py-1.5 text-xs whitespace-nowrap transition-colors sm:px-3 sm:text-sm",
+									"block rounded-md px-3 py-1.5 text-sm whitespace-nowrap transition-colors",
 									active
 										? "bg-background text-foreground font-medium"
 										: "text-primary-foreground/85 hover:bg-background/15"
 								)}
 							>
-								<span className="sm:hidden">{item.short ?? item.label}</span>
-								<span className="hidden sm:inline">{item.label}</span>
+								{item.label}
 							</Link>
 						</li>
 					);

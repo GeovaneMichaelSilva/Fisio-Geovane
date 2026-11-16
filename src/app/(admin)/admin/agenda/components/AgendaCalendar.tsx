@@ -1,5 +1,7 @@
 "use client";
 
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { useMemo, useCallback } from "react";
 import { Calendar, Views, type View, type SlotInfo } from "react-big-calendar";
 import withDragAndDrop, {
@@ -24,6 +26,9 @@ import type { FC, HTMLAttributes } from "react";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 import "./agenda-calendar.css";
+
+const weekdayInitial = (date: Date) =>
+	format(date, "EEEEE", { locale: ptBR }).toUpperCase();
 
 const DnDCalendar = withDragAndDrop<AgendaCalendarEvent>(Calendar);
 
@@ -66,17 +71,48 @@ const AgendaCalendar: FC<AgendaCalendarProps> = (props) => {
 	const components = useMemo(
 		() => ({
 			toolbar: () => null,
+			/** Semana: inicial do dia + número, centralizados. Mês usa weekdayFormat. */
+			header:
+				view === Views.WEEK
+					? ({ date }: { date: Date }) => (
+							<div className="agenda-calendar-week-header">
+								<span className="agenda-calendar-week-header__dow">
+									{weekdayInitial(date)}
+								</span>
+								<span className="agenda-calendar-week-header__day">
+									{format(date, "d")}
+								</span>
+							</div>
+						)
+					: undefined,
 			event: ({ event }: { event: AgendaCalendarEvent }) => {
+				const name = event.resource.patientName;
+				/**
+				 * Mobile: corta o texto sem reticências — "..." gasta espaço
+				 * que poderia mostrar mais uma letra do nome.
+				 */
+				const lineClass =
+					"overflow-hidden whitespace-nowrap md:truncate";
+
+				/** Semana: só o nome — a hora já está na grade à esquerda. */
+				if (view === Views.WEEK) {
+					return (
+						<div className="min-w-0 overflow-hidden text-[11px] leading-tight">
+							<p className={cn(lineClass, "font-medium")}>{name}</p>
+						</div>
+					);
+				}
+
 				if (isExternalAgendaEvent(event.resource)) {
 					const prefix = event.allDay
 						? "Dia todo"
 						: formatTimeHHMM(event.start);
 					return (
 						<div className="overflow-hidden text-[11px] leading-tight">
-							<p className="truncate font-medium">
-								{prefix} · {event.resource.patientName}
+							<p className={cn(lineClass, "font-medium")}>
+								{prefix} · {name}
 							</p>
-							<p className="truncate opacity-80">
+							<p className={cn(lineClass, "opacity-80")}>
 								{event.resource.serviceTypeName}
 							</p>
 						</div>
@@ -86,11 +122,11 @@ const AgendaCalendar: FC<AgendaCalendarProps> = (props) => {
 				const showDetails = event.resource.durationMinutes >= 90;
 				return (
 					<div className="overflow-hidden text-[11px] leading-tight">
-						<p className="truncate font-medium">
-							{formatTimeHHMM(event.start)} · {event.resource.patientName}
+						<p className={cn(lineClass, "font-medium")}>
+							{formatTimeHHMM(event.start)} · {name}
 						</p>
 						{showDetails && (
-							<p className="truncate opacity-80">
+							<p className={cn(lineClass, "opacity-80")}>
 								{formatTimeHHMM(event.end)}
 								{event.resource.serviceTypeName
 									? ` · ${event.resource.serviceTypeName}`
@@ -101,14 +137,16 @@ const AgendaCalendar: FC<AgendaCalendarProps> = (props) => {
 				);
 			}
 		}),
-		[]
+		[view]
 	);
 
 	const formats = useMemo(
 		() => ({
 			eventTimeRangeFormat: () => "",
 			eventTimeRangeStartFormat: () => "",
-			eventTimeRangeEndFormat: () => ""
+			eventTimeRangeEndFormat: () => "",
+			/** Mês: só a inicial do dia da semana. */
+			weekdayFormat: (date: Date) => weekdayInitial(date)
 		}),
 		[]
 	);

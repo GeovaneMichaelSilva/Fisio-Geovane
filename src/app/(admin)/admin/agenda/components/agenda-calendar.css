@@ -20,6 +20,12 @@
 	border-bottom: 1px solid hsl(var(--border));
 }
 
+/* Semana: horários da coluna esquerda mais compactos */
+.agenda-calendar--week .rbc-time-gutter .rbc-label {
+	font-size: 0.65rem;
+	padding: 0 2px;
+}
+
 .agenda-calendar .rbc-time-header.rbc-overflowing {
 	margin-right: 0 !important;
 }
@@ -30,12 +36,66 @@
 }
 
 .agenda-calendar .rbc-header {
-	padding: 0.5rem 0.25rem;
-	font-size: 0.75rem;
+	padding: 0.4rem 0.15rem;
+	font-size: 0.7rem;
 	font-weight: 500;
-	text-transform: capitalize;
+	text-align: center;
+	text-transform: none;
 	border-color: hsl(var(--border));
 	color: hsl(var(--muted-foreground));
+}
+
+/* Semana: header precisa de altura extra (inicial + dia) */
+.agenda-calendar--week .rbc-time-header .rbc-header {
+	min-height: 2.75rem;
+	height: auto;
+	padding-top: 0.35rem;
+	padding-bottom: 0.35rem;
+	overflow: visible;
+}
+
+/* Mês: número do dia centralizado e menor */
+.agenda-calendar .rbc-date-cell {
+	text-align: center;
+	padding: 0.2rem 0;
+}
+
+.agenda-calendar .rbc-date-cell > a,
+.agenda-calendar .rbc-button-link {
+	font-size: 0.7rem;
+	font-weight: 500;
+	float: none;
+}
+
+.agenda-calendar .rbc-month-view .rbc-header {
+	font-size: 0.7rem;
+	letter-spacing: 0.02em;
+}
+
+/* Semana: inicial + dia, centralizados */
+.agenda-calendar-week-header {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 0.15rem;
+	line-height: 1.2;
+	padding: 0.15rem 0;
+	min-height: 2.25rem;
+}
+
+.agenda-calendar-week-header__dow {
+	font-size: 0.65rem;
+	font-weight: 500;
+	line-height: 1.2;
+	color: hsl(var(--muted-foreground));
+}
+
+.agenda-calendar-week-header__day {
+	font-size: 0.85rem;
+	font-weight: 600;
+	line-height: 1.2;
+	color: hsl(var(--foreground));
 }
 
 .agenda-calendar .rbc-month-view,

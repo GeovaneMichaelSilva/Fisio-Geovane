@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import PwaRegister from "@/components/pwa/PwaRegister";
 
+import AdminMobileMenu from "./AdminMobileMenu";
 import AdminNav from "./AdminNav";
 import UserMenu from "./UserMenu";
 
@@ -27,7 +28,7 @@ type AdminShellProps = {
 } & ComponentPropsWithoutRef<"div">;
 
 /**
- * Shell do admin: uma barra (logo · nav · conta).
+ * Shell do admin: mobile = menu · conta; desktop = logo · nav · conta.
  */
 const AdminShell: FC<AdminShellProps> = (props) => {
 	const { name, email, children, ...restProps } = props;
@@ -37,9 +38,13 @@ const AdminShell: FC<AdminShellProps> = (props) => {
 			<PwaRegister />
 			<header className="border-border bg-primary text-primary-foreground border-b-brand sticky top-0 z-40 border-b-4">
 				<div className="mx-auto flex max-w-6xl items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4 sm:py-2.5">
+					{/* Mobile: menu à esquerda (no lugar da logo). */}
+					<AdminMobileMenu items={navItems} />
+
+					{/* Desktop: logo. */}
 					<Link
 						href="/admin"
-						className="shrink-0 rounded-md focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:outline-hidden"
+						className="hidden shrink-0 rounded-md focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:outline-hidden md:block"
 						aria-label="Início"
 					>
 						<Image
@@ -52,7 +57,11 @@ const AdminShell: FC<AdminShellProps> = (props) => {
 						/>
 					</Link>
 
+					{/* Desktop: links. */}
 					<AdminNav items={navItems} />
+
+					{/* Mobile: empurra a conta para a direita. */}
+					<div className="min-w-0 flex-1 md:hidden" aria-hidden />
 
 					<div className="shrink-0">
 						<UserMenu name={name} email={email} />
@@ -60,7 +69,7 @@ const AdminShell: FC<AdminShellProps> = (props) => {
 				</div>
 			</header>
 
-			<main className="mx-auto w-full max-w-6xl flex-1 px-4 py-5 sm:py-6">
+			<main className="mx-auto w-full max-w-6xl flex-1 px-3 py-4 sm:px-4 sm:py-6">
 				{children}
 			</main>
 		</div>

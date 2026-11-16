@@ -431,11 +431,11 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 				actions={sessionActions}
 			/>
 
-			<div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
+			<div className="flex flex-wrap gap-2">
 				<Button
 					type="button"
 					size="sm"
-					className="min-h-11 sm:min-h-9"
+					className="min-h-11 flex-1 sm:min-h-9 sm:flex-none"
 					variant={mode === "schedule" ? "default" : "outline"}
 					onClick={() => setModeUrl("schedule")}
 				>
@@ -444,7 +444,7 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 				<Button
 					type="button"
 					size="sm"
-					className="min-h-11 sm:min-h-9"
+					className="min-h-11 flex-1 sm:min-h-9 sm:flex-none"
 					variant={mode === "clinical" ? "default" : "outline"}
 					onClick={goClinical}
 				>
@@ -453,7 +453,7 @@ const SessionDetailClient: FC<SessionDetailClientProps> = (props) => {
 				<Button
 					type="button"
 					size="sm"
-					className="min-h-11 sm:min-h-9"
+					className="min-h-11 flex-1 sm:min-h-9 sm:flex-none"
 					variant={mode === "finance" ? "default" : "outline"}
 					onClick={() => setModeUrl("finance")}
 				>
