@@ -14,11 +14,20 @@ const montserrat = Montserrat({
 });
 
 export const metadata: Metadata = {
+	applicationName: "Fisio Geovane",
 	title: {
 		default: "Fisio Geovane",
 		template: "%s · Fisio Geovane"
 	},
-	description: "Gestão de atendimentos — Geovane Michael da Silva"
+	description: "Gestão de atendimentos — Geovane Michael da Silva",
+	appleWebApp: {
+		capable: true,
+		title: "Fisio Geovane",
+		statusBarStyle: "default"
+	},
+	formatDetection: {
+		telephone: false
+	}
 };
 
 export const viewport: Viewport = {

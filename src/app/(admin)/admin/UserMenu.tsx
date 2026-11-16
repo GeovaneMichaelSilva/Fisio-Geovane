@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Download } from "lucide-react";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -14,6 +14,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger
 } from "@/components/ui/DropdownMenu";
+import { usePwaInstall } from "@/hooks/usePwaInstall";
 
 import type { FC } from "react";
 
@@ -23,11 +24,12 @@ type UserMenuProps = {
 };
 
 /**
- * Menu do usuário no header: Conta e Sair.
+ * Menu do usuário no header: Conta, instalar PWA e Sair.
  */
 const UserMenu: FC<UserMenuProps> = (props) => {
 	const { name, email } = props;
 	const router = useRouter();
+	const { canInstall, install } = usePwaInstall();
 	const firstName = name?.trim().split(/\s+/)[0] || null;
 	const label = firstName || "Conta";
 
@@ -64,6 +66,18 @@ const UserMenu: FC<UserMenuProps> = (props) => {
 				<DropdownMenuItem asChild>
 					<Link href="/admin/account">Minha conta</Link>
 				</DropdownMenuItem>
+				{canInstall ? (
+					<DropdownMenuItem
+						className="gap-2"
+						onSelect={(event) => {
+							event.preventDefault();
+							void install();
+						}}
+					>
+						<Download className="size-4 shrink-0" aria-hidden />
+						Instalar app
+					</DropdownMenuItem>
+				) : null}
 				<DropdownMenuSeparator />
 				<DropdownMenuItem onSelect={() => void handleSignOut()}>
 					Sair

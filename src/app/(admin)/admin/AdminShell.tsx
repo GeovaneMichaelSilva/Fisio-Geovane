@@ -3,6 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import PwaRegister from "@/components/pwa/PwaRegister";
+
 import AdminNav from "./AdminNav";
 import UserMenu from "./UserMenu";
 
@@ -32,6 +34,7 @@ const AdminShell: FC<AdminShellProps> = (props) => {
 
 	return (
 		<div className="bg-background flex min-h-dvh flex-col" {...restProps}>
+			<PwaRegister />
 			<header className="border-border bg-primary text-primary-foreground border-b-brand sticky top-0 z-40 border-b-4">
 				<div className="mx-auto flex max-w-6xl items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4 sm:py-2.5">
 					<Link
